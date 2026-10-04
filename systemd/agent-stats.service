@@ -1,0 +1,8 @@
+[Unit]
+Description=Agent-Stats: Nutzung von Claude Code und Codex einsammeln
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/agent-stats-collect
+Nice=10
+IOSchedulingClass=idle

@@ -1,0 +1,16 @@
+{
+    "KPlugin": {
+        "Id": "io.github.flexomatic81.agentstats",
+        "Name": "Agent Stats",
+        "Description": "Nutzungslimits und Token-Statistiken von Claude Code und Codex",
+        "Icon": "utilities-system-monitor",
+        "Category": "System Information",
+        "Authors": [{ "Name": "Flexomatic81" }],
+        "Website": "https://github.com/Flexomatic81/agent-stats",
+        "License": "MIT",
+        "Version": "0.1.0",
+        "FormFactors": ["desktop", "panel"]
+    },
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
