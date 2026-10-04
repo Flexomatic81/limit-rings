@@ -116,9 +116,17 @@ plasmawindowed io.github.flexomatic81.agentstats
 ## Translations
 
 Texts live in `po/plasmoid/<lang>.po` (widget) and `po/collector/<lang>.po` (notifications).
-To add a language, copy the German files to `<lang>.po`, set the `Language` header, translate
-the `msgstr` entries and run `./install.sh`. After changing texts in the code, run
-`po/update.sh` to merge them into all catalogs; `collector/tests/test_translations.py` fails
+To add a language, create empty catalogs from the current texts – `msginit` also sets the
+plural rules of the language, which differ from German for e.g. Polish or Russian:
+
+```bash
+tmp=$(mktemp -d) && po/update.sh --extract "$tmp"
+msginit --no-translator -l <lang> -i "$tmp/plasmoid.pot" -o po/plasmoid/<lang>.po
+msginit --no-translator -l <lang> -i "$tmp/collector.pot" -o po/collector/<lang>.po
+```
+
+Then translate the `msgstr` entries and run `./install.sh`. After changing texts in the code,
+run `po/update.sh` to merge them into all catalogs; `collector/tests/test_translations.py` fails
 while a catalog is incomplete.
 
 ## License

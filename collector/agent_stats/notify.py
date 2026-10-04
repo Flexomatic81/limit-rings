@@ -33,6 +33,8 @@ def _limit_name(limit: dict) -> str:
     if minutes == 300 and not model:
         return _("5-hour limit")
     window = window_text(minutes) if minutes else limit["id"]
+    if model:  # same naming as the plasmoid: "2 d Opus"
+        window = f"{window} {model}"
     return _("%(window)s limit") % {"window": window}
 
 

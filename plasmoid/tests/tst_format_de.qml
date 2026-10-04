@@ -49,8 +49,9 @@ TestCase {
     }
 
     function test_weekday_has_no_trailing_dot() {
-        const title = F.breakdownTitle({basis: "window", since: "2026-10-03T14:00:00+02:00"})
-        verify(/^Seit Wochen-Reset \((Mo|Di|Mi|Do|Fr|Sa|So) \d\d:\d\d\)$/.test(title), title)
+        // 12:00 UTC: a Saturday in every common timezone
+        const title = F.breakdownTitle({basis: "window", since: "2026-10-03T12:00:00Z"})
+        verify(/^Seit Wochen-Reset \(Sa \d\d:\d\d\)$/.test(title), title)
     }
 
     function test_limit_names_and_errors() {

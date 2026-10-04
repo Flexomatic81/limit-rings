@@ -201,12 +201,12 @@ TestCase {
     }
 
     function test_forecastText_far_away_shows_weekday() {
-        const now = 1000
+        const now = Date.parse("2026-10-01T08:00:00Z") / 1000   // eta: Saturday 12:00 UTC
         const week = {window_minutes: 10080, used_percent: 40, resets_at: now + 6 * 86400,
                       forecast: {status: "full", eta: now + 2 * 86400 + 4 * 3600}}
         const text = F.forecastText(week, now)
         verify(text.indexOf("Full in ~2 d 4 h at current pace (") === 0, text)
-        verify(/\((Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d\d:\d\d\)$/.test(text), text)
+        verify(/\(Sat \d\d:\d\d\)$/.test(text), text)
         compare(F.forecastShort(week, now), "full in ~2 d 4 h")
     }
 
@@ -239,8 +239,9 @@ TestCase {
     }
 
     function test_breakdownTitle() {
-        const title = F.breakdownTitle({basis: "window", since: "2026-09-29T06:00:00+02:00"})
-        verify(/^Since weekly reset \((Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d\d:\d\d\)$/.test(title), title)
+        // 12:00 UTC: a Tuesday in every common timezone
+        const title = F.breakdownTitle({basis: "window", since: "2026-09-29T12:00:00Z"})
+        verify(/^Since weekly reset \(Tue \d\d:\d\d\)$/.test(title), title)
         compare(F.breakdownTitle({basis: "7d", since: "2026-09-27T12:00:00+02:00"}), "Last 7 days")
         compare(F.breakdownTitle(null), "")
     }

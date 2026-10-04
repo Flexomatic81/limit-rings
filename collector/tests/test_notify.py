@@ -142,3 +142,8 @@ def test_texts_go_through_the_translation(monkeypatch):
     monkeypatch.setattr(i18n, "_translation", Marked())
     notice = update_notices({"Claude": [limit()]}, {}, NOW)[0]
     assert (notice.summary, notice.body) == ("»Claude: »5-hour limit at 82 %", "»Reset in 1 h 13 min")
+
+
+def test_model_is_named_for_other_windows_too():
+    scoped = limit(id="x", pct=81.0, resets_at=None, window_minutes=2880, model="Opus")
+    assert update_notices({"Claude": [scoped]}, {}, NOW)[0].summary == "Claude: 2 d Opus limit at 81 %"

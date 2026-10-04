@@ -32,12 +32,14 @@ if command -v msgfmt >/dev/null 2>&1; then
     for po in "$here"/po/plasmoid/*.po; do
         dir="$HOME/.local/share/locale/$(basename "$po" .po)/LC_MESSAGES"
         mkdir -p "$dir"
-        msgfmt -o "$dir/plasma_applet_io.github.flexomatic81.agentstats.mo" "$po"
+        msgfmt -o "$dir/plasma_applet_io.github.flexomatic81.agentstats.mo" "$po" \
+            || echo "  Warning: ${po#"$here"/} could not be compiled – skipped."
     done
     for po in "$here"/po/collector/*.po; do
         dir="$share/agent_stats/locale/$(basename "$po" .po)/LC_MESSAGES"
         mkdir -p "$dir"
-        msgfmt -o "$dir/agent-stats.mo" "$po"
+        msgfmt -o "$dir/agent-stats.mo" "$po" \
+            || echo "  Warning: ${po#"$here"/} could not be compiled – skipped."
     done
 else
     echo "  Warning: gettext (msgfmt) not found – widget and notifications stay in English."

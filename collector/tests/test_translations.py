@@ -75,3 +75,19 @@ def test_german_notifications(tmp_path):
     assert [(n.summary, n.body) for n in notices] == [
         ("Claude: 5-h-Limit bei 82 %", "Reset in 1 h 13 min"),
         ("Claude: Wochenlimit Opus bei 96 %", "")]
+
+
+def test_german_early_warnings(tmp_path):
+    _compile(PO / "collector" / "de.po", tmp_path / "de" / "LC_MESSAGES" / "agent-stats.mo")
+    i18n.install(["de"], tmp_path)
+    now = 1_791_100_000.0
+
+    def five(eta):
+        return {"id": "five_hour", "used_percent": 62.0, "resets_at": int(now) + 4380, "window_minutes": 300,
+                "forecast": {"status": "full", "eta": eta}}
+
+    soon = update_notices({"Claude": [five(now + 25 * 60)]}, {}, now)
+    assert [(n.summary, n.body) for n in soon] == [
+        ("Claude: 5-h-Limit in ~25 min voll", "Jetzt 62 % · Reset in 1 h 13 min")]
+    reached = update_notices({"Claude": [five(now - 60)]}, {}, now)
+    assert [n.summary for n in reached] == ["Claude: 5-h-Limit gleich voll"]
