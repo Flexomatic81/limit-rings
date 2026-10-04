@@ -36,8 +36,10 @@ done
 
 # Replaces file $1 with the output of the command "${@:3}" – atomically and keeping its mode – and keeps the
 # first original as backup $2 (a retry never overwrites it). If the command or a write fails, $1 stays as it was.
+# A symlinked $1 (e.g. from a dotfiles repo) stays a symlink: its target is replaced.
 replace_file() {
-    local file="$1" backup="$2" tmp
+    local file backup="$2" tmp
+    file="$(readlink -f "$1")" || return 1
     tmp="$(mktemp "$file.XXXXXX")" || return 1
     if ! "${@:3}" > "$tmp" || ! chmod --reference="$file" "$tmp" \
         || ! { [[ -e "$backup" ]] || cp -p "$file" "$backup"; } || ! mv -f "$tmp" "$file"; then

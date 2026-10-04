@@ -316,3 +316,15 @@ def test_second_run_after_migration_does_not_migrate_again(env):
     # only systemctl calls: kpackagetool6 calls carry the checkout path, which may itself contain "agent-stats"
     assert not any(c.startswith("systemctl") and ("agent-stats" in c or "plasma-plasmashell" in c)
                    for c in calls(env))
+
+
+def test_symlinked_statusline_stays_a_symlink(env, tmp_path):
+    after = f"#!/bin/sh\ninput=$(cat)\n{MARKER}\n{SNIPPET}\n"
+    target = write(tmp_path / "dotfiles" / "statusline-command.sh",
+                   f"#!/bin/sh\ninput=$(cat)\n{OLD_MARKER}\n{OLD_SNIPPET}\n")
+    sl = home(env) / ".claude/statusline-command.sh"
+    sl.parent.mkdir(parents=True)
+    sl.symlink_to(target)
+    run("install.sh", env)
+    assert sl.is_symlink()
+    assert target.read_text() == after
