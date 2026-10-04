@@ -328,3 +328,21 @@ def test_symlinked_statusline_stays_a_symlink(env, tmp_path):
     run("install.sh", env)
     assert sl.is_symlink()
     assert target.read_text() == after
+
+
+@pytest.mark.parametrize("tail", [" ", "\t", "\r"])
+def test_migration_recognises_a_marker_with_trailing_whitespace(env, tail):
+    sl = write(home(env) / ".claude/statusline-command.sh",
+               f"input=$(cat)\n{OLD_MARKER}{tail}\n{OLD_SNIPPET}{tail}\n")
+    out = run("install.sh", env)
+    assert sl.read_text() == f"input=$(cat)\n{MARKER}\n{SNIPPET}\n"
+    assert "switched from agent-stats" in out
+
+
+def test_unrecognised_old_marker_is_reported_instead_of_switched(env):
+    before = f"input=$(cat)\n{OLD_MARKER} – edited by hand\necho mine\n"
+    sl = write(home(env) / ".claude/statusline-command.sh", before)
+    out = run("install.sh", env)
+    assert sl.read_text() == before
+    assert "switched" not in out
+    assert "please adjust it by hand" in out

@@ -159,12 +159,16 @@ if [[ ! -f "$statusline" ]]; then
 elif grep -qF -e "$old_marker" -e "$old_marker_de" "$statusline"; then
     if OLD="$old_marker" OLD_DE="$old_marker_de" MARKER="$marker" SNIPPET="$snippet" \
         replace_file "$statusline" "$statusline.bak-limit-rings" awk '
-            { line = $0; sub(/^[ \t]+/, "", line) }
+            { line = $0; sub(/^[ \t]+/, "", line); sub(/[ \t\r]+$/, "", line) }
             line == ENVIRON["OLD"] || line == ENVIRON["OLD_DE"] { print ENVIRON["MARKER"]; after = 1; next }
             after && index($0, "/.cache/agent-stats") { print ENVIRON["SNIPPET"]; after = 0; next }
             { after = 0; print }
         ' "$statusline"; then
-        echo "  switched from agent-stats to limit-rings (backup: $statusline.bak-limit-rings)."
+        if grep -qF "$marker" "$statusline"; then
+            echo "  switched from agent-stats to limit-rings (backup: $statusline.bak-limit-rings)."
+        else
+            echo "  Warning: $statusline has an old agent-stats line that was not recognised – please adjust it by hand."
+        fi
         if grep -qF "/.cache/agent-stats" "$statusline"; then
             echo "  Warning: $statusline still refers to ~/.cache/agent-stats – please adjust it by hand."
         fi
