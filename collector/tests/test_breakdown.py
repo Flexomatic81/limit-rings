@@ -3,7 +3,7 @@ from datetime import datetime
 from agent_stats.breakdown import ProjectResolver, add_event, model_label, prune_hourly, summarize
 from agent_stats.models import TokenEvent
 
-T0 = 1_791_100_800  # volle Stunde (2026-10-04 08:00 UTC)
+T0 = 1_791_100_800  # full hour (2026-10-04 08:00 UTC)
 
 
 def ev(offset, total, model="claude-opus-5", project="/x/website"):
@@ -36,7 +36,7 @@ def test_project_resolver_finds_git_root_worktree_and_fallbacks(tmp_path):
     assert r.name(str(repo)) == "website"
     assert r.name(str(wt)) == "website"
     assert r.name(str(plain)) == "scratch"
-    assert r.name(str(tmp_path / "weg" / "agent-stats")) == "agent-stats"  # existiert nicht mehr
+    assert r.name(str(tmp_path / "gone" / "agent-stats")) == "agent-stats"  # no longer exists
     assert r.name(None) == "?"
 
 
@@ -45,22 +45,22 @@ def test_resolver_caches_lookups(tmp_path, monkeypatch):
     r = ProjectResolver()
     assert r.name(str(tmp_path / "p")) == "p"
     (tmp_path / "p" / ".git").rmdir()
-    assert r.name(str(tmp_path / "p")) == "p"  # aus dem Zwischenspeicher
+    assert r.name(str(tmp_path / "p")) == "p"  # from the cache
 
 
 def test_summarize_since_window_start_with_top_four_and_others():
     hourly = {}
     names = lambda e: ("website" if e.project == "/x/website" else e.project, model_label(e.model))
-    events = [ev(-7200, 999)]  # vor dem Fensterbeginn → zählt nicht
+    events = [ev(-7200, 999)]  # before the window start → not counted
     events += [ev(0, 880), ev(600, 30, project="agent-stats"), ev(3600, 20, project="tools"),
                ev(3600, 10, project="a"), ev(7200, 5, project="b"), ev(7200, 5, project="c", model="claude-sonnet-5")]
     for e in events:
         add_event(hourly, e, *names(e))
-    s = summarize(hourly, since=T0 + 900, top=4)  # Fensterbeginn mitten in der Stunde → ganze Stunde zählt
+    s = summarize(hourly, since=T0 + 900, top=4)  # window starts mid-hour → the whole hour counts
     assert s["total"] == 950
     assert s["projects"] == [{"name": "website", "total": 880}, {"name": "agent-stats", "total": 30},
                              {"name": "tools", "total": 20}, {"name": "a", "total": 10},
-                             {"name": "Andere", "total": 10}]
+                             {"name": "Other", "total": 10}]
     assert s["models"] == [{"name": "Opus 5", "total": 945}, {"name": "Sonnet 5", "total": 5}]
 
 

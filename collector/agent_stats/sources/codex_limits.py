@@ -1,8 +1,8 @@
-"""Codex-Nutzungslimits direkt vom Codex-Dienst (ChatGPT-Anmeldung aus ~/.codex/auth.json).
+"""Codex usage limits directly from the Codex service (ChatGPT login from ~/.codex/auth.json).
 
-Nötig, weil Codex über das Claude-Code-Plugin flüchtige Sitzungen nutzt und keine Sitzungslogs
-schreibt. Der Token wird nur gelesen und ausschließlich an chatgpt.com gesendet; er wird nie
-erneuert, gespeichert oder geloggt.
+Needed because Codex, when used through the Claude Code plugin, runs ephemeral sessions and writes
+no session logs. The token is only read and sent exclusively to chatgpt.com; it is never
+refreshed, stored or logged.
 """
 
 import json
@@ -20,7 +20,7 @@ MIN_INTERVAL = 300
 
 
 def read_auth(path: Path | None) -> tuple[str | None, str | None]:
-    """(access_token, account_id) aus auth.json; (None, None), wenn nicht vorhanden oder unbrauchbar."""
+    """(access_token, account_id) from auth.json; (None, None) if missing or unusable."""
     if path is None:
         return None, None
     try:
@@ -38,7 +38,7 @@ def fetch_usage(token: str, account_id: str, timeout: float = 10.0, url: str = U
 
 
 def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usage):
-    """→ (Limit-Record, letzter Versuch). Bei Drosselung oder Fehler bleibt previous unverändert."""
+    """→ (limit record, last attempt). When throttled or on error, previous stays unchanged."""
     due = last_attempt is None or now - last_attempt >= MIN_INTERVAL or now < last_attempt
     if not due:
         return previous, last_attempt
@@ -51,12 +51,12 @@ def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usa
         limits, plan = normalize_codex_usage(resp)
         return {"limits": limits, "plan": plan, "updated_at": now, "source": "oauth"}, now
     except urllib.error.HTTPError as e:
-        log.warning("Codex-Usage-Abfrage fehlgeschlagen: HTTP %s", e.code)
+        log.warning("Codex usage request failed: HTTP %s", e.code)
     except (urllib.error.URLError, TimeoutError, OSError) as e:
-        log.warning("Codex-Usage-Abfrage fehlgeschlagen: %s", type(e).__name__)
+        log.warning("Codex usage request failed: %s", type(e).__name__)
     except ValueError:
         fields = sorted(resp) if isinstance(resp, dict) else type(resp).__name__
-        log.warning("Codex-Usage-Antwort hat unerwartete Form, Felder: %s", fields)
-    except Exception as e:  # nie den Durchlauf abbrechen, nie den Text loggen (kann den Token enthalten)
-        log.warning("Codex-Usage-Abfrage fehlgeschlagen: %s", type(e).__name__)
+        log.warning("Codex usage response has unexpected shape, fields: %s", fields)
+    except Exception as e:  # never abort the run, never log the message (it may contain the token)
+        log.warning("Codex usage request failed: %s", type(e).__name__)
     return previous, now

@@ -45,13 +45,13 @@ def meta(session_id):
 def test_skips_repeated_totals_and_events_without_info(tmp_path):
     f = tmp_path / "rollout-a.jsonl"
     write(f, token_count("2026-09-29T19:00:00Z", total=110),
-          token_count("2026-09-29T19:00:01Z", total=110),          # Wiederholung
-          token_count("2026-09-29T19:00:02Z", total=0, info=False),  # nur Limits
+          token_count("2026-09-29T19:00:01Z", total=110),          # repetition
+          token_count("2026-09-29T19:00:02Z", total=0, info=False),  # limits only
           token_count("2026-09-29T19:00:03Z", total=230))
     files, sessions = {}, {}
     res = read_events(tmp_path, files, sessions)
     assert len(res.events) == 2
-    assert sessions[str(f)] == {"total": 230, "day": "2026-09-29"}  # ohne session_meta: Pfad
+    assert sessions[str(f)] == {"total": 230, "day": "2026-09-29"}  # without session_meta: path
 
 
 def test_genuine_truncation_does_not_double_count(tmp_path):
@@ -73,9 +73,9 @@ def test_moved_or_copied_session_is_not_counted_twice(tmp_path):
     b = tmp_path / "2026" / "09" / "30" / "rollout-a.jsonl"
     b.parent.mkdir(parents=True)
     b.write_bytes(a.read_bytes())
-    a.unlink()                                            # verschoben
+    a.unlink()                                            # moved
     assert read_events(tmp_path, files, sessions).events == []
-    (tmp_path / "kopie.jsonl").write_bytes(b.read_bytes())  # kopiert
+    (tmp_path / "copy.jsonl").write_bytes(b.read_bytes())  # copied
     assert read_events(tmp_path, files, sessions).events == []
     assert sessions["sess-1"]["total"] == 110
     assert str(a) not in files
@@ -91,7 +91,7 @@ def test_latest_rate_limits_win_across_files(tmp_path):
 
 
 def test_invalid_lines_are_counted_not_fatal(tmp_path):
-    write(tmp_path / "rollout-a.jsonl", "{kaputt",
+    write(tmp_path / "rollout-a.jsonl", "{broken",
           json.dumps({"timestamp": "2026-09-29T19:00:00Z", "type": "event_msg",
                       "payload": {"type": "token_count",
                                   "info": {"total_token_usage": {"total_tokens": 5},

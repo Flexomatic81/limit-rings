@@ -20,7 +20,7 @@ def make_paths(tmp_path):
     p.claude_root.mkdir(parents=True)
     p.codex_root.mkdir(parents=True)
     p.credentials.write_text(json.dumps({"claudeAiOauth": {
-        "accessToken": "geheim", "expiresAt": int((NOW.timestamp() + 3600) * 1000),
+        "accessToken": "top-secret", "expiresAt": int((NOW.timestamp() + 3600) * 1000),
         "subscriptionType": "pro"}}))
     return p
 
@@ -60,7 +60,7 @@ def test_full_run_writes_valid_stats(tmp_path):
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
     assert c["tokens"]["today"]["total"] == 11
     assert c["limits_source"] == "oauth" and c["plan"] == "pro" and c["error"] is None
-    assert [l["label"] for l in c["limits"]] == ["5 h", "Woche"]
+    assert [l["label"] for l in c["limits"]] == ["5 h", "Week"]
     assert x["tokens"]["today"]["total"] == 0 and x["tokens"]["week"]["total"] == 500
     assert x["limits_source"] == "session_log" and x["plan"] == "plus"
     assert x["limits_updated_at"] == "2026-10-02T12:00:00+02:00"
@@ -99,13 +99,13 @@ def test_provider_failure_is_isolated(tmp_path, monkeypatch):
 
     import agent_stats.collect as collect_mod
     def boom(*a, **k):
-        raise RuntimeError("kaputt")
+        raise RuntimeError("broken")
     monkeypatch.setattr(collect_mod.claude_logs, "read_events", boom)
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
-    assert c["error"] == "Claude-Daten konnten nicht verarbeitet werden"
-    assert c["limits_source"] == "oauth"               # Limits laufen trotzdem
+    assert c["error"] == "Claude data could not be processed"
+    assert c["limits_source"] == "oauth"               # limits still work
     assert x["error"] is None and x["tokens"]["today"]["total"] == 500
 
 
@@ -114,7 +114,7 @@ def test_corrupt_state_triggers_full_reread(tmp_path):
     (p.claude_root / "proj").mkdir()
     (p.claude_root / "proj" / "s.jsonl").write_text(claude_line("m1", "2026-10-03T10:00:00Z") + "\n")
     run(p, NOW, BERLIN, fetch=ok_fetch)
-    p.state_file.write_text("{kaputt")
+    p.state_file.write_text("{broken")
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
     assert stats["providers"]["claude"]["tokens"]["today"]["total"] == 11
 
@@ -122,8 +122,8 @@ def test_corrupt_state_triggers_full_reread(tmp_path):
 def test_stats_never_contain_token(tmp_path):
     p = make_paths(tmp_path)
     run(p, NOW, BERLIN, fetch=ok_fetch)
-    assert "geheim" not in p.stats_file.read_text()
-    assert "geheim" not in p.state_file.read_text()
+    assert "top-secret" not in p.stats_file.read_text()
+    assert "top-secret" not in p.state_file.read_text()
 
 
 def test_unreadable_transcript_is_reported_but_rest_counts(tmp_path):
@@ -138,7 +138,7 @@ def test_unreadable_transcript_is_reported_but_rest_counts(tmp_path):
     finally:
         bad.chmod(0o600)
     c = stats["providers"]["claude"]
-    assert c["error"] == "1 Datei(en) nicht lesbar – Zahlen unvollständig"
+    assert c["error"] == "1 file(s) unreadable – numbers incomplete"
     assert c["tokens"]["today"]["total"] == 11
 
 
@@ -146,7 +146,7 @@ def test_local_zone_prefers_tz_variable(monkeypatch):
     from agent_stats.collect import local_zone
     monkeypatch.setenv("TZ", "America/New_York")
     assert local_zone().key == "America/New_York"
-    monkeypatch.setenv("TZ", "Gibt/Es_Nicht")
+    monkeypatch.setenv("TZ", "Does/Not_Exist")
     assert local_zone() is not None
 
 
@@ -154,12 +154,12 @@ def test_unexpected_limits_failure_still_records_attempt(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
     import agent_stats.collect as collect_mod
     def boom(*a, **k):
-        raise RuntimeError("kaputt")
+        raise RuntimeError("broken")
     monkeypatch.setattr(collect_mod.claude_limits, "resolve", boom)
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
 
-    assert "Claude-Limits nicht verfügbar" in stats["providers"]["claude"]["error"]
+    assert "Claude limits unavailable" in stats["providers"]["claude"]["error"]
     state = json.loads(p.state_file.read_text())
     assert state["claude"]["oauth_last_attempt"] == NOW.timestamp()
 
@@ -170,7 +170,7 @@ def test_unchanged_state_is_not_rewritten_but_stats_are(tmp_path):
     (p.claude_root / "proj" / "s.jsonl").write_text(claude_line("m1", "2026-10-03T10:00:00Z") + "\n")
     run(p, NOW, BERLIN, fetch=ok_fetch)
     state_mtime, stats_mtime = p.state_file.stat().st_mtime_ns, p.stats_file.stat().st_mtime_ns
-    # Innerhalb der OAuth-Drosselung und ohne neue Daten ändert sich der Zustand nicht.
+    # Within the OAuth throttle and without new data, the state does not change.
     later = datetime(2026, 10, 3, 19, 43, tzinfo=BERLIN)
     stats = run(p, later, BERLIN, fetch=ok_fetch)
     assert p.state_file.stat().st_mtime_ns == state_mtime
@@ -197,7 +197,7 @@ def test_main_quarantines_state_after_unexpected_crash(tmp_path, monkeypatch):
     (cache / "state.json").write_text("{}")
     monkeypatch.setattr(collect_mod.Path, "home", lambda: tmp_path)
     def boom(*a, **k):
-        raise RuntimeError("kaputt")
+        raise RuntimeError("broken")
     monkeypatch.setattr(collect_mod, "run", boom)
 
     assert collect_mod.main() == 1
@@ -209,7 +209,7 @@ def test_main_without_state_file_and_crash_still_returns_one(tmp_path, monkeypat
     import agent_stats.collect as collect_mod
     monkeypatch.setattr(collect_mod.Path, "home", lambda: tmp_path)
     def boom(*a, **k):
-        raise RuntimeError("kaputt")
+        raise RuntimeError("broken")
     monkeypatch.setattr(collect_mod, "run", boom)
     assert collect_mod.main() == 1
 
@@ -233,7 +233,7 @@ def test_limit_notification_is_sent_once_per_window(tmp_path):
 
     run(p, NOW, BERLIN, fetch=hot, notifier=sent.append)
     run(p, NOW + timedelta(minutes=1), BERLIN, fetch=hot, notifier=sent.append)
-    assert [n.summary for n in sent] == ["Claude: 5-h-Limit bei 85 %"]
+    assert [n.summary for n in sent] == ["Claude: 5-hour limit at 85 %"]
 
 
 def test_notifier_failure_does_not_break_the_run(tmp_path):
@@ -243,7 +243,7 @@ def test_notifier_failure_does_not_break_the_run(tmp_path):
         return {"five_hour": {"utilization": 99.0, "resets_at": None}}
 
     def boom(notice):
-        raise RuntimeError("kaputt")
+        raise RuntimeError("broken")
 
     stats = run(p, NOW, BERLIN, fetch=hot, notifier=boom)
     assert stats["providers"]["claude"]["limits"][0]["used_percent"] == 99.0
@@ -263,15 +263,15 @@ def test_five_hour_forecast_appears_after_enough_samples(tmp_path):
     run(p, NOW + timedelta(minutes=6), BERLIN, fetch=rising, notifier=lambda n: True)
     stats = run(p, NOW + timedelta(minutes=12), BERLIN, fetch=rising, notifier=lambda n: True)
     five, week = stats["providers"]["claude"]["limits"]
-    # 10 % in 12 min → 80 % fehlen → 96 min nach dem letzten Messpunkt
+    # 10 % in 12 min → 80 % to go → 96 min after the last data point
     assert five["forecast"] == {"status": "full", "eta": int((NOW + timedelta(minutes=12 + 96)).timestamp())}
     assert "forecast" not in week
-    assert "forecast" not in p.state_file.read_text()  # Prognose nur in stats.json, nicht im Zustand
+    assert "forecast" not in p.state_file.read_text()  # forecast only in stats.json, not in the state
 
 
 def codex_auth(p):
     path = p.claude_root.parent.parent / "codex" / "auth.json"
-    path.write_text(json.dumps({"tokens": {"access_token": "geheim-codex", "account_id": "konto-1"}}))
+    path.write_text(json.dumps({"tokens": {"access_token": "top-secret-codex", "account_id": "account-1"}}))
     return path
 
 
@@ -289,8 +289,8 @@ def test_codex_limits_come_from_api_when_logged_in(tmp_path):
     x = stats["providers"]["codex"]
     assert x["limits_source"] == "oauth" and x["plan"] == "plus"
     assert x["limits_updated_at"] == "2026-10-03T19:42:00+02:00"
-    assert [(l["label"], l["used_percent"]) for l in x["limits"]] == [("Woche", 7.0)]
-    assert "geheim-codex" not in p.state_file.read_text() + p.stats_file.read_text()
+    assert [(l["label"], l["used_percent"]) for l in x["limits"]] == [("Week", 7.0)]
+    assert "top-secret-codex" not in p.state_file.read_text() + p.stats_file.read_text()
 
 
 def test_codex_falls_back_to_session_log_without_api(tmp_path):
@@ -325,7 +325,7 @@ def breakdown_setup(tmp_path):
     (p.claude_root / "proj").mkdir()
     (p.claude_root / "proj" / "s.jsonl").write_text("\n".join([
         project_line("m1", "2026-10-03T10:00:00Z", str(repo / "frontend")),
-        project_line("m2", "2026-09-28T10:00:00Z", str(repo)),               # vor dem Wochenfenster
+        project_line("m2", "2026-09-28T10:00:00Z", str(repo)),               # before the weekly window
         project_line("m3", "2026-10-02T10:00:00Z", str(tmp_path / "scratch"), model="claude-sonnet-5"),
     ]) + "\n")
     return p
@@ -350,18 +350,18 @@ def test_backfill_for_existing_state_counts_once(tmp_path):
     p = breakdown_setup(tmp_path)
     run(p, NOW, BERLIN, fetch=week_fetch, notifier=lambda n: True)
     state = json.loads(p.state_file.read_text())
-    del state["claude"]["hourly"], state["claude"]["hourly_backfill"]   # Stand vor dem Update
+    del state["claude"]["hourly"], state["claude"]["hourly_backfill"]   # state from before the update
     p.state_file.write_text(json.dumps(state))
     stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=week_fetch, notifier=lambda n: True)
     c = stats["providers"]["claude"]
     assert c["breakdown"]["total"] == 22
-    assert c["tokens"]["today"]["total"] == 11          # Tagessummen nicht doppelt gezählt
+    assert c["tokens"]["today"]["total"] == 11          # daily totals not counted twice
     assert json.loads(p.state_file.read_text())["claude"]["hourly_backfill"] is False
 
 
 def test_fresh_state_without_hourly_is_not_counted_twice(tmp_path):
     p = breakdown_setup(tmp_path)
     p.state_file.parent.mkdir(parents=True, exist_ok=True)
-    p.state_file.write_text('{"version": 1, "claude": {}, "codex": {}}')  # leer, ohne hourly
+    p.state_file.write_text('{"version": 1, "claude": {}, "codex": {}}')  # empty, without hourly
     b = run(p, NOW, BERLIN, fetch=week_fetch, notifier=lambda n: True)["providers"]["claude"]["breakdown"]
     assert b["total"] == 22

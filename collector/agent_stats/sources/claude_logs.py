@@ -1,4 +1,4 @@
-"""Token-Verbrauch aus Claude-Code-Transkripten (~/.claude/projects/**/*.jsonl)."""
+"""Token usage from Claude Code transcripts (~/.claude/projects/**/*.jsonl)."""
 
 import json
 import logging
@@ -24,20 +24,20 @@ def _count(usage: dict, key: str) -> int:
     if value is None:
         return 0
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{key} ist keine Ganzzahl")
+        raise ValueError(f"{key} is not an integer")
     return value
 
 
 def parse_line(line: str) -> tuple[str, TokenEvent] | None:
-    d = json.loads(line)  # ValueError bei ungültigem JSON
+    d = json.loads(line)  # ValueError on invalid JSON
     if not isinstance(d, dict):
-        raise ValueError("Zeile ist kein Objekt")
+        raise ValueError("line is not an object")
     msg = d.get("message")
     if not isinstance(msg, dict) or "usage" not in msg:
         return None
     usage = msg["usage"]
     if not isinstance(usage, dict):
-        raise ValueError("usage ist kein Objekt")
+        raise ValueError("usage is not an object")
     key = f"{msg.get('id') or d.get('uuid')}|{d.get('requestId')}"
     ev = TokenEvent(
         ts=parse_ts(d.get("timestamp")),
@@ -55,7 +55,7 @@ def read_events(root: Path, files: dict, seen: dict) -> ReadResult:
     res = ReadResult()
     paths, failed = list_jsonl(root)
     for d in failed:
-        log.warning("Verzeichnis nicht lesbar: %s", d)
+        log.warning("directory unreadable: %s", d)
     res.unreadable += len(failed)
     present = set()
     for path in paths:
@@ -64,13 +64,13 @@ def read_events(root: Path, files: dict, seen: dict) -> ReadResult:
         try:
             lines, files[name] = read_new_lines(path, files.get(name))
         except OSError as e:
-            log.warning("Transkript nicht lesbar: %s (%s)", name, type(e).__name__)
+            log.warning("transcript unreadable: %s (%s)", name, type(e).__name__)
             res.unreadable += 1
             continue
         for line in lines:
             try:
                 parsed = parse_line(line)
-            except Exception:  # eine kaputte Zeile (RecursionError, OverflowError …) darf den Anbieter nicht blockieren
+            except Exception:  # a broken line (RecursionError, OverflowError …) must not block the provider
                 res.invalid += 1
                 continue
             if parsed is None:
@@ -82,12 +82,12 @@ def read_events(root: Path, files: dict, seen: dict) -> ReadResult:
                 seen[key] = {"ts": ev.ts.astimezone(timezone.utc).isoformat(), "u": usage}
                 res.events.append(ev)
                 continue
-            # Streaming-Zwischenstände: nur den Zuwachs verbuchen, am Tag der ersten Zeile.
+            # Intermediate streaming states: only count the increase, on the day of the first line.
             delta = [max(0, new - old) for new, old in zip(usage, known["u"])]
             if any(delta):
                 known["u"] = [max(new, old) for new, old in zip(usage, known["u"])]
                 res.events.append(TokenEvent(parse_ts(known["ts"]), *delta, model=ev.model, project=ev.project))
     prune_missing(files, present, failed)
     if res.invalid:
-        log.debug("%d ungültige Zeilen in Claude-Transkripten übersprungen", res.invalid)
+        log.debug("skipped %d invalid lines in Claude transcripts", res.invalid)
     return res

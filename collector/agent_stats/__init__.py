@@ -1,1 +1,1 @@
-"""Sammelt Nutzungsstatistiken von Claude Code und Codex für das Agent-Stats-Plasmoid."""
+"""Collects usage statistics from Claude Code and Codex for the Agent Stats plasmoid."""

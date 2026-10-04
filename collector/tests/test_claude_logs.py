@@ -29,20 +29,20 @@ def test_parse_line_null_fields_count_as_zero():
 
 
 def test_parse_line_rejects_garbage():
-    for bad in ["{kaputt", "[1]", usage_line(output_tokens="viel"),
+    for bad in ["{broken", "[1]", usage_line(output_tokens="viel"),
                 json.dumps({"timestamp": "2026-10-03T00:00:00Z", "message": {"id": "m", "usage": [1]}})]:
         try:
             parse_line(bad)
         except ValueError:
             continue
-        raise AssertionError(f"kein ValueError für {bad!r}")
+        raise AssertionError(f"no ValueError for {bad!r}")
 
 
 def test_read_events_dedupes_repeated_blocks_and_counts_invalid(tmp_path):
     proj = tmp_path / "-home-x-proj"
     (proj / "sess" / "subagents").mkdir(parents=True)
     (proj / "sess.jsonl").write_text(
-        "\n".join([usage_line(), usage_line(), usage_line(msg_id="msg_2"), "{kaputt",
+        "\n".join([usage_line(), usage_line(), usage_line(msg_id="msg_2"), "{broken",
                    json.dumps({"type": "user"})]) + "\n")
     (proj / "sess" / "subagents" / "agent-a.jsonl").write_text(usage_line(msg_id="msg_3") + "\n")
 
@@ -65,14 +65,14 @@ def test_streaming_snapshots_count_final_usage_within_and_across_runs(tmp_path):
     files, seen = {}, {}
     res = read_events(tmp_path, files, seen)
     assert sum(e.output for e in res.events) == 300
-    assert sum(e.cache_write for e in res.events) == 100  # unveränderte Felder nicht doppelt
+    assert sum(e.cache_write for e in res.events) == 100  # unchanged fields not counted twice
 
     with f.open("a") as fh:
         fh.write(usage_line(output_tokens=3256, ts="2026-10-04T09:00:00Z") + "\n"
                  + usage_line(output_tokens=5) + "\n")
     res2 = read_events(tmp_path, files, seen)
     assert [(e.input, e.output, e.cache_read, e.cache_write) for e in res2.events] == [(0, 2956, 0, 0)]
-    assert res2.events[0].ts.isoformat() == "2026-10-03T17:19:57.005000+00:00"  # Tag der ersten Zeile
+    assert res2.events[0].ts.isoformat() == "2026-10-03T17:19:57.005000+00:00"  # day of the first line
 
 
 def test_truncated_file_is_reread_without_double_counting(tmp_path):
@@ -82,7 +82,7 @@ def test_truncated_file_is_reread_without_double_counting(tmp_path):
     files, seen = {}, {}
     read_events(tmp_path, files, seen)
 
-    f.write_text(usage_line() + "\n")  # gekürzt, alter Inhalt
+    f.write_text(usage_line() + "\n")  # truncated, old content
     res = read_events(tmp_path, files, seen)
     assert res.events == []
 
@@ -117,7 +117,7 @@ def test_locked_directory_is_reported_and_keeps_offsets(tmp_path):
 
 
 def test_missing_root_is_not_an_error(tmp_path):
-    res = read_events(tmp_path / "gibt-es-nicht", {}, {})
+    res = read_events(tmp_path / "does-not-exist", {}, {})
     assert res.events == [] and res.invalid == 0
 
 
@@ -138,7 +138,7 @@ def test_unexpected_parse_error_is_counted_invalid(tmp_path, monkeypatch):
     real = mod.parse_line
     def parse(line):
         if "msg_bad" in line:
-            raise OverflowError("extremer Zeitstempel")
+            raise OverflowError("extreme timestamp")
         return real(line)
     monkeypatch.setattr(mod, "parse_line", parse)
     f = tmp_path / "p" / "s.jsonl"
@@ -151,7 +151,7 @@ def test_unexpected_parse_error_is_counted_invalid(tmp_path, monkeypatch):
 def test_model_and_cwd_are_carried_including_streaming_deltas(tmp_path):
     def line(out):
         return json.dumps({"type": "assistant", "timestamp": "2026-10-03T17:19:57.005Z", "requestId": "r",
-                           "cwd": "/home/user/projekte/website/frontend",
+                           "cwd": "/home/user/projects/website/frontend",
                            "message": {"id": "m", "model": "claude-opus-5-5",
                                        "usage": {"input_tokens": 1, "output_tokens": out}}})
     f = tmp_path / "p" / "s.jsonl"
@@ -159,5 +159,5 @@ def test_model_and_cwd_are_carried_including_streaming_deltas(tmp_path):
     f.write_text(line(8) + "\n" + line(300) + "\n")
     res = read_events(tmp_path, {}, {})
     assert [(e.output, e.model, e.project) for e in res.events] == [
-        (8, "claude-opus-5-5", "/home/user/projekte/website/frontend"),
-        (292, "claude-opus-5-5", "/home/user/projekte/website/frontend")]
+        (8, "claude-opus-5-5", "/home/user/projects/website/frontend"),
+        (292, "claude-opus-5-5", "/home/user/projects/website/frontend")]

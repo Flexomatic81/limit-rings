@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Entfernt Timer, Collector und Plasmoid. --purge löscht zusätzlich ~/.cache/agent-stats ohne Rückfrage.
+# Removes the timer, collector and plasmoid. --purge also deletes ~/.cache/agent-stats without asking.
 set -euo pipefail
 
 units="$HOME/.config/systemd/user"
 cache="$HOME/.cache/agent-stats"
 
-# Erst Timer und einen evtl. laufenden Durchlauf anhalten (stop wartet), dann aufräumen –
-# sonst schreibt ein laufender Collector nach dem Löschen den Cache neu.
+# Stop the timer and any running collector pass first (stop waits), then clean up –
+# otherwise a running collector would rewrite the cache after it has been deleted.
 systemctl --user stop agent-stats.timer agent-stats.service 2>/dev/null || true
 systemctl --user disable agent-stats.timer 2>/dev/null || true
 rm -f "$units/agent-stats.timer" "$units/agent-stats.service"
@@ -18,15 +18,15 @@ kpackagetool6 -t Plasma/Applet --remove io.github.flexomatic81.agentstats 2>/dev
 if [[ -d "$cache" ]]; then
     answer=n
     if [[ "${1:-}" == "--purge" ]]; then
-        answer=j
+        answer=y
     elif [[ -t 0 ]]; then
-        read -r -p "$cache löschen? [j/N] " answer || answer=n
+        read -r -p "Delete $cache? [y/N] " answer || answer=n
     fi
-    [[ $answer == [jJyY] ]] && rm -rf "$cache" && echo "Cache gelöscht."
+    [[ $answer == [yY] ]] && rm -rf "$cache" && echo "Cache deleted."
 fi
 
 if grep -qF "# agent-stats:" "$HOME/.claude/statusline-command.sh" 2>/dev/null; then
-    echo "Hinweis: ~/.claude/statusline-command.sh enthält noch die agent-stats-Zeilen (Marker '# agent-stats:')."
-    echo "Sie schaden nicht, können aber von Hand entfernt werden."
+    echo "Note: ~/.claude/statusline-command.sh still contains the agent-stats lines (marker '# agent-stats:')."
+    echo "They are harmless but can be removed by hand."
 fi
-echo "Deinstalliert."
+echo "Uninstalled."

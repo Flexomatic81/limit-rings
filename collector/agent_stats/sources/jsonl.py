@@ -1,15 +1,15 @@
-"""Inkrementelles Lesen wachsender JSONL-Dateien."""
+"""Incremental reading of growing JSONL files."""
 
 import os
 from pathlib import Path
 
 
 def read_new_lines(path: Path, file_state: dict | None) -> tuple[list[str], dict]:
-    """Liest vollständige Zeilen ab dem gespeicherten Offset.
+    """Read complete lines from the stored offset.
 
-    Eine unvollständige letzte Zeile bleibt für den nächsten Aufruf liegen.
-    Ist die Datei kürzer als der Offset oder ersetzt worden (andere Inode),
-    wird von vorn gelesen.
+    An incomplete last line is left for the next call.
+    If the file is shorter than the offset or has been replaced (different inode),
+    it is read from the start.
     """
     st = os.stat(path)
     offset = 0
@@ -33,9 +33,9 @@ def read_new_lines(path: Path, file_state: dict | None) -> tuple[list[str], dict
 
 
 def list_jsonl(root: Path) -> tuple[list[Path], list[Path]]:
-    """Alle *.jsonl unter root plus Verzeichnisse, die nicht gelesen werden konnten.
+    """All *.jsonl under root, plus directories that could not be read.
 
-    Path.rglob verschluckt Lesefehler von Verzeichnissen still; os.walk meldet sie.
+    Path.rglob silently swallows directory read errors; os.walk reports them.
     """
     if not root.is_dir():
         return [], []
@@ -52,7 +52,7 @@ def list_jsonl(root: Path) -> tuple[list[Path], list[Path]]:
 
 
 def prune_missing(files: dict, present: set[str], failed: list[Path]) -> None:
-    """Entfernt Einträge verschwundener Dateien – außer unter nicht lesbaren Verzeichnissen."""
+    """Remove entries of vanished files – except under unreadable directories."""
     prefixes = tuple(str(d) + os.sep for d in failed)
     for gone in set(files) - present:
         if not gone.startswith(prefixes):

@@ -47,7 +47,7 @@ ColumnLayout {
         }
 
         PlasmaComponents.Label {
-            text: bar.reset ? "zurückgesetzt · 0 %" : Math.round(bar.pct) + " %"
+            text: bar.reset ? "reset · 0 %" : Math.round(bar.pct) + " %"
             Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 3, implicitWidth)
             horizontalAlignment: Text.AlignRight
         }
@@ -60,7 +60,7 @@ ColumnLayout {
         }
     }
 
-    // Prognose unter dem Balken, bündig mit dessen linker Kante
+    // Forecast below the bar, aligned with its left edge
     PlasmaComponents.Label {
         visible: bar.forecastText !== ""
         text: bar.forecastText

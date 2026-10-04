@@ -1,7 +1,7 @@
-"""Claude-Nutzungslimits: OAuth-Usage-Endpunkt mit Statuszeilen-Cache als Rückfall.
+"""Claude usage limits: OAuth usage endpoint with the status line cache as fallback.
 
-Der OAuth-Token wird nur gelesen und ausschließlich an api.anthropic.com gesendet.
-Er wird nie erneuert, gespeichert oder geloggt.
+The OAuth token is only read and sent exclusively to api.anthropic.com.
+It is never refreshed, stored or logged.
 """
 
 import json
@@ -34,7 +34,7 @@ def read_credentials(path: Path, now: float) -> tuple[str | None, str | None]:
 
 
 def credential_status(path: Path, now: float) -> tuple[str, float | None]:
-    """Zustand der Anmeldung für die Anzeige: ("ok" | "expired" | "missing", Ablauf in Epoch-Sekunden)."""
+    """Login state for display: ("ok" | "expired" | "missing", expiry in epoch seconds)."""
     try:
         oauth = json.loads(path.read_text(encoding="utf-8"))["claudeAiOauth"]
     except (OSError, ValueError, KeyError, TypeError):
@@ -67,7 +67,7 @@ def _read_statusline(path: Path) -> dict | None:
 def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Path,
             fetch=fetch_oauth_usage):
     token, plan = read_credentials(credentials, now)
-    # Läuft die Uhr rückwärts (last_attempt in der Zukunft), nicht auf Dauer drosseln.
+    # If the clock runs backwards (last_attempt in the future), don't throttle forever.
     if last_attempt is None or now - last_attempt >= OAUTH_MIN_INTERVAL or now < last_attempt:
         last_attempt = now
         if token:
@@ -77,17 +77,17 @@ def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Pa
                 limits = normalize_oauth(resp)
                 return {"limits": limits, "source": "oauth", "updated_at": now}, last_attempt, plan
             except urllib.error.HTTPError as e:
-                log.warning("OAuth-Usage-Abfrage fehlgeschlagen: HTTP %s", e.code)
+                log.warning("OAuth usage request failed: HTTP %s", e.code)
             except (urllib.error.URLError, TimeoutError, OSError) as e:
-                log.warning("OAuth-Usage-Abfrage fehlgeschlagen: %s", type(e).__name__)
+                log.warning("OAuth usage request failed: %s", type(e).__name__)
             except ValueError:
                 fields = sorted(resp) if isinstance(resp, dict) else type(resp).__name__
-                log.warning("OAuth-Usage-Antwort hat unerwartete Form, Felder: %s", fields)
+                log.warning("OAuth usage response has unexpected shape, fields: %s", fields)
             except Exception as e:
-                # z. B. http.client.IncompleteRead: nur der Typname, Meldungen können den Token enthalten.
-                log.warning("OAuth-Usage-Abfrage fehlgeschlagen: %s", type(e).__name__)
+                # e.g. http.client.IncompleteRead: type name only, messages may contain the token.
+                log.warning("OAuth usage request failed: %s", type(e).__name__)
     elif previous and previous.get("source") == "oauth" and previous["updated_at"] >= last_attempt:
-        # Gedrosselt, letzter OAuth-Versuch war erfolgreich: gesunde Daten behalten.
+        # Throttled and the last OAuth attempt succeeded: keep the healthy data.
         return previous, last_attempt, plan
 
     candidates = [c for c in (previous, _read_statusline(statusline_cache)) if c]

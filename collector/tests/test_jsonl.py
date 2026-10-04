@@ -50,13 +50,13 @@ def test_blank_lines_and_invalid_utf8_do_not_raise(tmp_path):
     f.write_bytes(b'\n\xff\xfe\n{"n":1}\n')
     lines, _ = read_new_lines(f, None)
     assert lines[-1] == '{"n":1}'
-    assert len(lines) == 2  # Leerzeile entfällt, kaputte Zeile bleibt als Text (JSON-Fehler später)
+    assert len(lines) == 2  # blank line is dropped, broken line stays as text (JSON error later)
 
 
 def test_list_jsonl_reports_unreadable_directories(tmp_path):
     (tmp_path / "ok").mkdir()
     (tmp_path / "ok" / "a.jsonl").write_text("")
-    (tmp_path / "ok" / "notiz.txt").write_text("")
+    (tmp_path / "ok" / "note.txt").write_text("")
     locked = tmp_path / "locked"
     locked.mkdir()
     (locked / "b.jsonl").write_text("")
@@ -67,11 +67,11 @@ def test_list_jsonl_reports_unreadable_directories(tmp_path):
         locked.chmod(0o755)
     assert files == [tmp_path / "ok" / "a.jsonl"]
     assert failed == [locked]
-    assert list_jsonl(tmp_path / "fehlt") == ([], [])
+    assert list_jsonl(tmp_path / "missing") == ([], [])
 
 
 def test_prune_missing_keeps_entries_under_failed_directories(tmp_path):
-    files = {str(tmp_path / "weg.jsonl"): {}, str(tmp_path / "locked" / "b.jsonl"): {},
-             str(tmp_path / "da.jsonl"): {}}
-    prune_missing(files, {str(tmp_path / "da.jsonl")}, [tmp_path / "locked"])
-    assert sorted(files) == [str(tmp_path / "da.jsonl"), str(tmp_path / "locked" / "b.jsonl")]
+    files = {str(tmp_path / "gone.jsonl"): {}, str(tmp_path / "locked" / "b.jsonl"): {},
+             str(tmp_path / "here.jsonl"): {}}
+    prune_missing(files, {str(tmp_path / "here.jsonl")}, [tmp_path / "locked"])
+    assert sorted(files) == [str(tmp_path / "here.jsonl"), str(tmp_path / "locked" / "b.jsonl")]

@@ -1,4 +1,4 @@
-"""Atomares Schreiben privater JSON-Dateien."""
+"""Atomic writing of private JSON files."""
 
 import json
 import os
@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def write_json_atomic(path: Path, obj: object) -> None:
-    """Schreibt obj als JSON nach path; Leser sehen nie eine halb geschriebene Datei."""
+    """Write obj as JSON to path; readers never see a half-written file."""
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(path.parent, 0o700)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")

@@ -1,4 +1,4 @@
-"""Tages-Buckets und daraus abgeleitete Summen. Reine Funktionen, kein I/O."""
+"""Daily buckets and the totals derived from them. Pure functions, no I/O."""
 
 from datetime import date, timedelta, tzinfo
 

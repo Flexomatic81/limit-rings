@@ -11,12 +11,12 @@ Item {
     property int warn
     property int crit
     property string message: ""
-    property real cardMinWidth: 0   // größte gemeldete Mindestbreite einer Karte
+    property real cardMinWidth: 0   // largest minimum width reported by any card
 
     Layout.preferredWidth: Kirigami.Units.gridUnit * 38
     Layout.preferredHeight: content.implicitHeight + Kirigami.Units.largeSpacing * 2
     Layout.minimumWidth: Kirigami.Units.gridUnit * 14
-    // So hoch wie der Inhalt: sonst schneidet eine gespeicherte Pop-up-Größe neue Inhalte ab
+    // As tall as the content: otherwise a saved popup size cuts off new content
     Layout.minimumHeight: Layout.preferredHeight
 
     ColumnLayout {
@@ -35,8 +35,8 @@ Item {
         GridLayout {
             id: cards
             Layout.fillWidth: true
-            // Vor dem ersten Layout ist die Breite 0: dann die vorgesehene Breite annehmen, sonst
-            // übernimmt Plasma die Höhe für untereinanderstehende Karten und lässt unten Raum frei.
+            // Before the first layout the width is 0: assume the intended width then, otherwise
+            // Plasma adopts the height for stacked cards and leaves empty space at the bottom.
             readonly property real availableWidth: full.width > 0
                 ? content.width : full.Layout.preferredWidth - 2 * Kirigami.Units.largeSpacing
             columns: full.cardMinWidth > 0 && availableWidth >= 2 * full.cardMinWidth + cards.columnSpacing ? 2 : 1

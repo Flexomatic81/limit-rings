@@ -1,4 +1,4 @@
-"""Token-Verbrauch und Limits aus Codex-Sitzungslogs (~/.codex/sessions/**/*.jsonl)."""
+"""Token usage and limits from Codex session logs (~/.codex/sessions/**/*.jsonl)."""
 
 import json
 import logging
@@ -28,7 +28,7 @@ def _int(d: dict, key: str) -> int:
     if value is None:
         return 0
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{key} ist keine Ganzzahl")
+        raise ValueError(f"{key} is not an integer")
     return value
 
 
@@ -48,7 +48,7 @@ def read_events(root: Path, files: dict, sessions: dict) -> CodexResult:
     res = CodexResult()
     paths, failed = list_jsonl(root)
     for d in failed:
-        log.warning("Verzeichnis nicht lesbar: %s", d)
+        log.warning("directory unreadable: %s", d)
     res.unreadable += len(failed)
     present = set()
     for path in paths:
@@ -58,10 +58,10 @@ def read_events(root: Path, files: dict, sessions: dict) -> CodexResult:
         try:
             lines, entry = read_new_lines(path, old)
         except OSError as e:
-            log.warning("Codex-Log nicht lesbar: %s (%s)", name, type(e).__name__)
+            log.warning("Codex log unreadable: %s (%s)", name, type(e).__name__)
             res.unreadable += 1
             continue
-        # Gemerkte ID weiterverwenden; bei Neueinlesen ab 0 setzt die session_meta-Zeile sie neu.
+        # Reuse the remembered ID; when re-reading from 0, the session_meta line sets it again.
         session = (old or {}).get("session")
         for line in lines:
             try:
@@ -89,7 +89,7 @@ def read_events(root: Path, files: dict, sessions: dict) -> CodexResult:
                     res.limits = normalize_codex(rl)
                     res.plan = rl.get("plan_type")
                     res.limits_ts = ts
-            except Exception:  # eine kaputte Zeile (RecursionError, OverflowError …) darf den Anbieter nicht blockieren
+            except Exception:  # a broken line (RecursionError, OverflowError …) must not block the provider
                 res.invalid += 1
         entry["session"] = session
         files[name] = entry

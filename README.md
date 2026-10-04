@@ -1,64 +1,64 @@
 # Agent Stats
 
-KDE-Plasma-6-Widget für Nutzungslimits und Token-Statistiken von **Claude Code** und **Codex**.
+KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code** and **Codex**.
 
-- Leiste: ein Doppelring je Anbieter — außen das Wochenlimit, innen das 5-h-Limit; Tooltip mit allen
-  Limits und Countdown.
-- Desktop/Popup: Limits mit Reset-Countdown, Tokens heute/Woche/Monat, 30-Tage-Verlauf.
-- Prognose, wann ein Limit bei aktuellem Tempo voll ist (5 h: letzte 30 min, Woche: letzte 24 h).
-- Desktop-Benachrichtigung, sobald ein Limit 80 % bzw. 95 % erreicht, und Frühwarnung, wenn das
-  5-h-Limit laut Prognose in höchstens 30 Minuten voll ist (jeweils einmal pro Zeitfenster).
-- Hinweis in Karte und Tooltip, wenn die Claude-Anmeldung abgelaufen ist.
-- Aufschlüsselung der Claude-Tokens seit dem Wochen-Reset nach Projekt (Git-Repository) und Modell —
-  nur für die Transkripte des jeweiligen Rechners, als Anteil an Tokens (nicht am Limit).
+- Panel: one double ring per provider — the outer ring shows the weekly limit, the inner one the
+  5-hour limit; the tooltip lists all limits with a countdown.
+- Desktop/popup: limits with a reset countdown, tokens for today/week/month, 30-day history.
+- Forecast of when a limit will be reached at the current pace (5 h: last 30 min, week: last 24 h).
+- Desktop notification when a limit reaches 80 % or 95 %, plus an early warning when the forecast
+  says the 5-hour limit will be full within 30 minutes (each at most once per window).
+- Hint in the card and tooltip when the Claude login has expired.
+- Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
+  for the transcripts on the current machine, as a share of tokens (not of the limit).
 
-## Wichtiger Hinweis: inoffizielle Schnittstellen
+## Important: unofficial APIs
 
-Die Nutzungslimits fragt Agent Stats über **nicht dokumentierte Endpunkte** von Anthropic
-(`api.anthropic.com/api/oauth/usage`) und OpenAI (`chatgpt.com/backend-api/wham/usage`) ab. Dafür
-liest es die Anmelde-Tokens, die Claude Code (`~/.claude/.credentials.json`) und Codex
-(`~/.codex/auth.json`) lokal ablegen.
+Agent Stats fetches usage limits from **undocumented endpoints** of Anthropic
+(`api.anthropic.com/api/oauth/usage`) and OpenAI (`chatgpt.com/backend-api/wham/usage`). To do so,
+it reads the login tokens that Claude Code (`~/.claude/.credentials.json`) and Codex
+(`~/.codex/auth.json`) store locally.
 
-- Die Tokens werden nur gelesen, nie erneuert, gespeichert oder geloggt, und nur an den jeweiligen
-  Anbieter gesendet; Weiterleitungen werden abgelehnt. Abgefragt wird höchstens alle 5 Minuten.
-- Die Endpunkte können sich jederzeit ändern oder wegfallen; dann fällt Agent Stats auf lokale Daten
-  (Statuszeile bzw. Sitzungslogs) zurück.
-- Ob diese Nutzung mit den Nutzungsbedingungen von Anthropic bzw. OpenAI vereinbar ist, prüfe bitte
-  selbst. Das Projekt steht in keiner Verbindung zu Anthropic oder OpenAI; „Claude“ und „Codex“ sind
-  Marken der jeweiligen Unternehmen.
+- The tokens are only read — never refreshed, stored or logged — and are only sent to the
+  respective provider; redirects are rejected. The endpoints are queried at most every 5 minutes.
+- The endpoints may change or disappear at any time; Agent Stats then falls back to local data
+  (status line or session logs).
+- Please check for yourself whether this use complies with the terms of service of Anthropic and
+  OpenAI. This project is not affiliated with Anthropic or OpenAI; "Claude" and "Codex" are
+  trademarks of their respective companies.
 
-## Aufbau
+## How it works
 
-Ein Python-Collector (`collector/`, nur Standardbibliothek) läuft als systemd-User-Timer alle 60 s,
-liest `~/.claude/projects/**/*.jsonl` und `~/.codex/sessions/**/*.jsonl` inkrementell und schreibt
-`~/.cache/agent-stats/stats.json`. Das Plasmoid (`plasmoid/io.github.flexomatic81.agentstats`) liest nur diese Datei.
+A Python collector (`collector/`, standard library only) runs as a systemd user timer every 60 s,
+incrementally reads `~/.claude/projects/**/*.jsonl` and `~/.codex/sessions/**/*.jsonl`, and writes
+`~/.cache/agent-stats/stats.json`. The plasmoid (`plasmoid/io.github.flexomatic81.agentstats`) only reads this file.
 
-Claude-Limits kommen vom (undokumentierten) OAuth-Usage-Endpunkt; der Token aus
-`~/.claude/.credentials.json` wird nur gelesen und nur an `api.anthropic.com` gesendet. Fällt der
-Endpunkt aus, dient ein Mitschnitt der Claude-Code-Statuszeile als Rückfall.
+Claude limits come from the (undocumented) OAuth usage endpoint; the token from
+`~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. If the endpoint
+fails, a capture of the Claude Code status line serves as a fallback.
 
-Codex-Limits kommen ebenso direkt vom Codex-Dienst (ChatGPT-Anmeldung aus `~/.codex/auth.json`,
-Token nur gelesen und nur an `chatgpt.com` gesendet); Rückfall sind die Sitzungslogs. Das ist nötig,
-weil Codex als Claude-Code-Plugin keine Sitzungslogs schreibt. Die Codex-Token-Statistik zählt
-deshalb nur Codex-Sitzungen im Terminal.
+Codex limits likewise come directly from the Codex service (ChatGPT login from `~/.codex/auth.json`,
+token only read and only sent to `chatgpt.com`); the fallback is the session logs. This is
+necessary because Codex running as a Claude Code plugin does not write session logs. For the same
+reason, the Codex token statistics only count Codex sessions run in a terminal.
 
 ## Installation
 
-Voraussetzungen: KDE Plasma 6 (`kpackagetool6`), Python ≥ 3.10 unter `/usr/bin/python3`
-(keine Zusatzpakete), systemd-User-Session; `jq` nur für den Statuszeilen-Rückfall.
+Requirements: KDE Plasma 6 (`kpackagetool6`), Python ≥ 3.10 at `/usr/bin/python3`
+(no extra packages), a systemd user session; `jq` only for the status line fallback.
 
 ```bash
-./install.sh            # fragt vor Änderung der Statuszeile nach
-./install.sh --statusline   # fügt die Statuszeilen-Zeile ohne Rückfrage ein
+./install.sh            # asks before modifying the status line
+./install.sh --statusline   # inserts the status line hook without asking
 ```
 
-Danach „Agent Stats“ über „Widgets hinzufügen“ in Leiste und/oder Desktop ziehen.
+Then drag "Agent Stats" from "Add Widgets" onto a panel and/or the desktop.
 
-Der Statuszeilen-Rückfall setzt ein eigenes Claude-Code-Statuszeilen-Skript unter
-`~/.claude/statusline-command.sh` mit einer Zeile `input=$(cat)` voraus; `install.sh` fügt die
-nötige Zeile (`statusline-snippet.sh`) dort ein. Ohne dieses Skript wird der Schritt übersprungen.
+The status line fallback requires a custom Claude Code status line script at
+`~/.claude/statusline-command.sh` containing a line `input=$(cat)`; `install.sh` inserts the
+required line (`statusline-snippet.sh`) there. Without such a script, this step is skipped.
 
-### Herunterladen und installieren
+### Download and install
 
 ```bash
 git clone https://github.com/Flexomatic81/agent-stats.git
@@ -66,37 +66,36 @@ cd agent-stats
 ./install.sh
 ```
 
-Dann das Widget wie oben platzieren und prüfen:
+Then place the widget as described above and check:
 
 ```bash
-systemctl --user list-timers agent-stats.timer   # nächster Lauf ≤ 60 s
+systemctl --user list-timers agent-stats.timer   # next run ≤ 60 s
 jq '.providers | map_values({limits_source, error})' ~/.cache/agent-stats/stats.json
 ```
 
-- Token-Statistiken zählen nur die Logs **dieses** Rechners; die Limits gehören zum Konto und
-  sind auf allen Rechnern gleich. Nutzt man Agent Stats auf mehreren Rechnern, einfach auf jedem
-  installieren.
-- Liegt in `~/.claude/.credentials.json` ein gültiger Token, kommen die Claude-Limits per OAuth
-  (`limits_source: "oauth"`). Claude Code erneuert den Token nur, wenn es im Terminal läuft (er
-  gilt ca. 8 h); die Claude-Desktop-App schreibt keinen Token in diese Datei. Ohne gültigen Token
-  liefert die Statuszeile die Limits, solange Claude Code im Terminal läuft.
+- Token statistics only count the logs of **this** machine; the limits belong to the account and
+  are the same on every machine. To use Agent Stats on several machines, simply install it on each.
+- If `~/.claude/.credentials.json` holds a valid token, the Claude limits come via OAuth
+  (`limits_source: "oauth"`). Claude Code only refreshes the token while it runs in a terminal (it
+  is valid for about 8 h); the Claude desktop app does not write a token to this file. Without a
+  valid token, the status line provides the limits as long as Claude Code is running in a terminal.
 
-### Aktualisieren
+### Updating
 
 ```bash
 git pull
 ./install.sh
-systemctl --user restart plasma-plasmashell   # nur nötig, wenn sich das Widget geändert hat
+systemctl --user restart plasma-plasmashell   # only needed if the widget has changed
 ```
 
-## Deinstallation
+## Uninstalling
 
 ```bash
-./uninstall.sh          # fragt, ob ~/.cache/agent-stats gelöscht werden soll
+./uninstall.sh          # asks whether to delete ~/.cache/agent-stats
 ./uninstall.sh --purge
 ```
 
-## Fehlersuche
+## Troubleshooting
 
 ```bash
 systemctl --user status agent-stats.timer
@@ -104,7 +103,7 @@ journalctl --user -u agent-stats.service -n 50
 jq . ~/.cache/agent-stats/stats.json
 ```
 
-## Entwicklung
+## Development
 
 ```bash
 cd collector && uv run --no-project --with pytest pytest -q
@@ -112,6 +111,6 @@ cd collector && uv run --no-project --with pytest pytest -q
 plasmawindowed io.github.flexomatic81.agentstats
 ```
 
-## Lizenz
+## License
 
-MIT, siehe [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

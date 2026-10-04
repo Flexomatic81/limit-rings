@@ -12,7 +12,7 @@ TestCase {
     UI.FullRepresentation {
         id: full
         width: 684
-        height: 180   // wie die gespeicherte Pop-up-Größe, die den Inhalt abgeschnitten hat
+        height: 180   // like the saved popup size that used to cut off the content
         providers: [{key: "claude", name: "Claude", short: "C"}]
         nowMs: Date.parse("2026-10-04T13:30:00+02:00")
         warn: 70
@@ -31,13 +31,13 @@ TestCase {
 
     function test_minimum_height_covers_content() {
         waitForRendering(full)
-        verify(full.Layout.preferredHeight > 200, "Inhalt sollte höher als das alte Pop-up sein")
+        verify(full.Layout.preferredHeight > 200, "content should be taller than the old popup")
         verify(full.Layout.minimumHeight >= full.Layout.preferredHeight,
-               "minimumHeight " + full.Layout.minimumHeight + " < Inhalt " + full.Layout.preferredHeight)
+               "minimumHeight " + full.Layout.minimumHeight + " < content " + full.Layout.preferredHeight)
     }
 
-    // Plasma erzeugt das Pop-up mit Breite 0 und übernimmt die erste Mindesthöhe; danach wird es
-    // nicht mehr kleiner. Stünden die Karten dann untereinander, bliebe unten leerer Raum.
+    // Plasma creates the popup with width 0 and adopts the first minimum height; after that it
+    // never shrinks. If the cards were stacked at that point, empty space would remain at the bottom.
     function test_first_minimum_height_already_uses_two_columns() {
         const comp = Qt.createComponent("../io.github.flexomatic81.agentstats/contents/ui/FullRepresentation.qml")
         const obj = comp.createObject(this, {providers: full.providers, nowMs: full.nowMs, warn: 70, crit: 90,
@@ -47,7 +47,7 @@ TestCase {
         obj.height = first
         waitForRendering(obj)
         verify(first <= obj.Layout.minimumHeight + 1,
-               "erste Mindesthöhe " + first + " > endgültige " + obj.Layout.minimumHeight)
+               "first minimum height " + first + " > final " + obj.Layout.minimumHeight)
         obj.destroy()
     }
 }

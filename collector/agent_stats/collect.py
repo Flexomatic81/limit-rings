@@ -1,4 +1,4 @@
-"""Ein Durchlauf des Collectors: Logs lesen, Limits holen, stats.json schreiben."""
+"""One collector run: read logs, fetch limits, write stats.json."""
 
 import copy
 import json
@@ -89,8 +89,8 @@ def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifi
     for notice in notify.update_notices(providers, state["notified"], now_ts):
         try:
             notifier(notice)
-        except Exception as e:  # eine Benachrichtigung darf den Durchlauf nie abbrechen
-            log.warning("Benachrichtigung fehlgeschlagen: %s", type(e).__name__)
+        except Exception as e:  # a notification must never abort the run
+            log.warning("notification failed: %s", type(e).__name__)
 
 
 def _update_history(state: dict) -> None:
@@ -112,7 +112,7 @@ def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float)
 
 
 def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
-    """Aufschlüsselung seit Beginn des Claude-Wochenfensters (Reset − 7 Tage), sonst der letzten 7 Tage."""
+    """Breakdown since the start of the Claude weekly window (reset − 7 days), otherwise of the last 7 days."""
     rec = section["limits"]
     resets = next((l.get("resets_at") for l in (rec["limits"] if rec else []) if l.get("id") == "seven_day"), None)
     if resets is not None and resets - 7 * 86400 <= now_ts:
@@ -123,7 +123,7 @@ def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
 
 
 def _unreadable_text(count: int) -> str:
-    return f"{count} Datei(en) nicht lesbar – Zahlen unvollständig"
+    return f"{count} file(s) unreadable – numbers incomplete"
 
 
 def _add_breakdown(hourly: dict, events, resolver, since: float) -> None:
@@ -133,9 +133,9 @@ def _add_breakdown(hourly: dict, events, resolver, since: float) -> None:
 
 
 def _backfill_hourly(section: dict, paths, now_ts: float, resolver) -> None:
-    """Einmalig nach dem Update: stündliche Zählung aus den Transkripten nachladen.
+    """Once after the update: backfill the hourly counts from the transcripts.
 
-    Liest mit frischem Zustand, damit Tagessummen und Deduplizierung unberührt bleiben.
+    Reads with fresh state so that daily totals and deduplication stay untouched.
     """
     res = claude_logs.read_events(paths.claude_root, {}, {})
     _add_breakdown(section["hourly"], res.events, resolver, now_ts - breakdown.KEEP_SECONDS)
@@ -158,9 +158,9 @@ def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[str | None, str | 
         if res.unreadable:
             errors.append(_unreadable_text(res.unreadable))
     except Exception:
-        log.exception("Claude-Logs: unerwarteter Fehler")
+        log.exception("Claude logs: unexpected error")
         section.update(snapshot)
-        errors.append("Claude-Daten konnten nicht verarbeitet werden")
+        errors.append("Claude data could not be processed")
 
     plan = None
     try:
@@ -169,9 +169,9 @@ def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[str | None, str | 
             paths.credentials, paths.statusline_cache, fetch=fetch)
         section["limits"], section["oauth_last_attempt"] = rec, attempt
     except Exception as e:
-        log.error("Claude-Limits: unerwarteter Fehler: %s", type(e).__name__)
-        section["oauth_last_attempt"] = now_ts  # auch hier drosseln, sonst Abfrage bei jedem Lauf
-        errors.append("Claude-Limits nicht verfügbar")
+        log.error("Claude limits: unexpected error: %s", type(e).__name__)
+        section["oauth_last_attempt"] = now_ts  # throttle here too, otherwise it queries on every run
+        errors.append("Claude limits unavailable")
     return ("; ".join(errors) or None), plan
 
 
@@ -179,11 +179,11 @@ def _process_codex(state, paths, now_ts, tz, fetch) -> str | None:
     error = _process_codex_logs(state, paths, tz)
     section = state["codex"]
     try:
-        # Das Claude-Code-Plugin schreibt keine Sitzungslogs: Limits zusätzlich direkt abfragen.
+        # The Claude Code plugin writes no session logs: also query the limits directly.
         section["limits"], section["oauth_last_attempt"] = codex_limits.resolve(
             section["limits"], section["oauth_last_attempt"], now_ts, paths.codex_auth, fetch=fetch)
     except Exception as e:
-        log.error("Codex-Limits: unerwarteter Fehler: %s", type(e).__name__)
+        log.error("Codex limits: unexpected error: %s", type(e).__name__)
         section["oauth_last_attempt"] = now_ts
     return error
 
@@ -203,9 +203,9 @@ def _process_codex_logs(state, paths, tz) -> str | None:
                                      "source": "session_log"}
         return _unreadable_text(res.unreadable) if res.unreadable else None
     except Exception:
-        log.exception("Codex-Logs: unerwarteter Fehler")
+        log.exception("Codex logs: unexpected error")
         state["codex"] = snapshot
-        return "Codex-Daten konnten nicht verarbeitet werden"
+        return "Codex data could not be processed"
 
 
 def _fingerprint(state: dict) -> str:
@@ -228,7 +228,7 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
             now.timestamp(), notifier)
 
     prune_state(state, today)
-    if _fingerprint(state) != before:  # state.json ist groß: nur schreiben, wenn sich etwas geändert hat
+    if _fingerprint(state) != before:  # state.json is large: only write it if something changed
         save_state(paths.state_file, state)
 
     claude = state["claude"]
@@ -260,8 +260,8 @@ def main() -> int:
     try:
         run(paths, datetime.now(tz), tz)
     except Exception as e:
-        log.error("Durchlauf abgebrochen: %s", type(e).__name__)
-        # Unerwartete Form im Zustand: beiseitelegen, damit der nächste Lauf neu beginnt.
+        log.error("run aborted: %s", type(e).__name__)
+        # Unexpected state shape: move it aside so the next run starts fresh.
         try:
             os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
         except OSError:

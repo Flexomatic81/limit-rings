@@ -2,7 +2,7 @@
     "KPlugin": {
         "Id": "io.github.flexomatic81.agentstats",
         "Name": "Agent Stats",
-        "Description": "Nutzungslimits und Token-Statistiken von Claude Code und Codex",
+        "Description": "Usage limits and token statistics for Claude Code and Codex",
         "Icon": "utilities-system-monitor",
         "Category": "System Information",
         "Authors": [{ "Name": "Flexomatic81" }],

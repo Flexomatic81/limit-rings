@@ -1,20 +1,20 @@
 .pragma library
 
-function germanInt(n) {
+function formatInt(n) {
     const s = String(Math.round(Math.abs(n)))
-    const grouped = s.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+    const grouped = s.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
     return (n < 0 ? "-" : "") + grouped
 }
 
 function _decimal(x) {
-    return x.toFixed(1).replace(".", ",")
+    return x.toFixed(1)
 }
 
 function compactNumber(n) {
     if (n < 1000) return String(Math.round(n))
     if (n < 999500) return Math.round(n / 1000) + " k"
     if (n < 999950000) return _decimal(n / 1e6) + " M"
-    return _decimal(n / 1e9) + " Mrd"
+    return _decimal(n / 1e9) + " B"
 }
 
 function isReset(limit, nowSec) {
@@ -39,7 +39,7 @@ function maxPercent(limits, nowSec) {
     return best
 }
 
-// Werte für den Ring in der Leiste: außen das höchste Wochenlimit, innen das 5-h-Limit
+// Values for the panel ring: outer is the highest weekly limit, inner the 5 h limit
 function ringValues(limits, nowSec) {
     let outer = null, inner = null
     for (let i = 0; i < (limits ? limits.length : 0); i++) {
@@ -78,33 +78,36 @@ function countdownLong(resetsAt, nowSec) {
 function ageText(iso, nowMs) {
     if (!iso) return "—"
     const s = Math.max(0, Math.round((nowMs - Date.parse(iso)) / 1000))
-    if (s < 60) return "vor " + s + " s"
-    if (s < 3600) return "vor " + Math.floor(s / 60) + " min"
-    if (s < 86400) return "vor " + Math.floor(s / 3600) + " h"
-    return "vor " + Math.floor(s / 86400) + " d"
+    if (s < 60) return s + " s ago"
+    if (s < 3600) return Math.floor(s / 60) + " min ago"
+    if (s < 86400) return Math.floor(s / 3600) + " h ago"
+    return Math.floor(s / 86400) + " d ago"
 }
 
 function sourceText(src) {
     if (src === "oauth") return "OAuth"
-    if (src === "statusline") return "Statuszeile"
-    if (src === "session_log") return "Sitzungslog"
+    if (src === "statusline") return "Status line"
+    if (src === "session_log") return "Session log"
     return "—"
 }
 
 function tokenBreakdown(t) {
-    return "Input: " + germanInt(t.input) + "\nOutput: " + germanInt(t.output)
-        + "\nCache lesen: " + germanInt(t.cache_read) + "\nCache schreiben: " + germanInt(t.cache_write)
+    return "Input: " + formatInt(t.input) + "\nOutput: " + formatInt(t.output)
+        + "\nCache read: " + formatInt(t.cache_read) + "\nCache write: " + formatInt(t.cache_write)
 }
 
+const _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+// "Oct 4: 1,234 tokens"
 function dayTooltip(entry) {
     const p = entry.date.split("-")
-    return p[2] + "." + p[1] + ".: " + germanInt(entry.total) + " Tokens"
+    return _MONTHS[Number(p[1]) - 1] + " " + Number(p[2]) + ": " + formatInt(entry.total) + " tokens"
 }
 
 const STALE_MS = 300000
 const LIMITS_STALE_MS = 6 * 3600 * 1000
 
-// Limit-Daten älter als 6 h (z. B. Codex-Log von vor Tagen): Anzeige als „veraltet“
+// Limit data older than 6 h (e.g. a Codex log from days ago) is shown as "stale"
 function limitsStale(provider, nowMs) {
     if (!provider || !provider.limits_updated_at || !provider.limits || provider.limits.length === 0)
         return false
@@ -114,36 +117,36 @@ function limitsStale(provider, nowMs) {
 
 function footerText(provider, nowMs) {
     if (!provider) return ""
-    return "Stand " + ageText(provider.limits_updated_at, nowMs) + " · " + sourceText(provider.limits_source)
-        + (limitsStale(provider, nowMs) ? " · veraltet" : "")
+    return "Updated " + ageText(provider.limits_updated_at, nowMs) + " · " + sourceText(provider.limits_source)
+        + (limitsStale(provider, nowMs) ? " · stale" : "")
 }
 
 function statusMessage(loadError, stats, nowMs) {
     if (loadError === "nofile")
-        return "Noch keine Daten – läuft der Collector? systemctl --user status agent-stats.timer"
+        return "No data yet – is the collector running? systemctl --user status agent-stats.timer"
     if (loadError === "schema")
-        return "Unbekanntes Datenformat – Plasmoid und Collector passen nicht zusammen. install.sh erneut ausführen."
+        return "Unknown data format – plasmoid and collector don't match. Run install.sh again."
     if (loadError === "parse")
-        return "stats.json ist nicht lesbar."
+        return "stats.json is not readable."
     if (stats && nowMs - Date.parse(stats.generated_at) > STALE_MS)
-        return "Collector läuft nicht – Daten " + ageText(stats.generated_at, nowMs)
-            + ". Prüfen: systemctl --user status agent-stats.timer"
+        return "Collector not running – data from " + ageText(stats.generated_at, nowMs)
+            + ". Check: systemctl --user status agent-stats.timer"
     return ""
 }
 
-const _WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
+const _WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function _time(d) {
     return (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes()
 }
 
-// „Sa 14:00“
+// "Sat 14:00"
 function _weekdayClock(epochSec) {
     const d = new Date(epochSec * 1000)
     return _WEEKDAYS[d.getDay()] + " " + _time(d)
 }
 
-// Uhrzeit, ab einem Tag Abstand mit Wochentag
+// Clock time, with the weekday once it is a day or more away
 function _clock(epochSec, nowSec) {
     return epochSec - nowSec >= 86400 ? _weekdayClock(epochSec) : _time(new Date(epochSec * 1000))
 }
@@ -158,21 +161,21 @@ function _forecastParts(limit, nowSec) {
 function forecastText(limit, nowSec) {
     const f = _forecastParts(limit, nowSec)
     if (!f) return ""
-    if (!f.full) return "Reicht bei aktuellem Tempo bis zum Reset"
-    if (!f.rest) return "Bei aktuellem Tempo gleich voll"
-    return "Bei aktuellem Tempo voll in ~" + f.rest + " (" + _clock(f.eta, nowSec) + ")"
+    if (!f.full) return "Lasts until reset at current pace"
+    if (!f.rest) return "Full soon at current pace"
+    return "Full in ~" + f.rest + " at current pace (" + _clock(f.eta, nowSec) + ")"
 }
 
 function forecastShort(limit, nowSec) {
     const f = _forecastParts(limit, nowSec)
     if (!f) return ""
-    if (!f.full) return "reicht bis Reset"
-    return f.rest ? "voll in ~" + f.rest : "gleich voll"
+    if (!f.full) return "lasts until reset"
+    return f.rest ? "full in ~" + f.rest : "full soon"
 }
 
 function limitLine(name, limit, nowSec) {
     const head = name + " · " + limit.label + ": "
-    if (isReset(limit, nowSec)) return head + "zurückgesetzt"
+    if (isReset(limit, nowSec)) return head + "reset"
     const rest = countdownLong(limit.resets_at, nowSec)
     const fc = forecastShort(limit, nowSec)
     return head + Math.round(limit.used_percent) + " %" + (rest ? " · Reset in " + rest : "") + (fc ? " · " + fc : "")
@@ -180,19 +183,19 @@ function limitLine(name, limit, nowSec) {
 
 function authHint(auth) {
     if (!auth || auth.status === "ok") return ""
-    if (auth.status === "expired") return "Anmeldung abgelaufen – claude im Terminal starten"
-    return "Keine Anmeldung gefunden – claude im Terminal starten"
+    if (auth.status === "expired") return "Login expired – run claude in a terminal"
+    return "No login found – run claude in a terminal"
 }
 
 function tooltipText(stats, providers, nowSec) {
-    if (!stats) return "Keine Daten"
+    if (!stats) return "No data"
     const lines = []
     for (let i = 0; i < providers.length; i++) {
         const p = stats.providers[providers[i].key]
         if (!p || !p.limits || p.limits.length === 0)
-            lines.push(providers[i].name + ": keine Limit-Daten")
+            lines.push(providers[i].name + ": no limit data")
         else {
-            const stale = limitsStale(p, nowSec * 1000) ? " (veraltet)" : ""
+            const stale = limitsStale(p, nowSec * 1000) ? " (stale)" : ""
             for (let j = 0; j < p.limits.length; j++)
                 lines.push(limitLine(providers[i].name, p.limits[j], nowSec) + stale)
         }
@@ -202,11 +205,11 @@ function tooltipText(stats, providers, nowSec) {
     return lines.join("\n")
 }
 
-// Aufschlüsselung nach Projekt/Modell (stats.json: providers.claude.breakdown)
+// Breakdown by project/model (stats.json: providers.claude.breakdown)
 function breakdownTitle(b) {
     if (!b) return ""
-    if (b.basis !== "window") return "Letzte 7 Tage"
-    return "Seit Wochen-Reset (" + _weekdayClock(Date.parse(b.since) / 1000) + ")"
+    if (b.basis !== "window") return "Last 7 days"
+    return "Since weekly reset (" + _weekdayClock(Date.parse(b.since) / 1000) + ")"
 }
 
 function breakdownRows(list, total) {
@@ -220,5 +223,5 @@ function percentText(pct) {
 }
 
 function breakdownTooltip(row) {
-    return germanInt(row.total) + " Tokens"
+    return formatInt(row.total) + " tokens"
 }

@@ -1,5 +1,5 @@
 [Unit]
-Description=Agent-Stats alle 60 Sekunden aktualisieren
+Description=Update Agent Stats every 60 seconds
 
 [Timer]
 OnBootSec=30s

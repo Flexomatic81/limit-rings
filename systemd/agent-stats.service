@@ -1,5 +1,5 @@
 [Unit]
-Description=Agent-Stats: Nutzung von Claude Code und Codex einsammeln
+Description=Agent Stats: collect Claude Code and Codex usage
 
 [Service]
 Type=oneshot

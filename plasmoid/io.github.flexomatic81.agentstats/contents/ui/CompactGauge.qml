@@ -6,9 +6,9 @@ Item {
     id: gauge
 
     property string letter: ""
-    property var percent: null        // höchster Wert, für die Darstellung „Zahl“ (null = keine Daten)
-    property var outerPercent: null   // äußerer Ring: Wochenlimit
-    property var innerPercent: null   // innerer Ring: 5-h-Limit (null = kein innerer Ring)
+    property var percent: null        // highest value, for the "Number" style (null = no data)
+    property var outerPercent: null   // outer ring: weekly limit
+    property var innerPercent: null   // inner ring: 5 h limit (null = no inner ring)
     property string severity: "normal"
     property string outerSeverity: "normal"
     property string innerSeverity: "normal"

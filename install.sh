@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Installiert Collector, systemd-Timer und Plasmoid. Mehrfach ausführbar.
-# --statusline: Statuszeilen-Zeile ohne Rückfrage einfügen.
+# Installs the collector, systemd timer and plasmoid. Safe to run repeatedly.
+# --statusline: insert the status line hook without asking.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,13 +8,15 @@ share="$HOME/.local/share/agent-stats"
 bin="$HOME/.local/bin/agent-stats-collect"
 units="$HOME/.config/systemd/user"
 statusline="$HOME/.claude/statusline-command.sh"
-marker="# agent-stats: Limits für das Plasmoid mitschneiden"
+marker="# agent-stats: record limits for the plasmoid"
+# Marker written by older (German) versions; still recognised so existing installs are not patched twice.
+old_marker="# agent-stats: Limits für das Plasmoid mitschneiden"
 snippet="$(grep -v '^#' "$here/statusline-snippet.sh")"
 
 auto_statusline=no
 [[ "${1:-}" == "--statusline" ]] && auto_statusline=yes
 
-echo "→ Collector nach $share"
+echo "→ Collector to $share"
 mkdir -p "$share" "$(dirname "$bin")"
 rm -rf "$share/agent_stats"
 cp -r "$here/collector/agent_stats" "$share/"
@@ -25,12 +27,12 @@ PYTHONPATH="$HOME/.local/share/agent-stats${PYTHONPATH:+:$PYTHONPATH}" exec /usr
 EOF
 chmod 755 "$bin"
 
-echo "→ systemd-Timer"
+echo "→ systemd timer"
 mkdir -p "$units"
 cp "$here/systemd/agent-stats.service" "$here/systemd/agent-stats.timer" "$units/"
 systemctl --user daemon-reload
 systemctl --user enable --now agent-stats.timer
-systemctl --user start agent-stats.service || echo "  Warnung: erster Durchlauf fehlgeschlagen – journalctl --user -u agent-stats.service"
+systemctl --user start agent-stats.service || echo "  Warning: first run failed – journalctl --user -u agent-stats.service"
 
 echo "→ Plasmoid"
 if kpackagetool6 -t Plasma/Applet --show io.github.flexomatic81.agentstats >/dev/null 2>&1; then
@@ -39,35 +41,35 @@ else
     kpackagetool6 -t Plasma/Applet --install "$here/plasmoid/io.github.flexomatic81.agentstats"
 fi
 
-echo "→ Statuszeile (Rückfall für Claude-Limits)"
+echo "→ Status line (fallback for Claude limits)"
 if [[ ! -f "$statusline" ]]; then
-    echo "  $statusline nicht gefunden – übersprungen."
-elif grep -qF "$marker" "$statusline"; then
-    echo "  bereits eingetragen."
+    echo "  $statusline not found – skipped."
+elif grep -qF -e "$marker" -e "$old_marker" "$statusline"; then
+    echo "  already present."
 elif ! grep -q '^input=\$(cat)' "$statusline"; then
-    echo "  Keine Zeile 'input=\$(cat)' gefunden. Bitte von Hand direkt danach einfügen:"
+    echo "  No line 'input=\$(cat)' found. Please insert manually right after it:"
     printf '    %s\n    %s\n' "$marker" "$snippet"
 else
     answer=n
     if [[ $auto_statusline == yes ]]; then
-        answer=j
+        answer=y
     elif [[ -t 0 ]]; then
-        echo "  Einzufügen nach 'input=\$(cat)':"
+        echo "  To be inserted after 'input=\$(cat)':"
         printf '    %s\n    %s\n' "$marker" "$snippet"
-        read -r -p "  Jetzt einfügen? [j/N] " answer || answer=n
+        read -r -p "  Insert now? [y/N] " answer || answer=n
     else
-        echo "  Nicht interaktiv – nicht eingefügt. Mit --statusline erneut ausführen, um sie einzufügen."
+        echo "  Not interactive – not inserted. Re-run with --statusline to insert it."
     fi
-    if [[ $answer == [jJyY] ]]; then
+    if [[ $answer == [yY] ]]; then
         cp -p "$statusline" "$statusline.bak-agent-stats"
         MARKER="$marker" SNIPPET="$snippet" awk '
             { print }
             !done && /^input=\$\(cat\)/ { print ENVIRON["MARKER"]; print ENVIRON["SNIPPET"]; done = 1 }
         ' "$statusline.bak-agent-stats" > "$statusline"
-        echo "  eingefügt (Sicherung: $statusline.bak-agent-stats)."
+        echo "  inserted (backup: $statusline.bak-agent-stats)."
     fi
 fi
 
 echo
-echo "Fertig. Widget „Agent Stats“ über „Widgets hinzufügen“ in Leiste oder Desktop ziehen."
-echo "Nach einem Upgrade ggf.: systemctl --user restart plasma-plasmashell"
+echo "Done. Drag the \"Agent Stats\" widget from \"Add Widgets\" onto a panel or the desktop."
+echo "After an upgrade you may need: systemctl --user restart plasma-plasmashell"

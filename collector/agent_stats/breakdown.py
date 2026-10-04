@@ -1,6 +1,6 @@
-"""Aufschlüsselung der Claude-Tokens nach Projekt und Modell, stündlich gezählt.
+"""Breakdown of Claude tokens by project and model, counted hourly.
 
-Stündlich, weil das Claude-Wochenfenster nicht um Mitternacht beginnt (z. B. dienstags 06:00).
+Hourly because the Claude weekly window does not start at midnight (e.g. Tuesdays at 06:00).
 """
 
 import re
@@ -9,13 +9,13 @@ from pathlib import Path
 from .models import TokenEvent
 
 KEEP_SECONDS = 8 * 86400
-OTHERS = "Andere"
+OTHERS = "Other"
 
 _MODEL_RE = re.compile(r"^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$")
 
 
 def model_label(model_id: str | None) -> str | None:
-    """claude-opus-5-5 → „Opus 5.5“; unbekannte IDs bleiben, wie sie sind; <synthetic> → None."""
+    """claude-opus-5-5 → "Opus 5.5"; unknown IDs are kept as they are; <synthetic> → None."""
     if not model_id or model_id.startswith("<"):
         return None
     m = _MODEL_RE.match(model_id)
@@ -26,8 +26,8 @@ def model_label(model_id: str | None) -> str | None:
 
 
 class ProjectResolver:
-    """Projekt = Name des Git-Repositorys des Arbeitsverzeichnisses (Worktrees → Haupt-Repository),
-    sonst der Verzeichnisname. Ergebnisse werden je Instanz zwischengespeichert."""
+    """Project = name of the working directory's Git repository (worktrees → main repository),
+    otherwise the directory name. Results are cached per instance."""
 
     def __init__(self):
         self._cache: dict[str, str] = {}
@@ -84,7 +84,7 @@ def _top(counts: dict[str, int], top: int) -> list[dict]:
 
 
 def summarize(hourly: dict, since: float, top: int = 4) -> dict:
-    """Summen ab der Stunde, in die since fällt: {"total", "projects": [...], "models": [...]}."""
+    """Totals from the hour containing since: {"total", "projects": [...], "models": [...]}."""
     start = int(since) // 3600 * 3600
     projects: dict[str, int] = {}
     models: dict[str, int] = {}

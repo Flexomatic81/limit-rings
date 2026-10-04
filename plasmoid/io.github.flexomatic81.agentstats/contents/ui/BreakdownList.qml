@@ -4,7 +4,7 @@ import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
 import "../code/format.js" as Format
 
-// Eine Liste der Aufschlüsselung (Projekte oder Modelle): Name, Balken, Anteil
+// One breakdown list (projects or models): name, bar, share
 ColumnLayout {
     id: list
 
@@ -42,7 +42,7 @@ ColumnLayout {
                     height: parent.height
                     radius: height / 2
                     color: Kirigami.Theme.highlightColor
-                    opacity: row.modelData.name === "Andere" ? 0.4 : 0.8
+                    opacity: row.modelData.name === "Other" ? 0.4 : 0.8
                 }
             }
 

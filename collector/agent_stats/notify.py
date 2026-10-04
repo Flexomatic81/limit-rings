@@ -1,4 +1,4 @@
-"""Desktop-Benachrichtigungen, wenn ein Limit 80 % bzw. 95 % erreicht – einmal pro Zeitfenster."""
+"""Desktop notifications when a limit reaches 80 % or 95 % – once per window."""
 
 import logging
 import subprocess
@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 THRESHOLDS = (80, 95)
 URGENT_LEVEL = 95
-EARLY_LEVEL = 0  # Stufe der Frühwarnung aus der Prognose (unterhalb aller Schwellen)
+EARLY_LEVEL = 0  # level of the forecast-based early warning (below all thresholds)
 EARLY_WARNING_SPAN = 30 * 60
 EARLY_WARNING_WINDOW_MINUTES = 300
 
@@ -26,12 +26,12 @@ class Notice:
 
 def _limit_name(label: str) -> str:
     if label == "5 h":
-        return "5-h-Limit"
-    if label == "Woche":
-        return "Wochenlimit"
-    if label.startswith("Woche "):
-        return "Wochenlimit " + label[len("Woche "):]
-    return f"Limit {label}"
+        return "5-hour limit"
+    if label == "Week":
+        return "weekly limit"
+    if label.startswith("Week "):
+        return f"weekly {label[len('Week '):]} limit"
+    return f"{label} limit"
 
 
 def _duration(seconds: float) -> str:
@@ -58,19 +58,19 @@ def _early_warning_due(limit: dict, now: float) -> bool:
 
 def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> Notice:
     eta = limit["forecast"]["eta"]
-    when = f"in ~{_duration(eta - now)} voll" if eta > now else "gleich voll"
+    when = f"full in ~{_duration(eta - now)}" if eta > now else "almost full"
     reset = _countdown(limit.get("resets_at"), now)
     return Notice(key=key, level=EARLY_LEVEL, summary=f"{name}: {_limit_name(limit['label'])} {when}",
-                  body=f"Jetzt {round(pct)} %" + (f" · {reset}" if reset else ""), urgent=False)
+                  body=f"Now {round(pct)} %" + (f" · {reset}" if reset else ""), urgent=False)
 
 
 def update_notices(providers: dict[str, list[dict]], notified: dict, now: float) -> list[Notice]:
-    """Ermittelt fällige Benachrichtigungen und merkt sie in notified (Schlüssel → Stufe + Fenster).
+    """Determine due notifications and record them in notified (key → level + window).
 
-    providers bildet den Anzeigenamen auf die Limits im stats.json-Format ab (ggf. mit Prognose).
-    Ein Fenster, dessen Reset vorbei ist, zählt als 0 %. Unterhalb von 80 % gibt es beim 5-h-Limit
-    eine Frühwarnung, wenn die Prognose es in höchstens 30 Minuten voll sieht. Einträge für
-    verschwundene oder abgelaufene Fenster entfallen, damit das nächste wieder benachrichtigt.
+    providers maps the display name to its limits in stats.json format (with forecast, if any).
+    A window whose reset has passed counts as 0 %. Below 80 %, the 5-hour limit gets an early
+    warning if the forecast sees it full within 30 minutes at most. Entries for vanished or
+    expired windows are dropped so that the next window notifies again.
     """
     notices = []
     current = set()
@@ -83,7 +83,7 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
             level = max((t for t in THRESHOLDS if pct >= t), default=None)
             entry = notified.get(key)
             if entry is not None and not same_window(entry["resets_at"], resets_at):
-                entry = None  # neues Fenster
+                entry = None  # new window
             if expired:
                 notified.pop(key, None)
                 continue
@@ -102,7 +102,7 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
                 continue
             notified[key] = {"level": level, "resets_at": resets_at}
             notices.append(Notice(key=key, level=level,
-                                  summary=f"{name}: {_limit_name(limit['label'])} bei {round(pct)} %",
+                                  summary=f"{name}: {_limit_name(limit['label'])} at {round(pct)} %",
                                   body=_countdown(resets_at, now), urgent=level >= URGENT_LEVEL))
     for gone in set(notified) - current:
         del notified[gone]
@@ -110,12 +110,12 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
 
 
 def send(notice: Notice) -> bool:
-    """Zeigt die Benachrichtigung über notify-send. Fehler werden geloggt, nie weitergereicht."""
+    """Show the notification via notify-send. Errors are logged, never propagated."""
     try:
         subprocess.run(["notify-send", "-a", "Agent Stats", "-i", "utilities-system-monitor",
                         "-u", "critical" if notice.urgent else "normal", notice.summary, notice.body],
                        check=True, timeout=5)
         return True
     except (OSError, subprocess.SubprocessError) as e:
-        log.warning("Benachrichtigung fehlgeschlagen: %s", type(e).__name__)
+        log.warning("notification failed: %s", type(e).__name__)
         return False

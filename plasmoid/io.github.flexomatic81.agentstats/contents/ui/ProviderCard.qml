@@ -8,15 +8,15 @@ ColumnLayout {
     id: card
 
     property string title
-    property var provider      // providers.<key> aus stats.json oder undefined (nicht "data": Default-Property von Item)
+    property var provider      // providers.<key> from stats.json or undefined (not "data": that is Item's default property)
     property real nowMs
     property int warn
     property int crit
     readonly property real nowSec: nowMs / 1000
-    // Breite, die die Karte bekommt; vom Elternlayout vorgegeben, weil width vor dem ersten Layout 0 ist
+    // Width the card gets; set by the parent layout because width is 0 before the first layout
     property real layoutWidth: width
     readonly property bool stale: Format.limitsStale(provider, nowMs)
-    // Breite, unter der die Karte abgeschnitten würde (meist die Zeile Heute/Woche/Monat)
+    // Width below which the card would be clipped (usually the Today/Week/Month row)
     readonly property real minimumContentWidth: Math.max(header.implicitWidth, tokenGrid.implicitWidth)
 
     spacing: Kirigami.Units.smallSpacing
@@ -63,7 +63,7 @@ ColumnLayout {
 
     PlasmaComponents.Label {
         visible: !card.provider || card.provider.limits.length === 0
-        text: "Keine Limit-Daten"
+        text: "No limit data"
         opacity: 0.7
     }
 
@@ -74,7 +74,7 @@ ColumnLayout {
         visible: !!card.provider
 
         Repeater {
-            model: [{key: "today", label: "Heute"}, {key: "week", label: "Woche"}, {key: "month", label: "Monat"}]
+            model: [{key: "today", label: "Today"}, {key: "week", label: "Week"}, {key: "month", label: "Month"}]
             delegate: RowLayout {
                 required property var modelData
                 Layout.columnSpan: 2
@@ -99,7 +99,7 @@ ColumnLayout {
         series: card.provider ? card.provider.daily : []
     }
 
-    // Aufschlüsselung nach Projekt und Modell (nur Claude)
+    // Breakdown by project and model (Claude only)
     ColumnLayout {
         id: breakdownBlock
         readonly property var b: card.provider ? card.provider.breakdown : null
@@ -109,7 +109,7 @@ ColumnLayout {
         spacing: Kirigami.Units.smallSpacing
 
         PlasmaComponents.Label {
-            text: breakdownBlock.b ? Format.breakdownTitle(breakdownBlock.b) + " · Anteil an Tokens" : ""
+            text: breakdownBlock.b ? Format.breakdownTitle(breakdownBlock.b) + " · share of tokens" : ""
             font: Kirigami.Theme.smallFont
             opacity: 0.7
         }
@@ -123,13 +123,13 @@ ColumnLayout {
             BreakdownList {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                title: "Projekte"
+                title: "Projects"
                 rows: breakdownBlock.b ? Format.breakdownRows(breakdownBlock.b.projects, breakdownBlock.b.total) : []
             }
             BreakdownList {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                title: "Modelle"
+                title: "Models"
                 rows: breakdownBlock.b ? Format.breakdownRows(breakdownBlock.b.models, breakdownBlock.b.total) : []
             }
         }

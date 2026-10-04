@@ -12,7 +12,7 @@ def test_missing_file_gives_fresh_state(tmp_path):
 
 def test_corrupt_or_foreign_file_gives_fresh_state(tmp_path):
     p = tmp_path / "state.json"
-    p.write_text("{kaputt")
+    p.write_text("{broken")
     assert load_state(p) == new_state()
     p.write_text('{"version": 99}')
     assert load_state(p) == new_state()
@@ -31,13 +31,13 @@ def test_roundtrip_and_private_mode(tmp_path):
 
 def test_prune_drops_old_seen_ids_sessions_and_buckets():
     s = new_state()
-    neu = {"ts": "2026-10-01T10:00:00+00:00", "u": [0, 0, 0, 0]}
-    s["claude"]["seen"] = {"alt|1": {"ts": "2026-09-01T10:00:00+00:00", "u": [0, 0, 0, 0]}, "neu|1": neu}
-    s["codex"]["sessions"] = {"alt": {"total": 1, "day": "2025-01-01"}, "neu": {"total": 1, "day": "2026-10-01"}}
+    new = {"ts": "2026-10-01T10:00:00+00:00", "u": [0, 0, 0, 0]}
+    s["claude"]["seen"] = {"old|1": {"ts": "2026-09-01T10:00:00+00:00", "u": [0, 0, 0, 0]}, "new|1": new}
+    s["codex"]["sessions"] = {"old": {"total": 1, "day": "2025-01-01"}, "new": {"total": 1, "day": "2026-10-01"}}
     s["codex"]["buckets"] = {"2025-01-01": {"input": 1}, "2026-10-01": {"input": 1}}
     prune_state(s, date(2026, 10, 14))
-    assert s["claude"]["seen"] == {"neu|1": neu}
-    assert list(s["codex"]["sessions"]) == ["neu"]
+    assert s["claude"]["seen"] == {"new|1": new}
+    assert list(s["codex"]["sessions"]) == ["new"]
     assert list(s["codex"]["buckets"]) == ["2026-10-01"]
 
 
@@ -59,17 +59,17 @@ def test_load_state_rejects_wrong_shapes(tmp_path):
     good_limits = {"limits": [], "source": "oauth", "updated_at": 1.0}
     bad_states = [
         _state_with("claude", seen=None),
-        _state_with("claude", seen={"a|b": {"u": [1, 2, 3, 4]}}),                       # ohne ts
-        _state_with("claude", seen={"a|b": {"ts": "x", "u": [1, 2, 3]}}),               # u zu kurz
+        _state_with("claude", seen={"a|b": {"u": [1, 2, 3, 4]}}),                       # without ts
+        _state_with("claude", seen={"a|b": {"ts": "x", "u": [1, 2, 3]}}),               # u too short
         _state_with("claude", seen={"a|b": {"ts": "x", "u": [1, 2, 3, "4"]}}),
-        _state_with("claude", seen={"a|b": "kaputt"}),
+        _state_with("claude", seen={"a|b": "broken"}),
         _state_with("claude", files=[]),
         _state_with("claude", buckets=None),
-        _state_with("claude", limits={"limits": []}),                                    # ohne updated_at
-        _state_with("claude", limits={"limits": [], "updated_at": "gestern"}),
-        _state_with("claude", limits={"updated_at": 1.0}),                               # ohne limits
-        _state_with("claude", oauth_last_attempt="jetzt"),
-        _state_with("codex", sessions={"s": {"total": 1}}),                              # ohne day
+        _state_with("claude", limits={"limits": []}),                                    # without updated_at
+        _state_with("claude", limits={"limits": [], "updated_at": "yesterday"}),
+        _state_with("claude", limits={"updated_at": 1.0}),                               # without limits
+        _state_with("claude", oauth_last_attempt="now"),
+        _state_with("codex", sessions={"s": {"total": 1}}),                              # without day
         _state_with("codex", sessions={"s": {"total": "1", "day": "2026-10-01"}}),
         _state_with("codex", sessions=None),
         _state_with("codex", limits={"limits": None, "updated_at": 1.0}),
@@ -98,7 +98,7 @@ def test_notified_section_defaults_and_validation(tmp_path):
     p.write_text(json.dumps(old))
     assert load_state(p)["notified"] == {}
     for bad in [None, [], {"claude:five_hour": None}, {"claude:five_hour": {"level": "80", "resets_at": None}},
-                {"claude:five_hour": {"level": 80, "resets_at": "morgen"}}]:
+                {"claude:five_hour": {"level": 80, "resets_at": "tomorrow"}}]:
         s = new_state()
         s["notified"] = bad
         p.write_text(json.dumps(s))
@@ -137,7 +137,7 @@ def test_old_state_without_hourly_requests_a_backfill(tmp_path):
     p.write_text(json.dumps(old))
     loaded = load_state(p)
     assert loaded["claude"]["hourly"] == {} and loaded["claude"]["hourly_backfill"] is True
-    assert loaded["claude"]["seen"] == old["claude"]["seen"]  # Rest bleibt erhalten
+    assert loaded["claude"]["seen"] == old["claude"]["seen"]  # the rest is kept
     assert new_state()["claude"]["hourly_backfill"] is False
     for bad in [None, {"1791100800": None}, {"1791100800": {"p": {}, "m": None}},
                 {"1791100800": {"p": {"website": "x"}, "m": {}}}]:

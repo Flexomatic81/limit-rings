@@ -1,4 +1,4 @@
-"""Persistenter Zustand des Collectors (Leseposition, Deduplizierung, Buckets, letzte Limits)."""
+"""Persistent collector state (read positions, deduplication, buckets, last limits)."""
 
 import json
 import logging
@@ -40,7 +40,7 @@ def _limits_ok(rec) -> bool:
 
 
 def _shape_ok(data: dict) -> bool:
-    """Prüft nur die Form (nicht den Inhalt), die prune_state und run voraussetzen."""
+    """Check only the shape (not the content) that prune_state and run rely on."""
     claude, codex = data["claude"], data["codex"]
     for section, dicts in ((claude, ("files", "seen", "buckets", "hourly")), (codex, ("files", "sessions", "buckets"))):
         if not all(isinstance(section[k], dict) for k in dicts):
@@ -79,16 +79,16 @@ def load_state(path: Path) -> dict:
     except FileNotFoundError:
         return new_state()
     except (OSError, ValueError) as e:
-        log.warning("Zustand unlesbar (%s), lese alles neu ein", type(e).__name__)
+        log.warning("state unreadable (%s), re-reading everything", type(e).__name__)
         return new_state()
     if not isinstance(data, dict) or data.get("version") != STATE_VERSION:
-        log.warning("Zustand hat unbekanntes Format, lese alles neu ein")
+        log.warning("state has unknown format, re-reading everything")
         return new_state()
     fresh = new_state()
     claude = data.get("claude")
     if isinstance(claude, dict) and "hourly" not in claude:
-        # Stand vor der Aufschlüsselung nach Projekt/Modell: stündliche Zählung einmal nachladen –
-        # nur, wenn schon Dateien gelesen wurden (sonst liest der nächste Lauf ohnehin alles neu ein)
+        # State from before the project/model breakdown: backfill the hourly counts once –
+        # only if files have already been read (otherwise the next run re-reads everything anyway)
         claude["hourly"], claude["hourly_backfill"] = {}, bool(claude.get("files"))
     for provider in ("claude", "codex"):
         section = data.get(provider)
@@ -99,7 +99,7 @@ def load_state(path: Path) -> dict:
     data.setdefault("notified", {})
     data.setdefault("history", {})
     if not _shape_ok(data):
-        log.warning("Zustand hat unerwartete Form, lese alles neu ein")
+        log.warning("state has unexpected shape, re-reading everything")
         return fresh
     return data
 

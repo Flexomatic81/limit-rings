@@ -1,113 +1,113 @@
 # Agent-Stats Plasmoid — Design
 
-Stand: 2026-10-03 · Status: zur Prüfung
+As of: 2026-10-03 · Status: under review
 
-## Ziel
+## Goal
 
-Ein KDE-Plasma-6-Widget (Plasmoid), das Nutzungslimits und Token-Statistiken von **Claude Code**
-und **Codex** nebeneinander zeigt — damit man ein Limit kommen sieht, bevor man hineinläuft.
+A KDE Plasma 6 widget (plasmoid) that shows usage limits and token statistics of **Claude Code**
+and **Codex** side by side — so you can see a limit coming before you run into it.
 
-**Erfolgskriterien**
+**Success criteria**
 
-- Die Leiste zeigt jederzeit den Auslastungsgrad des am stärksten belegten Limits je Anbieter.
-- Die volle Ansicht zeigt je Anbieter: alle Limits mit Countdown bis zum Reset, Tokens
-  heute/Woche/Monat und einen 30-Tage-Verlauf.
-- Die Token-Zahlen von heute stimmen mit einer unabhängigen Zählung über die Rohlogs überein.
-- Fällt eine Datenquelle aus, bleiben die übrigen Anzeigen korrekt; das Alter jedes Werts ist
-  sichtbar.
+- The panel always shows the utilisation of the most heavily used limit per provider.
+- The full view shows per provider: all limits with a countdown to the reset, tokens for
+  today/week/month and a 30-day history.
+- Today's token counts match an independent count over the raw logs.
+- If one data source fails, the remaining displays stay correct; the age of every value is
+  visible.
 
-**Ausdrücklich nicht in Version 1** (später möglich): Kostenschätzung in $, Aufschlüsselung nach
-Projekt/Modell, aktive Sitzungen.
+**Explicitly not in version 1** (possible later): cost estimate in $, breakdown by
+project/model, active sessions.
 
-## Umgebung
+## Environment
 
 - KDE Plasma 6, `kpackagetool6`, Python ≥ 3.10.
-- Claude-Code-Transkripte: `~/.claude/projects/**/*.jsonl` (inkl. `*/subagents/*.jsonl`), oft
-  mehrere hundert MB.
-- Codex-Sitzungslogs: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`.
-- Claude-Code-Statuszeile: ein eigenes Statuszeilen-Skript (bei `install.sh` unter
-  `~/.claude/statusline-command.sh` erwartet) erhält über stdin u. a.
-  `.rate_limits.five_hour.{used_percentage,resets_at}`.
+- Claude Code transcripts: `~/.claude/projects/**/*.jsonl` (incl. `*/subagents/*.jsonl`), often
+  several hundred MB.
+- Codex session logs: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`.
+- Claude Code status line: a custom status line script (expected by `install.sh` at
+  `~/.claude/statusline-command.sh`) receives, among other things,
+  `.rate_limits.five_hour.{used_percentage,resets_at}` via stdin.
 
-## Architektur
+## Architecture
 
 ```
 ~/.claude/projects/**/*.jsonl ─┐
-~/.codex/sessions/**/*.jsonl  ─┼─► agent-stats-collect (Python, systemd-User-Timer, 60 s)
-Anthropic OAuth-Usage-API     ─┤        │  inkrementell: Byte-Offset pro Datei in state.json
-Statuszeilen-Cache (Rückfall) ─┘        ▼
-                              ~/.cache/agent-stats/stats.json  (atomar: tmp + rename)
+~/.codex/sessions/**/*.jsonl  ─┼─► agent-stats-collect (Python, systemd user timer, 60 s)
+Anthropic OAuth usage API     ─┤        │  incremental: byte offset per file in state.json
+Status line cache (fallback)  ─┘        ▼
+                              ~/.cache/agent-stats/stats.json  (atomic: tmp + rename)
                                         │
                                         ▼
-                         Plasmoid (QML) liest alle 30 s → Leiste + Desktop/Popup
+                         Plasmoid (QML) reads every 30 s → panel + desktop/popup
 ```
 
-Entscheidungen:
+Decisions:
 
-- **Collector getrennt vom Widget** (systemd-User-Timer statt Ausführung aus dem Plasmoid):
-  unabhängig testbar, kein doppeltes Rechnen bei zwei Widget-Instanzen, Fehler im Collector
-  betreffen `plasmashell` nicht.
-- **Claude-Limits aus zwei Quellen:** OAuth-Usage-Endpunkt als Hauptquelle (deckt jede Nutzung
-  ab, auch claude.ai/Desktop-App), Statuszeilen-Cache als Rückfall.
-- **Nur Python-Standardbibliothek** — kein venv, keine Abhängigkeiten.
+- **Collector separate from the widget** (systemd user timer instead of running from the plasmoid):
+  independently testable, no duplicate computation with two widget instances, errors in the
+  collector do not affect `plasmashell`.
+- **Claude limits from two sources:** OAuth usage endpoint as the primary source (covers all
+  usage, including claude.ai/desktop app), status line cache as the fallback.
+- **Python standard library only** — no venv, no dependencies.
 
-## Komponenten
+## Components
 
-| Einheit | Aufgabe | Abhängigkeiten |
+| Unit | Responsibility | Dependencies |
 |---|---|---|
-| `sources/claude_logs.py` | Liest neue Zeilen der Claude-Transkripte; liefert Token-Ereignisse (Zeitstempel, Input, Output, Cache-Lesen, Cache-Schreiben). Verbucht je `(message.id, requestId)` nur Zuwächse. | `state` |
-| `sources/codex_logs.py` | Liest `event_msg`/`token_count`-Ereignisse; liefert Token-Ereignisse aus `last_token_usage` und das jüngste `rate_limits`-Objekt samt Zeitstempel. | `state` |
-| `sources/codex_limits.py` | Fragt den Codex-Nutzungsendpunkt (`chatgpt.com/backend-api/wham/usage`) mit der ChatGPT-Anmeldung aus `~/.codex/auth.json` ab (ohne Weiterleitungen, höchstens alle 5 min). Nötig, weil Codex über das Claude-Code-Plugin flüchtige Sitzungen ohne Sitzungslog nutzt. Bei Fehler bleibt der letzte Stand (auch aus dem Sitzungslog). | HTTP (urllib), Dateisystem |
-| `sources/claude_limits.py` | Fragt den OAuth-Usage-Endpunkt ab (ohne Weiterleitungen); bei Fehler Statuszeilen-Cache. Liefert Limits + Quelle + Zeitpunkt. | HTTP (urllib), Dateisystem |
-| `aggregate.py` | Reine Funktionen: Tages-Buckets → Summen heute/Woche/Monat, lückenlose 30-Tage-Reihe. | keine |
-| `state.py` | Offset und Inode je Datei, gesehene Nachrichten-IDs, Tages-Buckets je Anbieter, Zeitpunkt der letzten OAuth-Abfrage. | Dateisystem |
-| `collect.py` | Orchestriert einen Durchlauf, schreibt `stats.json` atomar. CLI-Einstieg `agent-stats-collect`. | alle obigen |
-| Plasmoid `io.github.flexomatic81.agentstats` | Nur Darstellung, keine Berechnung. | `stats.json` |
-| Statuszeilen-Ergänzung | Eine Zeile in `statusline-command.sh`: schreibt `.rate_limits` nach `~/.cache/agent-stats/claude-statusline-limits.json`. | — |
+| `sources/claude_logs.py` | Reads new lines of the Claude transcripts; yields token events (timestamp, input, output, cache read, cache write). Books only increments per `(message.id, requestId)`. | `state` |
+| `sources/codex_logs.py` | Reads `event_msg`/`token_count` events; yields token events from `last_token_usage` and the most recent `rate_limits` object with its timestamp. | `state` |
+| `sources/codex_limits.py` | Queries the Codex usage endpoint (`chatgpt.com/backend-api/wham/usage`) with the ChatGPT login from `~/.codex/auth.json` (no redirects, at most every 5 min). Needed because Codex via the Claude Code plugin uses ephemeral sessions without a session log. On error, the last state (including from the session log) is kept. | HTTP (urllib), file system |
+| `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
+| `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
+| `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
+| `collect.py` | Orchestrates a run, writes `stats.json` atomically. CLI entry point `agent-stats-collect`. | all of the above |
+| Plasmoid `io.github.flexomatic81.agentstats` | Presentation only, no computation. | `stats.json` |
+| Status line addition | One line in `statusline-command.sh`: writes `.rate_limits` to `~/.cache/agent-stats/claude-statusline-limits.json`. | — |
 
-### Token-Ereignisse
+### Token events
 
-**Claude:** Jede Zeile mit `message.usage` ist ein Kandidat. Eine API-Antwort erscheint mehrfach
-(je Inhaltsblock eine Zeile), und die Werte sind dabei Streaming-Zwischenstände: `output_tokens`
-wächst von Zeile zu Zeile (bei rund 15 % der Antworten; „erstes Vorkommen zählt“ unterschätzt die
-Output-Tokens um mehr als das Hundertfache). Je
-`(message.id, requestId)` wird deshalb der bereits verbuchte Stand gemerkt; jede weitere Zeile
-verbucht feldweise nur den Zuwachs `max(0, neu − gemerkt)`, am Datum der ersten Zeile — auch wenn
-die spätere Zeile erst in einem späteren Collector-Lauf gelesen wird. Felder: `input_tokens`, `output_tokens`,
-`cache_read_input_tokens`, `cache_creation_input_tokens`. Zeitstempel aus `timestamp` (UTC).
+**Claude:** Every line with `message.usage` is a candidate. An API response appears several times
+(one line per content block), and the values are intermediate streaming states: `output_tokens`
+grows from line to line (in about 15 % of responses; "first occurrence counts" underestimates the
+output tokens by more than a hundredfold). Therefore, the amount already booked is remembered per
+`(message.id, requestId)`; each further line books, field by field, only the increment
+`max(0, new − remembered)`, on the date of the first line — even if the later line is only read
+in a later collector run. Fields: `input_tokens`, `output_tokens`,
+`cache_read_input_tokens`, `cache_creation_input_tokens`. Timestamp from `timestamp` (UTC).
 
-**Codex:** `token_count`-Ereignisse mit `info.last_token_usage` liefern den Verbrauch je Aufruf
-(`input_tokens` abzüglich `cached_input_tokens` → Input, `cached_input_tokens` → Cache-Lesen,
-`output_tokens` → Output, `cache_write_input_tokens` → Cache-Schreiben). Ereignisse ohne `info`
-tragen nur Limits und zählen nicht als Verbrauch. Zur Absicherung gegen Doppelzählung wird je
-**Sitzungs-ID** (`session_meta.payload.id`, ersatzweise Dateipfad) die höchste
-`info.total_token_usage.total_tokens` mitgeführt; ein Ereignis, dessen Summe diese nicht
-übersteigt, wird verworfen. Die Sitzungsstände überdauern das Verschwinden der Datei (400 Tage),
-sodass verschobene oder kopierte Sitzungsdateien nicht doppelt zählen.
+**Codex:** `token_count` events with `info.last_token_usage` provide the consumption per call
+(`input_tokens` minus `cached_input_tokens` → input, `cached_input_tokens` → cache read,
+`output_tokens` → output, `cache_write_input_tokens` → cache write). Events without `info`
+only carry limits and do not count as consumption. As a safeguard against double counting, the
+highest `info.total_token_usage.total_tokens` is tracked per **session ID**
+(`session_meta.payload.id`, falling back to the file path); an event whose total does not exceed
+it is discarded. The session states outlive the disappearance of the file (400 days), so that
+moved or copied session files are not counted twice.
 
-### Zustand und Inkrementalität
+### State and incrementality
 
-- `~/.cache/agent-stats/state.json` hält je Datei `{offset, inode}`, die Tages-Buckets je
-  Anbieter (lokales Datum → Token-Summen), die verbuchten Usage-Stände je Claude-Antwort der
-  letzten 35 Tage (ältere werden verworfen; Dateien dieses Alters werden nicht mehr beschrieben)
-  und die Codex-Sitzungsstände.
-- Gelesen wird nur bis zum letzten `\n`; eine unvollständige letzte Zeile wartet auf den
-  nächsten Durchlauf.
-- Datei kleiner als Offset oder andere Inode → von vorn lesen; Deduplizierung verhindert
-  Doppelzählung.
-- Tages-Buckets älter als 400 Tage werden verworfen (Monatssumme und 30-Tage-Reihe brauchen weniger).
-- `state.json` fehlt oder ist unlesbar → vollständiges Neueinlesen (einmalig, Sekundenbereich).
+- `~/.cache/agent-stats/state.json` holds `{offset, inode}` per file, the daily buckets per
+  provider (local date → token totals), the booked usage states per Claude response for the
+  last 35 days (older ones are discarded; files of that age are no longer written to)
+  and the Codex session states.
+- Reading only goes up to the last `\n`; an incomplete last line waits for the
+  next run.
+- File smaller than the offset or a different inode → read from the start; deduplication prevents
+  double counting.
+- Daily buckets older than 400 days are discarded (the monthly total and the 30-day series need less).
+- `state.json` missing or unreadable → full re-read (once, takes seconds).
 
-### Zeitrechnung
+### Time handling
 
-Lokale Zeitzone des Systems (Europe/Berlin). „Heute“ = lokales Kalenderdatum, „Woche“ = ab
-Montag 00:00 lokal, „Monat“ = ab dem 1. des Monats 00:00 lokal. Zeitstempel werden vor dem
-Einsortieren in lokale Zeit umgerechnet; Sommer-/Winterzeitwechsel werden dadurch korrekt
-behandelt.
+Local system time zone (Europe/Berlin). "Today" = local calendar date, "week" = from
+Monday 00:00 local, "month" = from the 1st of the month 00:00 local. Timestamps are converted to
+local time before being sorted into buckets; daylight saving time changes are therefore handled
+correctly.
 
-## Schnittstelle `stats.json`
+## Interface `stats.json`
 
-Einzige Schnittstelle zwischen Collector und Widget. Modus `0600`, atomar geschrieben.
+The only interface between collector and widget. Mode `0600`, written atomically.
 
 ```json
 {
@@ -118,7 +118,7 @@ Einzige Schnittstelle zwischen Collector und Widget. Modus `0600`, atomar geschr
       "limits": [
         {"id": "five_hour", "label": "5 h", "used_percent": 42.0,
          "resets_at": 1791300000, "window_minutes": 300},
-        {"id": "seven_day", "label": "Woche", "used_percent": 18.0,
+        {"id": "seven_day", "label": "Week", "used_percent": 18.0,
          "resets_at": 1791800000, "window_minutes": 10080}
       ],
       "limits_source": "oauth",
@@ -135,7 +135,7 @@ Einzige Schnittstelle zwischen Collector und Widget. Modus `0600`, atomar geschr
     },
     "codex": {
       "limits": [
-        {"id": "primary", "label": "Woche", "used_percent": 8.0,
+        {"id": "primary", "label": "Week", "used_percent": 8.0,
          "resets_at": 1791280728, "window_minutes": 10080}
       ],
       "limits_source": "session_log",
@@ -149,167 +149,168 @@ Einzige Schnittstelle zwischen Collector und Widget. Modus `0600`, atomar geschr
 }
 ```
 
-Regeln:
+Rules:
 
-- `limits` ist eine Liste beliebiger Länge (Codex hat je nach Plan nur `primary`, Claude zwei
-  Fenster). Leere Liste = keine Limit-Daten vorhanden.
-- `label` wird aus `window_minutes` abgeleitet: 300 → „5 h“, 10080 → „Woche“, sonst „N h“/„N d“.
-- Modellbezogene Wochenlimits aus der `limits`-Liste der OAuth-Antwort (`kind: "weekly_scoped"`)
-  erscheinen als eigener Eintrag „Woche <Modell>“ (id `weekly_scoped:<modell>`); fehlerhafte
-  Einträge entfallen, schon vorhandene Bezeichnungen werden nicht doppelt aufgeführt.
+- `limits` is a list of arbitrary length (depending on the plan, Codex only has `primary`, Claude
+  two windows). Empty list = no limit data available.
+- `label` is derived from `window_minutes`: 300 → "5 h", 10080 → "Week", otherwise "N h"/"N d".
+- Model-specific weekly limits from the `limits` list of the OAuth response (`kind: "weekly_scoped"`)
+  appear as a separate entry "Week <Model>" (id `weekly_scoped:<model>`); malformed
+  entries are dropped, labels that already exist are not listed twice.
 - `limits_source`: `"oauth"` | `"statusline"` | `"session_log"` | `null`.
-  Codex: `"oauth"` (Nutzungsendpunkt) oder `"session_log"`; Codex-Token-Statistiken zählen nur
-  Terminal-Sitzungen, weil das Plugin keine Token-Zahlen speichert.
+  Codex: `"oauth"` (usage endpoint) or `"session_log"`; Codex token statistics only count
+  terminal sessions, because the plugin does not store token counts.
 - `total` = `input + output + cache_read + cache_write`.
-- `daily` hat genau 30 Einträge, ältester zuerst, fehlende Tage mit `total: 0`.
-- Limits mit 5-h-Fenster (`window_minutes` 300) und Wochenfenster (10080) können ein Feld
-  `forecast` tragen: `{"status": "full", "eta": <Epoch>}` (bei aktuellem Tempo vor dem Reset voll)
-  oder `{"status": "enough"}`; fehlt es, gibt es (noch) keine Prognose. Grundlage ist der Verlauf in
+- `daily` has exactly 30 entries, oldest first, missing days with `total: 0`.
+- Limits with a 5-hour window (`window_minutes` 300) and a weekly window (10080) can carry a
+  `forecast` field: `{"status": "full", "eta": <epoch>}` (full before the reset at the current pace)
+  or `{"status": "enough"}`; if it is missing, there is no forecast (yet). It is based on the history in
   `state.json` (`history`):
 
-  | | 5 h | Woche |
+  | | 5 h | Week |
   |---|---|---|
-  | Tempo aus dem Anstieg der letzten | 30 min | 24 h |
-  | Prognose ab Messabstand | 10 min | 2 h |
-  | jüngster Punkt höchstens | 30 min alt | 6 h alt |
-  | Punkte aufbewahrt / Mindestabstand | 60 min / – | 24 h / 10 min |
+  | Pace from the increase over the last | 30 min | 24 h |
+  | Forecast from a measurement span of | 10 min | 2 h |
+  | Most recent point at most | 30 min old | 6 h old |
+  | Points kept / minimum spacing | 60 min / – | 24 h / 10 min |
 
-  Karte: Zeile unter dem Balken („Bei aktuellem Tempo voll in ~1 h 20 min (13:40)“, ab einem Tag
-  Abstand mit Wochentag „(Sa 14:00)“, bzw. „Reicht bei aktuellem Tempo bis zum Reset“); Tooltip: Kurzform.
-- `breakdown` gibt es nur bei Claude: Token-Summen seit Beginn des Claude-Wochenfensters (Reset des
-  Wochenlimits − 7 Tage; ohne bekanntes Wochenlimit die letzten 7 Tage, `basis: "7d"`), je für
-  `projects` und `models` die vier größten Einträge plus „Andere“. Projekt = Git-Repository des
-  Arbeitsverzeichnisses (Worktree → Haupt-Repository), sonst Verzeichnisname; Modell als lesbarer Name
-  („Opus 5.5“). Gezählt wird stündlich (`hourly` in `state.json`, 8 Tage). Die Werte stammen nur aus den
-  Transkripten **dieses** Rechners und sind Token-Anteile, nicht der (nicht offengelegte) Limit-Verbrauch
-  je Modell. Bestehende Zustände ohne `hourly` laden die stündliche Zählung einmal nach.
-- `auth` gibt es nur bei Claude: Zustand des Anmelde-Tokens in `~/.claude/.credentials.json`
-  (`"ok"` | `"expired"` | `"missing"`) und Ablaufzeit. Den Token schreibt und erneuert nur Claude Code
-  im Terminal (ca. 8 h gültig). Ist der Zustand nicht `ok`, zeigen Karte und Tooltip
-  „Anmeldung abgelaufen – claude im Terminal starten“ bzw. „Keine Anmeldung gefunden – …“.
-- `error` ist `null` oder eine kurze, nutzerlesbare Meldung; die übrigen Felder tragen dann die
-  letzten guten Werte.
-- Das Widget ignoriert `stats.json` mit unbekannter `schema`-Version und zeigt einen Hinweis.
+  Card: line below the bar ("Full in ~1 h 20 min at current pace (13:40)", with the weekday
+  "(Sat 14:00)" once a day or more away, or "Lasts until reset at current pace"); tooltip: short form.
+- `breakdown` exists only for Claude: token totals since the start of the Claude weekly window
+  (weekly limit reset − 7 days; without a known weekly limit the last 7 days, `basis: "7d"`), for
+  both `projects` and `models` the four largest entries plus "Other". Project = Git repository of the
+  working directory (worktree → main repository), otherwise the directory name; model as a readable
+  name ("Opus 5.5"). Counted hourly (`hourly` in `state.json`, 8 days). The values come only from the
+  transcripts of **this** machine and are token shares, not the (undisclosed) limit consumption
+  per model. Existing states without `hourly` backfill the hourly count once.
+- `auth` exists only for Claude: state of the login token in `~/.claude/.credentials.json`
+  (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by
+  Claude Code in the terminal (valid for about 8 h). If the state is not `ok`, card and tooltip show
+  "Login expired – run claude in a terminal" or "No login found – …".
+- `error` is `null` or a short, user-readable message; the other fields then carry the
+  last good values.
+- The widget ignores a `stats.json` with an unknown `schema` version and shows a notice.
 
-## Darstellung
+## Presentation
 
-### Leiste (kompakt)
+### Panel (compact)
 
-- Je aktiviertem Anbieter ein Ring mit Kürzel „C“ / „X“: **außen** das höchste Wochenlimit,
-  **innen** (dünner) das 5-h-Limit, jeder Ring mit eigener Schwellenfarbe; ohne 5-h-Fenster nur der
-  äußere Ring, ohne beide Fensterarten der höchste Wert. Darstellung „Zahl“: der höchste Wert.
-- Farbe nach Schwellen (Standard): unter 70 % neutral, ab 70 % Warnung, ab 90 % kritisch —
-  Plasma-Theme-Farben (`Kirigami.Theme.neutralTextColor` / `negativeTextColor`).
-- Tooltip: alle Limits mit Countdown, z. B. „5 h: 42 % · Reset in 2 h 13 min“.
-- Klick öffnet die volle Ansicht als Popup.
+- For each enabled provider, a ring with the abbreviation "C" / "X": **outer** the highest weekly
+  limit, **inner** (thinner) the 5-hour limit, each ring with its own threshold colour; without a
+  5-hour window only the outer ring, without either kind of window the highest value. "Number"
+  display: the highest value.
+- Colour by threshold (default): below 70 % neutral, from 70 % warning, from 90 % critical —
+  Plasma theme colours (`Kirigami.Theme.neutralTextColor` / `negativeTextColor`).
+- Tooltip: all limits with countdown, e.g. "5 h: 42 % · Reset in 2 h 13 min".
+- Clicking opens the full view as a popup.
 
-### Desktop / Popup (voll)
+### Desktop / popup (full)
 
 ```
-┌─ Claude ── pro ─────────────┐ ┌─ Codex ── plus ─────────────┐
-│ 5 h   ██████░░░░ 42%  2h13m │ │ Woche █░░░░░░░░░  8%  6d 4h │
-│ Woche ██░░░░░░░░ 18%  4d 2h │ │                             │
-│ Heute   1,2 M  Woche 8,4 M  │ │ Heute  15 k   Woche 210 k   │
-│ Monat  31,0 M               │ │ Monat 890 k                 │
-│ ▁▂▅▃▁▇█▄▂▁▃▅ … (30 Tage)    │ │ ▁▁▂▁▁▃▁▁▁▂▁▁ … (30 Tage)    │
-│ Stand vor 30 s · OAuth      │ │ Stand vor 3 d · Sitzungslog │
-└─────────────────────────────┘ └─────────────────────────────┘
+┌─ Claude ── pro ────────────────┐ ┌─ Codex ── plus ────────────────┐
+│ 5 h  ██████░░░░ 42%  2h13m     │ │ Week █░░░░░░░░░  8%  6d 4h     │
+│ Week ██░░░░░░░░ 18%  4d 2h     │ │                                │
+│ Today  1.2 M   Week 8.4 M      │ │ Today  15 k    Week 210 k      │
+│ Month 31.0 M                   │ │ Month 890 k                    │
+│ ▁▂▅▃▁▇█▄▂▁▃▅ … (30 days)       │ │ ▁▁▂▁▁▃▁▁▁▂▁▁ … (30 days)       │
+│ Updated 30 s ago · OAuth       │ │ Updated 3 d ago · Session log  │
+└────────────────────────────────┘ └────────────────────────────────┘
 ```
 
-- Zwei Karten nebeneinander, sobald zwei Karten in ihrer Mindestbreite (meist die Zeile
-  Heute/Woche/Monat) samt Abstand hineinpassen; sonst untereinander.
-- Limit-Daten älter als 6 h: Balken blass, Fußzeile in Warnfarbe mit „· veraltet“, Ring in der
-  Leiste blass, Tooltip mit „(veraltet)“.
-- Token-Zahlen kompakt (k/M, deutsches Dezimalkomma); Tooltip mit Aufteilung
-  Input/Output/Cache-Lesen/Cache-Schreiben.
-- Balkendiagramm: Gesamttokens pro Tag, Tooltip mit Datum und Wert.
-- Fußzeile: Alter der Limit-Daten und Quelle.
-- `resets_at` in der Vergangenheit → Limit als „zurückgesetzt · 0 %“ anzeigen, bis neue Daten
-  eintreffen.
-- `error` gesetzt → dezenter Hinweis in der Karte, übrige Werte bleiben sichtbar.
-- `stats.json` fehlt oder älter als 5 Minuten → Hinweis „Collector läuft nicht“ mit dem Befehl
+- Two cards side by side as soon as two cards at their minimum width (usually the
+  Today/Week/Month row) plus spacing fit; otherwise stacked.
+- Limit data older than 6 h: bar faded, footer in warning colour with "· stale", ring in the
+  panel faded, tooltip with "(stale)".
+- Token counts compact (k/M, decimal point); tooltip with the split
+  input/output/cache read/cache write.
+- Bar chart: total tokens per day, tooltip with date and value.
+- Footer: age of the limit data and source.
+- `resets_at` in the past → show the limit as "reset · 0 %" until new data
+  arrives.
+- `error` set → subtle notice in the card, other values remain visible.
+- `stats.json` missing or older than 5 minutes → notice "Collector not running" with the command
   `systemctl --user status agent-stats.timer`.
 
-### Einstellungen
+### Settings
 
-- Schwellen Warnung/kritisch (Standard 70/90).
-- Angezeigte Anbieter (Claude, Codex; beide standardmäßig an).
-- Leistendarstellung: Ring oder Zahl.
+- Warning/critical thresholds (default 70/90).
+- Displayed providers (Claude, Codex; both on by default).
+- Panel display: ring or number.
 
-## Benachrichtigungen
+## Notifications
 
-Der Collector (nicht das Widget) zeigt per `notify-send` eine Desktop-Benachrichtigung, sobald ein
-Limit von Claude oder Codex **80 %** bzw. **95 %** erreicht — je Limit und Stufe einmal pro Zeitfenster.
-Ein neues Fenster (anderer `resets_at`) oder ein Rückfall unter 80 % macht die Benachrichtigung wieder
-scharf; ein Fenster mit vergangenem Reset zählt als 0 %. Springt ein Limit direkt über 95 %, kommt nur
-die 95-%-Meldung; sie ist als dringend markiert. Zusätzlich gibt es beim **5-h-Limit** eine Frühwarnung, wenn die Prognose es in höchstens
-30 Minuten voll sieht und 80 % noch nicht erreicht sind („Claude: 5-h-Limit in ~25 min voll“,
-„Jetzt 62 % · Reset in …“) — ebenfalls einmal pro Fenster, normale Dringlichkeit; Wochenlimits
-bekommen keine Frühwarnung. Bereits Verschicktes steht in `state.json` unter
-`notified`. Die Schwellen sind fest und unabhängig von den Farbschwellen des Widgets. Fehlt
-`notify-send` oder schlägt der Aufruf fehl, wird das geloggt; der Durchlauf läuft normal weiter.
+The collector (not the widget) shows a desktop notification via `notify-send` as soon as a
+Claude or Codex limit reaches **80 %** or **95 %** — once per limit and level per window.
+A new window (different `resets_at`) or a drop below 80 % re-arms the notification; a window whose
+reset has passed counts as 0 %. If a limit jumps straight past 95 %, only the 95 % notification is
+sent; it is marked as urgent. In addition, the **5-hour limit** gets an early warning when the forecast
+sees it full within 30 minutes and 80 % has not yet been reached ("Claude: 5-hour limit full in ~25 min",
+"Now 62 % · Reset in …") — likewise once per window, normal urgency; weekly limits
+get no early warning. Notifications already sent are recorded in `state.json` under
+`notified`. The thresholds are fixed and independent of the widget's colour thresholds. If
+`notify-send` is missing or the call fails, this is logged; the run continues normally.
 
-## Fehlerbehandlung
+## Error handling
 
-- Ungültige JSON-Zeilen werden übersprungen und gezählt (Log auf Debug-Niveau), kein Fehler.
-- Jeder Anbieter wird in einem eigenen `try` verarbeitet; ein Fehler setzt nur dessen `error`.
-- **OAuth-Endpunkt:** höchstens alle 5 Minuten abgefragt (Zeitpunkt in `state.json`), Timeout
-  10 s. Bei 401/403, Weiterleitung, Timeout, Netzfehler oder unerwarteter Antwortform (auch:
-  kein einziges verwertbares Fenster) → Statuszeilen-Cache bzw. letzte gute Werte, je nachdem,
-  was jünger ist. Solange der letzte OAuth-Versuch erfolgreich war, bleiben dessen Daten
-  während der 5-Minuten-Drosselung stehen — eine neuere Statuszeile verdrängt sie nicht. Unerwartete
-  Antwortformen werden mit Feldnamen (nie mit Werten aus der Anfrage) ins Journal geloggt.
-- Collector-Ausgaben gehen ins Journal: `journalctl --user -u agent-stats`.
+- Invalid JSON lines are skipped and counted (logged at debug level), not an error.
+- Each provider is processed in its own `try`; an error only sets that provider's `error`.
+- **OAuth endpoint:** queried at most every 5 minutes (timestamp in `state.json`), timeout
+  10 s. On 401/403, redirect, timeout, network error or unexpected response shape (also:
+  not a single usable window) → status line cache or last good values, whichever
+  is newer. As long as the last OAuth attempt succeeded, its data stays in place
+  during the 5-minute throttle — a newer status line does not displace it. Unexpected
+  response shapes are logged to the journal with field names (never with values from the request).
+- Collector output goes to the journal: `journalctl --user -u agent-stats`.
 
-## Sicherheit
+## Security
 
-- `~/.claude/.credentials.json` wird nur gelesen. Der Collector erneuert **keine** Tokens und
-  schreibt nie in diese Datei; ein abgelaufener Token führt zum Rückfall, bis Claude Code ihn
-  selbst erneuert.
-- Der Token wird ausschließlich an `api.anthropic.com` gesendet — nie in `stats.json`,
-  `state.json`, Log oder Fehlermeldungen. Weiterleitungen werden abgelehnt, weil `urllib` den
-  `Authorization`-Header sonst an das Weiterleitungsziel mitschickt.
-- `stats.json`, `state.json` und der Statuszeilen-Cache werden mit Modus `0600` angelegt,
-  `~/.cache/agent-stats/` mit `0700`.
+- `~/.claude/.credentials.json` is only read. The collector does **not** refresh any tokens and
+  never writes to this file; an expired token leads to the fallback until Claude Code refreshes
+  it itself.
+- The token is sent exclusively to `api.anthropic.com` — never into `stats.json`,
+  `state.json`, logs or error messages. Redirects are rejected because `urllib` would otherwise
+  send the `Authorization` header along to the redirect target.
+- `stats.json`, `state.json` and the status line cache are created with mode `0600`,
+  `~/.cache/agent-stats/` with `0700`.
 
 ## Installation
 
-`install.sh` (idempotent) und `uninstall.sh`:
+`install.sh` (idempotent) and `uninstall.sh`:
 
-1. Collector nach `~/.local/share/agent-stats/`, Startskript `~/.local/bin/agent-stats-collect`.
-2. `systemd/agent-stats.service` (oneshot) und `agent-stats.timer` (`OnBootSec=30s`,
-   `OnUnitActiveSec=60s`) nach `~/.config/systemd/user/`, `daemon-reload`, Timer aktivieren,
-   ersten Durchlauf sofort starten.
-3. Plasmoid per `kpackagetool6 -t Plasma/Applet --install` bzw. `--upgrade`.
-4. Statuszeile: Das Skript zeigt die einzufügende Zeile an und fügt sie nur nach ausdrücklicher
-  Rückfrage ein — vorher Sicherungskopie `statusline-command.sh.bak-agent-stats`. Die Zeile
-  schreibt je Aufruf in eine eigene `mktemp`-Datei und benennt danach um, damit parallele
-  Claude-Sitzungen keine halben Dateien erzeugen.
+1. Collector to `~/.local/share/agent-stats/`, launcher script `~/.local/bin/agent-stats-collect`.
+2. `systemd/agent-stats.service` (oneshot) and `agent-stats.timer` (`OnBootSec=30s`,
+   `OnUnitActiveSec=60s`) to `~/.config/systemd/user/`, `daemon-reload`, enable the timer,
+   start the first run immediately.
+3. Plasmoid via `kpackagetool6 -t Plasma/Applet --install` or `--upgrade`.
+4. Status line: the script shows the line to be inserted and only inserts it after explicit
+  confirmation — with a backup copy `statusline-command.sh.bak-agent-stats` first. The line
+  writes to its own `mktemp` file on each call and renames it afterwards, so that parallel
+  Claude sessions do not produce half-written files.
 
-`uninstall.sh` macht 1–3 rückgängig und weist auf die Statuszeilen-Zeile hin, entfernt
-`~/.cache/agent-stats/` nur nach Rückfrage.
+`uninstall.sh` reverts 1–3 and points out the status line addition; it removes
+`~/.cache/agent-stats/` only after confirmation.
 
 ## Tests
 
-**Collector (pytest)** mit anonymisierten JSONL-Fixtures im Format der echten Logs:
+**Collector (pytest)** with anonymised JSONL fixtures in the format of the real logs:
 
-- Deduplizierung der Claude-Mehrfachzeilen.
-- Unvollständige letzte Zeile wird nicht gelesen, im nächsten Durchlauf schon.
-- Gekürzte bzw. ersetzte Datei → Neueinlesen ohne Doppelzählung.
-- Grenzen Tag/Woche/Monat, inkl. Zeitumstellung (2026-10-25).
-- Codex-Limits mit `secondary: null`; Codex-Ereignisse ohne `info`.
-- OAuth-Erfolg, 401, Timeout und unerwartete Antwort (HTTP gemockt) → richtige Quelle.
-- Fehler eines Anbieters lässt den anderen unberührt.
-- `stats.json` erfüllt die Regeln aus dem Abschnitt „Schnittstelle“ (30 Tage, `total`-Summe).
+- Deduplication of the repeated Claude lines.
+- An incomplete last line is not read, but is in the next run.
+- Truncated or replaced file → re-read without double counting.
+- Day/week/month boundaries, incl. DST change (2026-10-25).
+- Codex limits with `secondary: null`; Codex events without `info`.
+- OAuth success, 401, timeout and unexpected response (HTTP mocked) → correct source.
+- An error in one provider leaves the other untouched.
+- `stats.json` satisfies the rules from the section "Interface" (30 days, `total` sum).
 
-**Widget:** Formatierungsfunktionen (k/M, Countdown, Schwellenfarbe, „zurückgesetzt“) als reine
-Funktionen in `contents/code/format.js`, getestet mit `qmltestrunner`. Darstellung manuell mit
-`plasmoidviewer` als Leiste und als Desktop-Widget.
+**Widget:** formatting functions (k/M, countdown, threshold colour, "reset") as pure
+functions in `contents/code/format.js`, tested with `qmltestrunner`. Presentation checked manually with
+`plasmoidviewer` as a panel and as a desktop widget.
 
-**Abnahme:** Durchlauf gegen die echten Logs; Tokens von heute für Claude und Codex mit einer
-unabhängigen `jq`-Zählung abgleichen.
+**Acceptance:** run against the real logs; compare today's tokens for Claude and Codex with an
+independent `jq` count.
 
-## Projektstruktur
+## Project structure
 
 ```
 agent-stats/
@@ -330,12 +331,12 @@ agent-stats/
   docs/design.md
 ```
 
-## Offene Risiken
+## Open risks
 
-- **OAuth-Usage-Endpunkt ist undokumentiert.** Antwortform und Verfügbarkeit können sich ändern.
-  Gegenmaßnahme: gekapselt in `claude_limits.py`, Rückfall auf Statuszeile, Log bei
-  unerwarteter Form. Die genaue Antwortform wird zu Beginn der Umsetzung mit einer echten
-  Abfrage festgestellt und als Fixture festgehalten.
-- **Statuszeilen-Rückfall greift nur bei CLI-Nutzung.** Ob die Desktop-App die Statuszeile
-  aufruft, ist ungeklärt; im Zweifel liefert der Rückfall seltener Daten.
-- **Codex-Limits veralten**, wenn Codex länger nicht genutzt wird — durch Altersanzeige sichtbar.
+- **The OAuth usage endpoint is undocumented.** Response shape and availability may change.
+  Mitigation: encapsulated in `claude_limits.py`, fallback to the status line, logging on
+  unexpected shape. The exact response shape is determined at the start of implementation with a
+  real query and recorded as a fixture.
+- **The status line fallback only works with CLI usage.** Whether the desktop app invokes the status
+  line is unclear; if in doubt, the fallback delivers data less often.
+- **Codex limits go stale** when Codex has not been used for a while — made visible by the age display.
