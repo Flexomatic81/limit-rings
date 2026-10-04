@@ -5,6 +5,36 @@ import "../io.github.flexomatic81.agentstats/contents/code/format.js" as F
 TestCase {
     name: "Format"
 
+    function cleanup() { F.init(null) }
+
+    function test_fallback_without_init() {
+        compare(F.i18n("Hello %1", "x"), "Hello x")
+        compare(F.i18nc("ctx", "Week"), "Week")
+        compare(F.i18np("%1 file", "%1 files", 1), "1 file")
+        compare(F.i18np("%1 file", "%1 files", 3), "3 files")
+    }
+
+    function test_throwing_translator_falls_back() {
+        F.init({i18n: () => { throw new Error("context gone") }, i18nc: () => { throw new Error("x") },
+                i18np: () => { throw new Error("x") }, locale: Qt.locale("en_US")})
+        compare(F.i18n("Hello %1", "x"), "Hello x")
+        compare(F.i18np("%1 file", "%1 files", 2), "2 files")
+        F.init({i18n: () => undefined, i18nc: () => undefined, i18np: () => undefined})
+        compare(F.i18nc("ctx", "Week"), "Week")
+    }
+
+    // Plasma shares format.js between widget instances: removing the instance whose callbacks were
+    // handed over must not blank the texts of the others.
+    function test_translator_of_destroyed_object_falls_back() {
+        const owner = Qt.createQmlObject(
+            'import QtQuick; Item { function tr(t) { return "x" + t } }', this)
+        F.init({i18n: t => owner.tr(t), i18nc: (c, t) => owner.tr(t), i18np: (s, p, n) => owner.tr(s)})
+        compare(F.i18n("Week"), "xWeek")
+        owner.destroy()
+        wait(0)
+        compare(F.i18n("Week"), "Week")
+    }
+
     function test_formatInt() {
         compare(F.formatInt(0), "0")
         compare(F.formatInt(999), "999")

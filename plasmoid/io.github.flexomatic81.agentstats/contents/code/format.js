@@ -1,20 +1,53 @@
 .pragma library
 
+// Translation: main.qml hands over KDE's i18n functions and the system locale via init();
+// without that (e.g. in tests) the English source texts and an English locale are used.
+function _subst(text, args) {
+    return text.replace(/%(\d)/g, (m, d) => args[d - 1] !== undefined ? String(args[d - 1]) : m)
+}
+
+const _fallback = {
+    i18n: (text, ...args) => _subst(text, args),
+    i18nc: (context, text, ...args) => _subst(text, args),
+    i18np: (singular, plural, n, ...args) => _subst(n === 1 ? singular : plural, [n].concat(args)),
+    locale: Qt.locale("en_US")
+}
+let _tr = _fallback
+
+function init(tr) {
+    _tr = tr ? Object.assign({}, _fallback, tr) : _fallback
+    return true
+}
+
+// The translator of a removed widget instance may throw or return nothing: fall back to English then.
+function _call(name, args) {
+    try {
+        const out = _tr[name].apply(null, args)
+        if (typeof out === "string") return out
+    } catch (e) {
+    }
+    return _fallback[name].apply(null, args)
+}
+
+function i18n(...args) { return _call("i18n", args) }
+function i18nc(...args) { return _call("i18nc", args) }
+function i18np(...args) { return _call("i18np", args) }
+
+const _SHORT_FORMAT = 1  // Locale.ShortFormat (QML enums are not visible in a .pragma library)
+
 function formatInt(n) {
-    const s = String(Math.round(Math.abs(n)))
-    const grouped = s.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-    return (n < 0 ? "-" : "") + grouped
+    return _tr.locale.toString(Math.round(n), "f", 0)
 }
 
 function _decimal(x) {
-    return x.toFixed(1)
+    return _tr.locale.toString(x, "f", 1)
 }
 
 function compactNumber(n) {
     if (n < 1000) return String(Math.round(n))
     if (n < 999500) return Math.round(n / 1000) + " k"
     if (n < 999950000) return _decimal(n / 1e6) + " M"
-    return _decimal(n / 1e9) + " B"
+    return _decimal(n / 1e9) + " " + i18nc("billion abbreviation", "B")
 }
 
 function isReset(limit, nowSec) {
@@ -96,12 +129,12 @@ function tokenBreakdown(t) {
         + "\nCache read: " + formatInt(t.cache_read) + "\nCache write: " + formatInt(t.cache_write)
 }
 
-const _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-// "Oct 4: 1,234 tokens"
 function dayTooltip(entry) {
     const p = entry.date.split("-")
-    return _MONTHS[Number(p[1]) - 1] + " " + Number(p[2]) + ": " + formatInt(entry.total) + " tokens"
+    const date = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
+    const format = i18nc("Qt date format for the daily chart tooltip (day and month)", "MMM d")
+    return i18nc("daily chart tooltip: %1 date, %2 token count", "%1: %2 tokens",
+                 date.toLocaleDateString(_tr.locale, format), formatInt(entry.total))
 }
 
 const STALE_MS = 300000
@@ -134,8 +167,6 @@ function statusMessage(loadError, stats, nowMs) {
     return ""
 }
 
-const _WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-
 function _time(d) {
     return (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes()
 }
@@ -143,7 +174,7 @@ function _time(d) {
 // "Sat 14:00"
 function _weekdayClock(epochSec) {
     const d = new Date(epochSec * 1000)
-    return _WEEKDAYS[d.getDay()] + " " + _time(d)
+    return _tr.locale.standaloneDayName(d.getDay(), _SHORT_FORMAT) + " " + _time(d)
 }
 
 // Clock time, with the weekday once it is a day or more away
@@ -209,7 +240,7 @@ function tooltipText(stats, providers, nowSec) {
 function breakdownTitle(b) {
     if (!b) return ""
     if (b.basis !== "window") return "Last 7 days"
-    return "Since weekly reset (" + _weekdayClock(Date.parse(b.since) / 1000) + ")"
+    return i18n("Since weekly reset (%1)", _weekdayClock(Date.parse(b.since) / 1000))
 }
 
 function breakdownRows(list, total) {
