@@ -4,7 +4,7 @@ import logging
 import subprocess
 from dataclasses import dataclass
 
-from .limits import same_window
+from .limits import public_limit, same_window, window_text
 
 log = logging.getLogger(__name__)
 
@@ -24,14 +24,15 @@ class Notice:
     urgent: bool
 
 
-def _limit_name(label: str) -> str:
-    if label == "5 h":
+def _limit_name(limit: dict) -> str:
+    limit = public_limit(limit)
+    minutes, model = limit.get("window_minutes"), limit.get("model")
+    if minutes == 10080:
+        return f"weekly {model} limit" if model else "weekly limit"
+    if minutes == 300 and not model:
         return "5-hour limit"
-    if label == "Week":
-        return "weekly limit"
-    if label.startswith("Week "):
-        return f"weekly {label[len('Week '):]} limit"
-    return f"{label} limit"
+    window = window_text(minutes) if minutes else limit["id"]
+    return f"{window} limit"
 
 
 def _duration(seconds: float) -> str:
@@ -60,7 +61,7 @@ def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> N
     eta = limit["forecast"]["eta"]
     when = f"full in ~{_duration(eta - now)}" if eta > now else "almost full"
     reset = _countdown(limit.get("resets_at"), now)
-    return Notice(key=key, level=EARLY_LEVEL, summary=f"{name}: {_limit_name(limit['label'])} {when}",
+    return Notice(key=key, level=EARLY_LEVEL, summary=f"{name}: {_limit_name(limit)} {when}",
                   body=f"Now {round(pct)} %" + (f" · {reset}" if reset else ""), urgent=False)
 
 
@@ -102,7 +103,7 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
                 continue
             notified[key] = {"level": level, "resets_at": resets_at}
             notices.append(Notice(key=key, level=level,
-                                  summary=f"{name}: {_limit_name(limit['label'])} at {round(pct)} %",
+                                  summary=f"{name}: {_limit_name(limit)} at {round(pct)} %",
                                   body=_countdown(resets_at, now), urgent=level >= URGENT_LEVEL))
     for gone in set(notified) - current:
         del notified[gone]

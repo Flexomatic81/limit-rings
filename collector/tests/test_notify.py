@@ -6,8 +6,9 @@ from agent_stats.notify import Notice, send, update_notices
 NOW = 1_791_100_000.0  # 2026-10-04 07:46:40 UTC
 
 
-def limit(id="five_hour", label="5 h", pct=82.0, resets_at=int(NOW) + 4380):
-    return {"id": id, "label": label, "used_percent": pct, "resets_at": resets_at, "window_minutes": 300}
+def limit(id="five_hour", pct=82.0, resets_at=int(NOW) + 4380, window_minutes=300, model=None):
+    out = {"id": id, "used_percent": pct, "resets_at": resets_at, "window_minutes": window_minutes}
+    return out | {"model": model} if model else out
 
 
 def test_first_crossing_of_80_sends_one_normal_notice():
@@ -25,7 +26,7 @@ def test_same_window_does_not_notify_twice():
 
 
 def test_jump_straight_to_95_sends_only_the_urgent_notice():
-    notices = update_notices({"Codex": [limit(id="primary", label="Week", pct=97.0, resets_at=None)]}, {}, NOW)
+    notices = update_notices({"Codex": [limit(id="primary", window_minutes=10080, pct=97.0, resets_at=None)]}, {}, NOW)
     assert [(n.level, n.urgent, n.summary, n.body) for n in notices] == [
         (95, True, "Codex: weekly limit at 97 %", "")]
 
@@ -50,8 +51,8 @@ def test_new_window_rearms_and_reset_window_counts_as_zero():
 
 def test_scoped_labels_and_vanished_limits_are_cleaned_up():
     notified = {"claude:old": {"level": 80, "resets_at": None}}
-    notices = update_notices({"Claude": [limit(id="weekly_scoped:fable", label="Week Fable", pct=80.0,
-                                               resets_at=None)]}, notified, NOW)
+    notices = update_notices({"Claude": [limit(id="weekly_scoped:fable", window_minutes=10080, model="Fable",
+                                               pct=80.0, resets_at=None)]}, notified, NOW)
     assert notices[0].summary == "Claude: weekly Fable limit at 80 %"
     assert list(notified) == ["claude:weekly_scoped:fable"]
 
@@ -107,7 +108,7 @@ def test_early_warning_when_five_hour_limit_is_full_within_30_minutes():
 
 def test_no_early_warning_when_far_away_or_for_weekly_limits():
     later = with_forecast(limit(pct=62.0), int(NOW) + 31 * 60)
-    weekly = with_forecast(limit(id="seven_day", label="Week", pct=62.0) | {"window_minutes": 10080},
+    weekly = with_forecast(limit(id="seven_day", pct=62.0, window_minutes=10080),
                            int(NOW) + 10 * 60)
     assert update_notices({"Claude": [later, weekly]}, {}, NOW) == []
 
@@ -115,3 +116,16 @@ def test_no_early_warning_when_far_away_or_for_weekly_limits():
 def test_early_warning_with_eta_already_reached():
     notices = update_notices({"Claude": [with_forecast(limit(pct=70.0), int(NOW) - 10)]}, {}, NOW)
     assert notices[0].summary == "Claude: 5-hour limit almost full"
+
+
+def test_limit_names_for_other_windows_and_missing_window():
+    two_days = limit(id="x", pct=81.0, resets_at=None, window_minutes=2880)
+    assert update_notices({"Codex": [two_days]}, {}, NOW)[0].summary == "Codex: 2 d limit at 81 %"
+    no_window = limit(id="primary", pct=81.0, resets_at=None, window_minutes=None)
+    assert update_notices({"Codex": [no_window]}, {}, NOW)[0].summary == "Codex: primary limit at 81 %"
+
+
+def test_legacy_label_without_model_still_names_the_model():
+    old = {"id": "seven_day_opus", "label": "Woche Opus", "used_percent": 96.0, "resets_at": None,
+           "window_minutes": 10080}
+    assert update_notices({"Claude": [old]}, {}, NOW)[0].summary == "Claude: weekly Opus limit at 96 %"

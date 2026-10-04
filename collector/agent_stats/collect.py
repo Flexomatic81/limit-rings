@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import aggregate, breakdown, forecast, notify
 from .fsutil import write_json_atomic
+from .limits import public_limit
 from .sources import claude_limits, claude_logs, codex_limits, codex_logs
 from .state import load_state, prune_state, save_state
 
@@ -103,11 +104,11 @@ def _update_history(state: dict) -> None:
 
 def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float) -> list[dict]:
     out = []
-    for limit in limits:
+    for limit in map(public_limit, limits):
         entry = history.get(f"{name.lower()}:{limit['id']}")
         result = (forecast.forecast(entry, limit.get("resets_at"), now_ts, limit.get("window_minutes"))
                   if entry else None)
-        out.append({**limit, "forecast": result} if result else dict(limit))
+        out.append({**limit, "forecast": result} if result else limit)
     return out
 
 

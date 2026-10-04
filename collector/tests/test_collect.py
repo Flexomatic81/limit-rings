@@ -60,7 +60,8 @@ def test_full_run_writes_valid_stats(tmp_path):
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
     assert c["tokens"]["today"]["total"] == 11
     assert c["limits_source"] == "oauth" and c["plan"] == "pro" and c["error"] is None
-    assert [l["label"] for l in c["limits"]] == ["5 h", "Week"]
+    assert [l["id"] for l in c["limits"]] == ["five_hour", "seven_day"]
+    assert all("label" not in l for l in c["limits"])
     assert x["tokens"]["today"]["total"] == 0 and x["tokens"]["week"]["total"] == 500
     assert x["limits_source"] == "session_log" and x["plan"] == "plus"
     assert x["limits_updated_at"] == "2026-10-02T12:00:00+02:00"
@@ -289,7 +290,7 @@ def test_codex_limits_come_from_api_when_logged_in(tmp_path):
     x = stats["providers"]["codex"]
     assert x["limits_source"] == "oauth" and x["plan"] == "plus"
     assert x["limits_updated_at"] == "2026-10-03T19:42:00+02:00"
-    assert [(l["label"], l["used_percent"]) for l in x["limits"]] == [("Week", 7.0)]
+    assert [(l["window_minutes"], l["used_percent"]) for l in x["limits"]] == [(10080, 7.0)]
     assert "top-secret-codex" not in p.state_file.read_text() + p.stats_file.read_text()
 
 
@@ -365,3 +366,26 @@ def test_fresh_state_without_hourly_is_not_counted_twice(tmp_path):
     p.state_file.write_text('{"version": 1, "claude": {}, "codex": {}}')  # empty, without hourly
     b = run(p, NOW, BERLIN, fetch=week_fetch, notifier=lambda n: True)["providers"]["claude"]["breakdown"]
     assert b["total"] == 22
+
+
+def test_state_keeps_legacy_labels_for_older_collectors(tmp_path):
+    p = make_paths(tmp_path)
+    run(p, NOW, BERLIN, fetch=ok_fetch)
+    state = json.loads(p.state_file.read_text())
+    assert all("label" in l for l in state["claude"]["limits"]["limits"])
+
+
+def test_legacy_state_limits_are_published_with_model(tmp_path):
+    p = make_paths(tmp_path)
+    run(p, NOW, BERLIN, fetch=ok_fetch)
+    state = json.loads(p.state_file.read_text())
+    state["claude"]["limits"]["limits"].append({"id": "seven_day_opus", "label": "Woche Opus", "used_percent": 3.0,
+                                                 "resets_at": None, "window_minutes": 10080})
+    state["claude"]["oauth_last_attempt"] = NOW.timestamp()  # throttled: keeps the saved limits
+    p.state_file.write_text(json.dumps(state))
+
+    def no_fetch(*a, **k):
+        raise AssertionError("must not fetch while throttled")
+    stats = run(p, NOW, BERLIN, fetch=no_fetch)
+    opus = [l for l in stats["providers"]["claude"]["limits"] if l["id"] == "seven_day_opus"]
+    assert opus and opus[0]["model"] == "Opus" and "label" not in opus[0]

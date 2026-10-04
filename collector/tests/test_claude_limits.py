@@ -39,7 +39,7 @@ def test_real_response_normalizes():
         {"id": "seven_day", "label": "Week", "used_percent": 34.0,
          "resets_at": 1791259200, "window_minutes": 10080},
         {"id": "weekly_scoped:fable", "label": "Week Fable", "used_percent": 9.0,
-         "resets_at": 1791259200, "window_minutes": 10080},
+         "resets_at": 1791259200, "window_minutes": 10080, "model": "Fable"},
     ]
 
 
@@ -152,7 +152,7 @@ def test_throttle_keeps_fresh_oauth_record_without_fetching(tmp_path):
 
 def test_newer_statusline_does_not_replace_healthy_oauth_during_throttle(tmp_path):
     opus = {"id": "seven_day_opus", "label": "Week Opus", "used_percent": 95.0,
-            "resets_at": None, "window_minutes": 10080}
+            "resets_at": None, "window_minutes": 10080, "model": "Opus"}
     prev = {"limits": [opus], "source": "oauth", "updated_at": NOW - 100}
     rec, _, _ = resolve(prev, NOW - 100, NOW, creds(tmp_path), statusline(tmp_path, NOW - 10),
                         fetch=_raiser(AssertionError("throttled")))
