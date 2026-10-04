@@ -11,9 +11,9 @@ extract() {
     local out="$1"
     (cd "$root" && find plasmoid/io.github.flexomatic81.agentstats/contents \( -name '*.qml' -o -name '*.js' \) | sort \
         | xgettext --from-code=UTF-8 -C --kde -ci18n -ki18n:1 -ki18nc:1c,2 -ki18np:1,2 -ki18ncp:1c,2,3 \
-            --package-name=agent-stats --no-location -o "$out/plasmoid.pot" -f -)
-    (cd "$root" && find collector/agent_stats -name '*.py' | sort \
-        | xgettext --from-code=UTF-8 -L Python -k_ --package-name=agent-stats --no-location \
+            --package-name=limit-rings --no-location -o "$out/plasmoid.pot" -f -)
+    (cd "$root" && find collector/limit_rings -name '*.py' | sort \
+        | xgettext --from-code=UTF-8 -L Python -k_ --package-name=limit-rings --no-location \
             -o "$out/collector.pot" -f -)
 }
 

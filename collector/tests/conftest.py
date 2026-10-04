@@ -1,6 +1,6 @@
 import pytest
 
-from agent_stats import i18n
+from limit_rings import i18n
 
 
 @pytest.fixture(autouse=True)

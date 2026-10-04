@@ -1,4 +1,4 @@
-from agent_stats.forecast import forecast, update_history
+from limit_rings.forecast import forecast, update_history
 
 T0 = 1_791_100_000  # arbitrary start time (epoch seconds)
 RESET = T0 + 4 * 3600

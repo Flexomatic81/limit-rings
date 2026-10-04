@@ -119,7 +119,7 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
 def send(notice: Notice) -> bool:
     """Show the notification via notify-send. Errors are logged, never propagated."""
     try:
-        subprocess.run(["notify-send", "-a", "Agent Stats", "-i", "utilities-system-monitor",
+        subprocess.run(["notify-send", "-a", "Limit Rings", "-i", "utilities-system-monitor",
                         "-u", "critical" if notice.urgent else "normal", notice.summary, notice.body],
                        check=True, timeout=5)
         return True

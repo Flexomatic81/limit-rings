@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from agent_stats import i18n
-from agent_stats.notify import update_notices
+from limit_rings import i18n
+from limit_rings.notify import update_notices
 
 ROOT = Path(__file__).resolve().parents[2]
 PO = ROOT / "po"
@@ -65,7 +65,7 @@ def test_translations_keep_placeholders(po, tmp_path):
 
 
 def test_german_notifications(tmp_path):
-    _compile(PO / "collector" / "de.po", tmp_path / "de" / "LC_MESSAGES" / "agent-stats.mo")
+    _compile(PO / "collector" / "de.po", tmp_path / "de" / "LC_MESSAGES" / "limit-rings.mo")
     i18n.install(["de"], tmp_path)
     now = 1_791_100_000.0
     five = {"id": "five_hour", "used_percent": 82.0, "resets_at": int(now) + 4380, "window_minutes": 300}
@@ -78,7 +78,7 @@ def test_german_notifications(tmp_path):
 
 
 def test_german_early_warnings(tmp_path):
-    _compile(PO / "collector" / "de.po", tmp_path / "de" / "LC_MESSAGES" / "agent-stats.mo")
+    _compile(PO / "collector" / "de.po", tmp_path / "de" / "LC_MESSAGES" / "limit-rings.mo")
     i18n.install(["de"], tmp_path)
     now = 1_791_100_000.0
 

@@ -16,7 +16,7 @@ from .limits import public_limit
 from .sources import claude_limits, claude_logs, codex_limits, codex_logs
 from .state import load_state, prune_state, save_state
 
-log = logging.getLogger("agent_stats")
+log = logging.getLogger("limit_rings")
 
 SCHEMA = 2
 
@@ -33,7 +33,7 @@ class Paths:
 
     @classmethod
     def default(cls, home: Path) -> "Paths":
-        cache = home / ".cache" / "agent-stats"
+        cache = home / ".cache" / "limit-rings"
         return cls(
             claude_root=home / ".claude" / "projects",
             codex_root=home / ".codex" / "sessions",

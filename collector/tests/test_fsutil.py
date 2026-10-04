@@ -2,7 +2,7 @@ import json
 import os
 import stat
 
-from agent_stats.fsutil import write_json_atomic
+from limit_rings.fsutil import write_json_atomic
 
 
 def test_writes_json_with_private_modes(tmp_path):

@@ -1,6 +1,6 @@
 import json
 
-from agent_stats.sources.claude_logs import parse_line, read_events
+from limit_rings.sources.claude_logs import parse_line, read_events
 
 
 def usage_line(msg_id="msg_1", req="req_1", ts="2026-10-03T17:19:57.005Z", **usage):
@@ -134,7 +134,7 @@ def test_pathological_line_is_counted_invalid_and_offsets_advance(tmp_path):
 
 
 def test_unexpected_parse_error_is_counted_invalid(tmp_path, monkeypatch):
-    import agent_stats.sources.claude_logs as mod
+    import limit_rings.sources.claude_logs as mod
     real = mod.parse_line
     def parse(line):
         if "msg_bad" in line:

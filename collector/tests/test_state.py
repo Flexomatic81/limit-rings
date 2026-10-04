@@ -3,7 +3,7 @@ import os
 import stat
 from datetime import date
 
-from agent_stats.state import load_state, new_state, prune_state, save_state
+from limit_rings.state import load_state, new_state, prune_state, save_state
 
 
 def test_missing_file_gives_fresh_state(tmp_path):

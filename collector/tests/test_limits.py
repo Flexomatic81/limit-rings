@@ -1,4 +1,4 @@
-from agent_stats.limits import make_limit, normalize_codex, public_limit, window_text
+from limit_rings.limits import make_limit, normalize_codex, public_limit, window_text
 
 
 def test_window_text_is_language_neutral():

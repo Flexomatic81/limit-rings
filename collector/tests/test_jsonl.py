@@ -1,6 +1,6 @@
 import os
 
-from agent_stats.sources.jsonl import list_jsonl, prune_missing, read_new_lines
+from limit_rings.sources.jsonl import list_jsonl, prune_missing, read_new_lines
 
 
 def test_reads_complete_lines_and_keeps_partial_line(tmp_path):

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from agent_stats.limits import normalize_oauth, normalize_statusline
-from agent_stats.sources.claude_limits import credential_status, fetch_oauth_usage, read_credentials, resolve
+from limit_rings.limits import normalize_oauth, normalize_statusline
+from limit_rings.sources.claude_limits import credential_status, fetch_oauth_usage, read_credentials, resolve
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = 1_791_300_000.0

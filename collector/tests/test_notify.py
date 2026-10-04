@@ -1,7 +1,7 @@
 import subprocess
 
-from agent_stats import notify
-from agent_stats.notify import Notice, send, update_notices
+from limit_rings import notify
+from limit_rings.notify import Notice, send, update_notices
 
 NOW = 1_791_100_000.0  # 2026-10-04 07:46:40 UTC
 
@@ -66,7 +66,7 @@ def test_send_calls_notify_send(monkeypatch):
     monkeypatch.setattr(notify.subprocess, "run", lambda args, **kw: calls.append((args, kw)))
     send(Notice("k", 95, "Claude: 5-hour limit at 96 %", "Reset in 5 min", True))
     args, kw = calls[0]
-    assert args == ["notify-send", "-a", "Agent Stats", "-i", "utilities-system-monitor", "-u", "critical",
+    assert args == ["notify-send", "-a", "Limit Rings", "-i", "utilities-system-monitor", "-u", "critical",
                     "Claude: 5-hour limit at 96 %", "Reset in 5 min"]
     assert kw["check"] is True and kw["timeout"] == 5
 
@@ -133,7 +133,7 @@ def test_legacy_label_without_model_still_names_the_model():
 
 def test_texts_go_through_the_translation(monkeypatch):
     import gettext
-    from agent_stats import i18n
+    from limit_rings import i18n
 
     class Marked(gettext.NullTranslations):
         def gettext(self, message):

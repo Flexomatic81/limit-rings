@@ -1,8 +1,8 @@
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
-from agent_stats.aggregate import add_event, daily_series, prune_buckets, summarize
-from agent_stats.models import TokenEvent
+from limit_rings.aggregate import add_event, daily_series, prune_buckets, summarize
+from limit_rings.models import TokenEvent
 
 BERLIN = ZoneInfo("Europe/Berlin")
 

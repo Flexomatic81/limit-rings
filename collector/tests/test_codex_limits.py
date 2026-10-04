@@ -3,8 +3,8 @@ import json
 import urllib.error
 from pathlib import Path
 
-from agent_stats.limits import normalize_codex_usage
-from agent_stats.sources.codex_limits import read_auth, resolve
+from limit_rings.limits import normalize_codex_usage
+from limit_rings.sources.codex_limits import read_auth, resolve
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = 1_791_112_476.0

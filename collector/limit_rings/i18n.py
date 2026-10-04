@@ -3,7 +3,7 @@
 import gettext
 from pathlib import Path
 
-DOMAIN = "agent-stats"
+DOMAIN = "limit-rings"
 LOCALEDIR = Path(__file__).resolve().parent / "locale"
 
 _translation: gettext.NullTranslations = gettext.NullTranslations()

@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from agent_stats.collect import Paths, run
+from limit_rings.collect import Paths, run
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 3, 19, 42, tzinfo=BERLIN)
@@ -99,7 +99,7 @@ def test_provider_failure_is_isolated(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
     (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-10-03T10:00:00Z", 500) + "\n")
 
-    import agent_stats.collect as collect_mod
+    import limit_rings.collect as collect_mod
     def boom(*a, **k):
         raise RuntimeError("broken")
     monkeypatch.setattr(collect_mod.claude_logs, "read_events", boom)
@@ -145,7 +145,7 @@ def test_unreadable_transcript_is_reported_but_rest_counts(tmp_path):
 
 
 def test_local_zone_prefers_tz_variable(monkeypatch):
-    from agent_stats.collect import local_zone
+    from limit_rings.collect import local_zone
     monkeypatch.setenv("TZ", "America/New_York")
     assert local_zone().key == "America/New_York"
     monkeypatch.setenv("TZ", "Does/Not_Exist")
@@ -154,7 +154,7 @@ def test_local_zone_prefers_tz_variable(monkeypatch):
 
 def test_unexpected_limits_failure_still_records_attempt(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
-    import agent_stats.collect as collect_mod
+    import limit_rings.collect as collect_mod
     def boom(*a, **k):
         raise RuntimeError("broken")
     monkeypatch.setattr(collect_mod.claude_limits, "resolve", boom)
@@ -193,8 +193,8 @@ def test_changed_state_is_saved(tmp_path):
 
 
 def test_main_quarantines_state_after_unexpected_crash(tmp_path, monkeypatch):
-    import agent_stats.collect as collect_mod
-    cache = tmp_path / ".cache" / "agent-stats"
+    import limit_rings.collect as collect_mod
+    cache = tmp_path / ".cache" / "limit-rings"
     cache.mkdir(parents=True)
     (cache / "state.json").write_text("{}")
     monkeypatch.setattr(collect_mod.Path, "home", lambda: tmp_path)
@@ -208,7 +208,7 @@ def test_main_quarantines_state_after_unexpected_crash(tmp_path, monkeypatch):
 
 
 def test_main_without_state_file_and_crash_still_returns_one(tmp_path, monkeypatch):
-    import agent_stats.collect as collect_mod
+    import limit_rings.collect as collect_mod
     monkeypatch.setattr(collect_mod.Path, "home", lambda: tmp_path)
     def boom(*a, **k):
         raise RuntimeError("broken")

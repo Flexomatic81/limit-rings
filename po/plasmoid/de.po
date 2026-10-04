@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: agent-stats\n"
+"Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-04 15:54+0200\n"
 "Language-Team: German\n"
