@@ -27,6 +27,22 @@ PYTHONPATH="$HOME/.local/share/agent-stats${PYTHONPATH:+:$PYTHONPATH}" exec /usr
 EOF
 chmod 755 "$bin"
 
+echo "→ Translations"
+if command -v msgfmt >/dev/null 2>&1; then
+    for po in "$here"/po/plasmoid/*.po; do
+        dir="$HOME/.local/share/locale/$(basename "$po" .po)/LC_MESSAGES"
+        mkdir -p "$dir"
+        msgfmt -o "$dir/plasma_applet_io.github.flexomatic81.agentstats.mo" "$po"
+    done
+    for po in "$here"/po/collector/*.po; do
+        dir="$share/agent_stats/locale/$(basename "$po" .po)/LC_MESSAGES"
+        mkdir -p "$dir"
+        msgfmt -o "$dir/agent-stats.mo" "$po"
+    done
+else
+    echo "  Warning: gettext (msgfmt) not found – widget and notifications stay in English."
+fi
+
 echo "→ systemd timer"
 mkdir -p "$units"
 cp "$here/systemd/agent-stats.service" "$here/systemd/agent-stats.timer" "$units/"

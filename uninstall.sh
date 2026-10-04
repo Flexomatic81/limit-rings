@@ -14,6 +14,7 @@ systemctl --user daemon-reload
 rm -rf "$HOME/.local/share/agent-stats"
 rm -f "$HOME/.local/bin/agent-stats-collect"
 kpackagetool6 -t Plasma/Applet --remove io.github.flexomatic81.agentstats 2>/dev/null || true
+rm -f "$HOME"/.local/share/locale/*/LC_MESSAGES/plasma_applet_io.github.flexomatic81.agentstats.mo
 
 if [[ -d "$cache" ]]; then
     answer=n

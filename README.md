@@ -11,6 +11,7 @@ KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code*
 - Hint in the card and tooltip when the Claude login has expired.
 - Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
   for the transcripts on the current machine, as a share of tokens (not of the limit).
+- Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs
 
@@ -45,7 +46,8 @@ reason, the Codex token statistics only count Codex sessions run in a terminal.
 ## Installation
 
 Requirements: KDE Plasma 6 (`kpackagetool6`), Python ≥ 3.10 at `/usr/bin/python3`
-(no extra packages), a systemd user session; `jq` only for the status line fallback.
+(no extra packages), a systemd user session; `jq` only for the status line fallback;
+`gettext` (`msgfmt`) for the translations – optional, without it everything is shown in English.
 
 ```bash
 ./install.sh            # asks before modifying the status line
@@ -110,6 +112,14 @@ cd collector && uv run --no-project --with pytest pytest -q
 /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
 plasmawindowed io.github.flexomatic81.agentstats
 ```
+
+## Translations
+
+Texts live in `po/plasmoid/<lang>.po` (widget) and `po/collector/<lang>.po` (notifications).
+To add a language, copy the German files to `<lang>.po`, set the `Language` header, translate
+the `msgstr` entries and run `./install.sh`. After changing texts in the code, run
+`po/update.sh` to merge them into all catalogs; `collector/tests/test_translations.py` fails
+while a catalog is incomplete.
 
 ## License
 

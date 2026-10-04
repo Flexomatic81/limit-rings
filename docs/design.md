@@ -111,15 +111,17 @@ The only interface between collector and widget. Mode `0600`, written atomically
 
 ```json
 {
-  "schema": 1,
+  "schema": 2,
   "generated_at": "2026-10-03T19:42:00+02:00",
   "providers": {
     "claude": {
       "limits": [
-        {"id": "five_hour", "label": "5 h", "used_percent": 42.0,
+        {"id": "five_hour", "used_percent": 42.0,
          "resets_at": 1791300000, "window_minutes": 300},
-        {"id": "seven_day", "label": "Week", "used_percent": 18.0,
-         "resets_at": 1791800000, "window_minutes": 10080}
+        {"id": "seven_day", "used_percent": 18.0,
+         "resets_at": 1791800000, "window_minutes": 10080},
+        {"id": "seven_day_opus", "used_percent": 4.0,
+         "resets_at": 1791800000, "window_minutes": 10080, "model": "Opus"}
       ],
       "limits_source": "oauth",
       "limits_updated_at": "2026-10-03T19:41:30+02:00",
@@ -130,12 +132,12 @@ The only interface between collector and widget. Mode `0600`, written atomically
         "month": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "total": 0}
       },
       "daily": [{"date": "2026-09-04", "total": 123456}],
-      "error": null,
+      "errors": [],
       "auth": {"status": "ok", "expires_at": "2026-10-04T19:29:15+02:00"}
     },
     "codex": {
       "limits": [
-        {"id": "primary", "label": "Week", "used_percent": 8.0,
+        {"id": "primary", "used_percent": 8.0,
          "resets_at": 1791280728, "window_minutes": 10080}
       ],
       "limits_source": "session_log",
@@ -143,7 +145,7 @@ The only interface between collector and widget. Mode `0600`, written atomically
       "plan": "plus",
       "tokens": {"today": {}, "week": {}, "month": {}},
       "daily": [],
-      "error": null
+      "errors": [{"code": "logs_unreadable", "count": 1}]
     }
   }
 }
@@ -178,7 +180,8 @@ Rules:
   "(Sat 14:00)" once a day or more away, or "Lasts until reset at current pace"); tooltip: short form.
 - `breakdown` exists only for Claude: token totals since the start of the Claude weekly window
   (weekly limit reset − 7 days; without a known weekly limit the last 7 days, `basis: "7d"`), for
-  both `projects` and `models` the four largest entries plus "Other". Project = Git repository of the
+  both `projects` and `models` the four largest entries plus a catch-all entry
+  `{"name": null, "other": true, "total": …}` for the rest. Project = Git repository of the
   working directory (worktree → main repository), otherwise the directory name; model as a readable
   name ("Opus 5.5"). Counted hourly (`hourly` in `state.json`, 8 days). The values come only from the
   transcripts of **this** machine and are token shares, not the (undisclosed) limit consumption
@@ -187,8 +190,11 @@ Rules:
   (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by
   Claude Code in the terminal (valid for about 8 h). If the state is not `ok`, card and tooltip show
   "Login expired – run claude in a terminal" or "No login found – …".
-- `error` is `null` or a short, user-readable message; the other fields then carry the
-  last good values.
+- `errors` lists problems as codes (`logs_unreadable` with `count`, `logs_failed`,
+  `limits_unavailable`); the other fields then carry the last good values.
+- `stats.json` holds no display texts: the plasmoid builds limit names (from `window_minutes` and
+  `model`), error messages and the catch-all entry in the system language. `state.json` keeps an
+  English `label` per limit only so that an older collector still reads it after a downgrade.
 - The widget ignores a `stats.json` with an unknown `schema` version and shows a notice.
 
 ## Presentation
@@ -221,13 +227,13 @@ Rules:
   Today/Week/Month row) plus spacing fit; otherwise stacked.
 - Limit data older than 6 h: bar faded, footer in warning colour with "· stale", ring in the
   panel faded, tooltip with "(stale)".
-- Token counts compact (k/M, decimal point); tooltip with the split
+- Token counts compact (k/M, decimal separator of the system language); tooltip with the split
   input/output/cache read/cache write.
 - Bar chart: total tokens per day, tooltip with date and value.
 - Footer: age of the limit data and source.
 - `resets_at` in the past → show the limit as "reset · 0 %" until new data
   arrives.
-- `error` set → subtle notice in the card, other values remain visible.
+- `errors` not empty → subtle notice in the card, other values remain visible.
 - `stats.json` missing or older than 5 minutes → notice "Collector not running" with the command
   `systemctl --user status agent-stats.timer`.
 
@@ -253,7 +259,7 @@ get no early warning. Notifications already sent are recorded in `state.json` un
 ## Error handling
 
 - Invalid JSON lines are skipped and counted (logged at debug level), not an error.
-- Each provider is processed in its own `try`; an error only sets that provider's `error`.
+- Each provider is processed in its own `try`; an error only adds an entry to that provider's `errors`.
 - **OAuth endpoint:** queried at most every 5 minutes (timestamp in `state.json`), timeout
   10 s. On 401/403, redirect, timeout, network error or unexpected response shape (also:
   not a single usable window) → status line cache or last good values, whichever
