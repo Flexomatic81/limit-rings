@@ -52,4 +52,11 @@ TestCase {
         const title = F.breakdownTitle({basis: "window", since: "2026-10-03T14:00:00+02:00"})
         verify(/^Seit Wochen-Reset \((Mo|Di|Mi|Do|Fr|Sa|So) \d\d:\d\d\)$/.test(title), title)
     }
+
+    function test_limit_names_and_errors() {
+        compare(F.limitName({id: "seven_day", window_minutes: 10080}), "Woche")
+        compare(F.limitName({id: "s", window_minutes: 10080, model: "Opus"}), "Woche Opus")
+        compare(F.errorText([{code: "logs_unreadable", count: 2}]), "2 Dateien nicht lesbar – Zahlen unvollständig")
+        compare(F.breakdownRows([{name: null, other: true, total: 1}], 1)[0].name, "Andere")
+    }
 }

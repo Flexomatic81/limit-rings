@@ -42,7 +42,7 @@ ColumnLayout {
                     height: parent.height
                     radius: height / 2
                     color: Kirigami.Theme.highlightColor
-                    opacity: row.modelData.name === "Other" ? 0.4 : 0.8
+                    opacity: row.modelData.other ? 0.4 : 0.8
                 }
             }
 

@@ -111,22 +111,22 @@ function countdownLong(resetsAt, nowSec) {
 function ageText(iso, nowMs) {
     if (!iso) return "—"
     const s = Math.max(0, Math.round((nowMs - Date.parse(iso)) / 1000))
-    if (s < 60) return s + " s ago"
-    if (s < 3600) return Math.floor(s / 60) + " min ago"
-    if (s < 86400) return Math.floor(s / 3600) + " h ago"
-    return Math.floor(s / 86400) + " d ago"
+    if (s < 60) return i18nc("time ago", "%1 s ago", s)
+    if (s < 3600) return i18nc("time ago", "%1 min ago", Math.floor(s / 60))
+    if (s < 86400) return i18nc("time ago", "%1 h ago", Math.floor(s / 3600))
+    return i18nc("time ago", "%1 d ago", Math.floor(s / 86400))
 }
 
 function sourceText(src) {
     if (src === "oauth") return "OAuth"
-    if (src === "statusline") return "Status line"
-    if (src === "session_log") return "Session log"
+    if (src === "statusline") return i18nc("limit data source", "Status line")
+    if (src === "session_log") return i18nc("limit data source", "Session log")
     return "—"
 }
 
 function tokenBreakdown(t) {
-    return "Input: " + formatInt(t.input) + "\nOutput: " + formatInt(t.output)
-        + "\nCache read: " + formatInt(t.cache_read) + "\nCache write: " + formatInt(t.cache_write)
+    return i18n("Input: %1\nOutput: %2\nCache read: %3\nCache write: %4", formatInt(t.input), formatInt(t.output),
+                formatInt(t.cache_read), formatInt(t.cache_write))
 }
 
 function dayTooltip(entry) {
@@ -138,6 +138,7 @@ function dayTooltip(entry) {
 }
 
 const STALE_MS = 300000
+const _STATUS_COMMAND = "systemctl --user status agent-stats.timer"
 const LIMITS_STALE_MS = 6 * 3600 * 1000
 
 // Limit data older than 6 h (e.g. a Codex log from days ago) is shown as "stale"
@@ -150,20 +151,20 @@ function limitsStale(provider, nowMs) {
 
 function footerText(provider, nowMs) {
     if (!provider) return ""
-    return "Updated " + ageText(provider.limits_updated_at, nowMs) + " · " + sourceText(provider.limits_source)
-        + (limitsStale(provider, nowMs) ? " · stale" : "")
+    return i18nc("%1 = age such as '5 min ago', %2 = data source", "Updated %1 · %2",
+                 ageText(provider.limits_updated_at, nowMs), sourceText(provider.limits_source))
+        + (limitsStale(provider, nowMs) ? " · " + i18nc("limit data is outdated", "stale") : "")
 }
 
 function statusMessage(loadError, stats, nowMs) {
     if (loadError === "nofile")
-        return "No data yet – is the collector running? systemctl --user status agent-stats.timer"
+        return i18n("No data yet – is the collector running? %1", _STATUS_COMMAND)
     if (loadError === "schema")
-        return "Unknown data format – plasmoid and collector don't match. Run install.sh again."
+        return i18n("Unknown data format – plasmoid and collector don't match. Run install.sh again.")
     if (loadError === "parse")
-        return "stats.json is not readable."
+        return i18n("stats.json is not readable.")
     if (stats && nowMs - Date.parse(stats.generated_at) > STALE_MS)
-        return "Collector not running – data from " + ageText(stats.generated_at, nowMs)
-            + ". Check: systemctl --user status agent-stats.timer"
+        return i18n("Collector not running – data from %1. Check: %2", ageText(stats.generated_at, nowMs), _STATUS_COMMAND)
     return ""
 }
 
@@ -192,41 +193,69 @@ function _forecastParts(limit, nowSec) {
 function forecastText(limit, nowSec) {
     const f = _forecastParts(limit, nowSec)
     if (!f) return ""
-    if (!f.full) return "Lasts until reset at current pace"
-    if (!f.rest) return "Full soon at current pace"
-    return "Full in ~" + f.rest + " at current pace (" + _clock(f.eta, nowSec) + ")"
+    if (!f.full) return i18n("Lasts until reset at current pace")
+    if (!f.rest) return i18n("Full soon at current pace")
+    return i18n("Full in ~%1 at current pace (%2)", f.rest, _clock(f.eta, nowSec))
 }
 
 function forecastShort(limit, nowSec) {
     const f = _forecastParts(limit, nowSec)
     if (!f) return ""
-    if (!f.full) return "lasts until reset"
-    return f.rest ? "full in ~" + f.rest : "full soon"
+    if (!f.full) return i18n("lasts until reset")
+    return f.rest ? i18n("full in ~%1", f.rest) : i18n("full soon")
+}
+
+function _windowText(minutes) {
+    if (minutes % 1440 === 0) return (minutes / 1440) + " d"
+    if (minutes % 60 === 0) return (minutes / 60) + " h"
+    return minutes + " min"
+}
+
+// Display name of a limit (stats.json carries only window and model)
+function limitName(limit) {
+    const m = limit.window_minutes
+    if (m === 10080)
+        return limit.model ? i18nc("limit name: weekly window of one model, %1 = model", "Week %1", limit.model)
+                           : i18nc("limit name: weekly window", "Week")
+    if (m === 300 && !limit.model) return i18nc("limit name: 5-hour window", "5 h")
+    if (!m) return limit.id
+    return _windowText(m) + (limit.model ? " " + limit.model : "")
+}
+
+function errorText(errors) {
+    if (!errors) return ""
+    return errors.map(e => {
+        if (e.code === "logs_unreadable")
+            return i18np("%1 file unreadable – numbers incomplete", "%1 files unreadable – numbers incomplete", e.count)
+        if (e.code === "logs_failed") return i18n("Data could not be processed")
+        if (e.code === "limits_unavailable") return i18n("Limits unavailable")
+        return e.code
+    }).join("; ")
 }
 
 function limitLine(name, limit, nowSec) {
-    const head = name + " · " + limit.label + ": "
-    if (isReset(limit, nowSec)) return head + "reset"
+    const head = name + " · " + limitName(limit) + ": "
+    if (isReset(limit, nowSec)) return head + i18nc("limit state", "reset")
     const rest = countdownLong(limit.resets_at, nowSec)
     const fc = forecastShort(limit, nowSec)
-    return head + Math.round(limit.used_percent) + " %" + (rest ? " · Reset in " + rest : "") + (fc ? " · " + fc : "")
+    return head + Math.round(limit.used_percent) + " %" + (rest ? " · " + i18n("Reset in %1", rest) : "") + (fc ? " · " + fc : "")
 }
 
 function authHint(auth) {
     if (!auth || auth.status === "ok") return ""
-    if (auth.status === "expired") return "Login expired – run claude in a terminal"
-    return "No login found – run claude in a terminal"
+    if (auth.status === "expired") return i18n("Login expired – run claude in a terminal")
+    return i18n("No login found – run claude in a terminal")
 }
 
 function tooltipText(stats, providers, nowSec) {
-    if (!stats) return "No data"
+    if (!stats) return i18n("No data")
     const lines = []
     for (let i = 0; i < providers.length; i++) {
         const p = stats.providers[providers[i].key]
         if (!p || !p.limits || p.limits.length === 0)
-            lines.push(providers[i].name + ": no limit data")
+            lines.push(providers[i].name + ": " + i18n("no limit data"))
         else {
-            const stale = limitsStale(p, nowSec * 1000) ? " (stale)" : ""
+            const stale = limitsStale(p, nowSec * 1000) ? " (" + i18nc("limit data is outdated", "stale") + ")" : ""
             for (let j = 0; j < p.limits.length; j++)
                 lines.push(limitLine(providers[i].name, p.limits[j], nowSec) + stale)
         }
@@ -239,13 +268,15 @@ function tooltipText(stats, providers, nowSec) {
 // Breakdown by project/model (stats.json: providers.claude.breakdown)
 function breakdownTitle(b) {
     if (!b) return ""
-    if (b.basis !== "window") return "Last 7 days"
+    if (b.basis !== "window") return i18n("Last 7 days")
     return i18n("Since weekly reset (%1)", _weekdayClock(Date.parse(b.since) / 1000))
 }
 
 function breakdownRows(list, total) {
     if (!list) return []
-    return list.map(item => ({name: item.name, total: item.total, pct: total > 0 ? item.total / total * 100 : 0}))
+    return list.map(item => ({
+        name: item.other ? i18nc("breakdown entry for all remaining projects or models", "Other") : item.name,
+        total: item.total, other: !!item.other, pct: total > 0 ? item.total / total * 100 : 0}))
 }
 
 function percentText(pct) {
@@ -254,5 +285,5 @@ function percentText(pct) {
 }
 
 function breakdownTooltip(row) {
-    return formatInt(row.total) + " tokens"
+    return i18n("%1 tokens", formatInt(row.total))
 }

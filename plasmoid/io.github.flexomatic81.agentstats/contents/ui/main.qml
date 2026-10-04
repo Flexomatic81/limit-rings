@@ -8,6 +8,11 @@ import "../code/format.js" as Format
 PlasmoidItem {
     id: root
 
+    // Hands KDE's translation functions and the system locale to format.js (a .pragma library
+    // cannot see i18n); the representations are created after this root object.
+    readonly property bool translationsReady: Format.init({
+        i18n: (...a) => i18n(...a), i18nc: (...a) => i18nc(...a), i18np: (...a) => i18np(...a),
+        locale: Qt.locale()})
     property var stats: null
     property string loadError: ""
     property real nowMs: Date.now()
@@ -27,7 +32,7 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
 
     toolTipMainText: "Agent Stats"
-    toolTipSubText: Format.tooltipText(stats, providers, nowSec)
+    toolTipSubText: translationsReady ? Format.tooltipText(stats, providers, nowSec) : ""
 
     compactRepresentation: CompactRepresentation {
         plasmoidItem: root
@@ -56,7 +61,7 @@ PlasmoidItem {
         }
         try {
             const parsed = JSON.parse(stdout)
-            if (parsed.schema !== 1) {
+            if (parsed.schema !== 2) {
                 loadError = "schema"
                 return
             }

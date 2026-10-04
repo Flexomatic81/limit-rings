@@ -119,13 +119,13 @@ TestCase {
     function test_tooltip() {
         const now = 0
         const stats = {providers: {
-            claude: {limits: [{label: "5 h", used_percent: 42, resets_at: 2 * 3600 + 13 * 60},
-                              {label: "Week", used_percent: 18, resets_at: null}]},
+            claude: {limits: [{window_minutes: 300, used_percent: 42, resets_at: 2 * 3600 + 13 * 60},
+                              {window_minutes: 10080, used_percent: 18, resets_at: null}]},
             codex: {limits: []}}}
         const providers = [{key: "claude", name: "Claude"}, {key: "codex", name: "Codex"}]
         compare(F.tooltipText(stats, providers, now),
                 "Claude · 5 h: 42 % · Reset in 2 h 13 min\nClaude · Week: 18 %\nCodex: no limit data")
-        compare(F.limitLine("Codex", {label: "Week", used_percent: 8, resets_at: -1}, now),
+        compare(F.limitLine("Codex", {window_minutes: 10080, used_percent: 8, resets_at: -1}, now),
                 "Codex · Week: reset")
         compare(F.tooltipText(null, providers, now), "No data")
     }
@@ -141,7 +141,7 @@ TestCase {
     }
 
     function test_tooltip_with_auth_hint() {
-        const stats = {providers: {claude: {limits: [{label: "Week", used_percent: 18, resets_at: null}],
+        const stats = {providers: {claude: {limits: [{window_minutes: 10080, used_percent: 18, resets_at: null}],
                                             auth: {status: "expired", expires_at: null}}}}
         compare(F.tooltipText(stats, [{key: "claude", name: "Claude"}], 0),
                 "Claude · Week: 18 %\nClaude: Login expired – run claude in a terminal")
@@ -152,7 +152,7 @@ TestCase {
 
     function test_forecastText() {
         const now = 1000
-        const base = {label: "5 h", used_percent: 40, resets_at: now + 4 * 3600}
+        const base = {window_minutes: 300, used_percent: 40, resets_at: now + 4 * 3600}
         compare(F.forecastText(base, now), "")
         compare(F.forecastText(Object.assign({}, base, {forecast: {status: "enough"}}), now),
                 "Lasts until reset at current pace")
@@ -167,7 +167,7 @@ TestCase {
 
     function test_limitLine_with_forecast() {
         const now = 0
-        const l = {label: "5 h", used_percent: 40, resets_at: 4 * 3600,
+        const l = {window_minutes: 300, used_percent: 40, resets_at: 4 * 3600,
                    forecast: {status: "full", eta: 80 * 60}}
         compare(F.limitLine("Claude", l, now), "Claude · 5 h: 40 % · Reset in 4 h 0 min · full in ~1 h 20 min")
         l.forecast = {status: "enough"}
@@ -176,7 +176,7 @@ TestCase {
 
     function test_forecastText_far_away_shows_weekday() {
         const now = 1000
-        const week = {label: "Week", used_percent: 40, resets_at: now + 6 * 86400,
+        const week = {window_minutes: 10080, used_percent: 40, resets_at: now + 6 * 86400,
                       forecast: {status: "full", eta: now + 2 * 86400 + 4 * 3600}}
         const text = F.forecastText(week, now)
         verify(text.indexOf("Full in ~2 d 4 h at current pace (") === 0, text)
@@ -187,7 +187,7 @@ TestCase {
     function test_limitsStale() {
         const t = Date.parse("2026-10-04T18:00:00+02:00")
         const prov = (iso, limits) => ({limits_updated_at: iso, limits: limits, limits_source: "session_log"})
-        const one = [{label: "Week", used_percent: 8, resets_at: null}]
+        const one = [{window_minutes: 10080, used_percent: 8, resets_at: null}]
         verify(!F.limitsStale(prov("2026-10-04T12:00:00+02:00", one), t))          // exactly 6 h
         verify(F.limitsStale(prov("2026-10-04T11:59:59+02:00", one), t))           // just over
         verify(!F.limitsStale(prov("2026-09-29T21:30:00+02:00", []), t))           // no limits
@@ -197,7 +197,7 @@ TestCase {
 
     function test_footerText() {
         const t = Date.parse("2026-10-04T18:00:00+02:00")
-        const lim = [{label: "Week", used_percent: 8, resets_at: null}]
+        const lim = [{window_minutes: 10080, used_percent: 8, resets_at: null}]
         compare(F.footerText({limits_updated_at: "2026-10-04T17:59:30+02:00", limits_source: "oauth", limits: lim}, t),
                 "Updated 30 s ago · OAuth")
         compare(F.footerText({limits_updated_at: "2026-09-30T18:00:00+02:00", limits_source: "session_log", limits: lim}, t),
@@ -208,7 +208,7 @@ TestCase {
     function test_tooltip_marks_stale_limits() {
         const nowSec = Date.parse("2026-10-04T18:00:00+02:00") / 1000
         const stats = {providers: {codex: {limits_updated_at: "2026-09-30T18:00:00+02:00",
-                                           limits: [{label: "Week", used_percent: 8, resets_at: null}]}}}
+                                           limits: [{window_minutes: 10080, used_percent: 8, resets_at: null}]}}}
         compare(F.tooltipText(stats, [{key: "codex", name: "Codex"}], nowSec), "Codex · Week: 8 % (stale)")
     }
 
@@ -220,7 +220,7 @@ TestCase {
     }
 
     function test_breakdownRows_and_percent() {
-        const rows = F.breakdownRows([{name: "website", total: 880}, {name: "Other", total: 4}, {name: "x", total: 116}], 1000)
+        const rows = F.breakdownRows([{name: "website", total: 880}, {name: null, other: true, total: 4}, {name: "x", total: 116}], 1000)
         compare(rows.length, 3)
         compare(rows[0].name, "website")
         compare(rows[0].pct, 88)
@@ -230,21 +230,43 @@ TestCase {
         compare(F.breakdownRows([{name: "a", total: 5}], 0)[0].pct, 0)
         compare(F.breakdownRows(undefined, 10).length, 0)
         compare(F.breakdownTooltip(rows[0]), "880 tokens")
+        compare(rows[1].name, "Other")
+        verify(rows[1].other)
+        verify(!rows[0].other)
     }
 
     function test_ringValues() {
         const now = 1000
-        const five = (pct, reset) => ({label: "5 h", used_percent: pct, resets_at: reset === undefined ? null : reset,
+        const five = (pct, reset) => ({used_percent: pct, resets_at: reset === undefined ? null : reset,
                                        window_minutes: 300})
-        const week = (pct, label) => ({label: label || "Week", used_percent: pct, resets_at: null, window_minutes: 10080})
-        compare(F.ringValues([five(8), week(36), week(9, "Week Fable")], now), {outer: 36, inner: 8})
+        const week = (pct, model) => ({used_percent: pct, resets_at: null, window_minutes: 10080, model: model})
+        compare(F.ringValues([five(8), week(36), week(9, "Fable")], now), {outer: 36, inner: 8})
         compare(F.ringValues([week(7)], now), {outer: 7, inner: null})          // Codex: week only
         compare(F.ringValues([five(40)], now), {outer: null, inner: 40})
-        compare(F.ringValues([five(90, 999), week(20), week(60, "Week Fable")], now), {outer: 60, inner: 0})  // reset has passed
+        compare(F.ringValues([five(90, 999), week(20), week(60, "Fable")], now), {outer: 60, inner: 0})  // reset has passed
         compare(F.ringValues([], now), {outer: null, inner: null})
         compare(F.ringValues(null, now), {outer: null, inner: null})
         // only a window of another length: highest value on the outer ring, as before
-        compare(F.ringValues([{label: "2 d", used_percent: 15, resets_at: null, window_minutes: 2880}], now),
+        compare(F.ringValues([{used_percent: 15, resets_at: null, window_minutes: 2880}], now),
                 {outer: 15, inner: null})
+    }
+
+    function test_limitName() {
+        compare(F.limitName({id: "five_hour", window_minutes: 300}), "5 h")
+        compare(F.limitName({id: "seven_day", window_minutes: 10080}), "Week")
+        compare(F.limitName({id: "weekly_scoped:fable", window_minutes: 10080, model: "Fable"}), "Week Fable")
+        compare(F.limitName({id: "x", window_minutes: 2880}), "2 d")
+        compare(F.limitName({id: "x", window_minutes: 90}), "90 min")
+        compare(F.limitName({id: "primary", window_minutes: null}), "primary")
+    }
+
+    function test_errorText() {
+        compare(F.errorText([]), "")
+        compare(F.errorText(undefined), "")
+        compare(F.errorText([{code: "logs_unreadable", count: 1}]), "1 file unreadable – numbers incomplete")
+        compare(F.errorText([{code: "logs_unreadable", count: 3}, {code: "limits_unavailable"}]),
+                "3 files unreadable – numbers incomplete; Limits unavailable")
+        compare(F.errorText([{code: "logs_failed"}, {code: "something_new"}]),
+                "Data could not be processed; something_new")
     }
 }

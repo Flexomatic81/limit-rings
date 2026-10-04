@@ -25,7 +25,7 @@ ColumnLayout {
         spacing: Kirigami.Units.smallSpacing
 
         PlasmaComponents.Label {
-            text: bar.limit.label
+            text: Format.limitName(bar.limit)
             Layout.preferredWidth: Kirigami.Units.gridUnit * 5
             elide: Text.ElideRight
         }
@@ -47,7 +47,7 @@ ColumnLayout {
         }
 
         PlasmaComponents.Label {
-            text: bar.reset ? "reset · 0 %" : Math.round(bar.pct) + " %"
+            text: bar.reset ? Format.i18nc("limit state", "reset") + " · 0 %" : Math.round(bar.pct) + " %"
             Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 3, implicitWidth)
             horizontalAlignment: Text.AlignRight
         }

@@ -41,8 +41,9 @@ ColumnLayout {
     }
 
     PlasmaComponents.Label {
-        visible: !!(card.provider && card.provider.error)
-        text: card.provider && card.provider.error ? card.provider.error : ""
+        readonly property string errors: card.provider ? Format.errorText(card.provider.errors) : ""
+        visible: errors !== ""
+        text: errors
         color: Kirigami.Theme.negativeTextColor
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
@@ -63,7 +64,7 @@ ColumnLayout {
 
     PlasmaComponents.Label {
         visible: !card.provider || card.provider.limits.length === 0
-        text: "No limit data"
+        text: Format.i18n("No limit data")
         opacity: 0.7
     }
 
@@ -74,7 +75,9 @@ ColumnLayout {
         visible: !!card.provider
 
         Repeater {
-            model: [{key: "today", label: "Today"}, {key: "week", label: "Week"}, {key: "month", label: "Month"}]
+            model: [{key: "today", label: Format.i18nc("token totals", "Today")},
+                    {key: "week", label: Format.i18nc("token totals", "Week")},
+                    {key: "month", label: Format.i18nc("token totals", "Month")}]
             delegate: RowLayout {
                 required property var modelData
                 Layout.columnSpan: 2
@@ -109,7 +112,7 @@ ColumnLayout {
         spacing: Kirigami.Units.smallSpacing
 
         PlasmaComponents.Label {
-            text: breakdownBlock.b ? Format.breakdownTitle(breakdownBlock.b) + " · share of tokens" : ""
+            text: breakdownBlock.b ? Format.i18n("%1 · share of tokens", Format.breakdownTitle(breakdownBlock.b)) : ""
             font: Kirigami.Theme.smallFont
             opacity: 0.7
         }
@@ -123,13 +126,13 @@ ColumnLayout {
             BreakdownList {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                title: "Projects"
+                title: Format.i18n("Projects")
                 rows: breakdownBlock.b ? Format.breakdownRows(breakdownBlock.b.projects, breakdownBlock.b.total) : []
             }
             BreakdownList {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                title: "Models"
+                title: Format.i18n("Models")
                 rows: breakdownBlock.b ? Format.breakdownRows(breakdownBlock.b.models, breakdownBlock.b.total) : []
             }
         }

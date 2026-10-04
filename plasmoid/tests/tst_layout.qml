@@ -17,15 +17,16 @@ TestCase {
         nowMs: Date.parse("2026-10-04T13:30:00+02:00")
         warn: 70
         crit: 90
-        stats: ({schema: 1, generated_at: "2026-10-04T13:29:30+02:00", providers: {claude: {
-            limits: [{id: "five_hour", label: "5 h", used_percent: 6, resets_at: null, window_minutes: 300}],
+        stats: ({schema: 2, generated_at: "2026-10-04T13:29:30+02:00", providers: {claude: {
+            limits: [{id: "five_hour", used_percent: 6, resets_at: null, window_minutes: 300}],
             limits_source: "oauth", limits_updated_at: "2026-10-04T13:29:00+02:00", plan: "pro",
             tokens: {today: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4},
                      week: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4},
                      month: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4}},
-            daily: [{date: "2026-10-04", total: 4}], error: null,
-            breakdown: {since: "2026-09-29T06:00:00+02:00", basis: "window", total: 100,
-                        projects: [{name: "website", total: 67}, {name: "agent-stats", total: 33}],
+            daily: [{date: "2026-10-04", total: 4}], errors: [],
+            breakdown: {since: "2026-09-29T06:00:00+02:00", basis: "window", total: 110,
+                        projects: [{name: "website", total: 67}, {name: "agent-stats", total: 33},
+                                   {name: null, other: true, total: 10}],
                         models: [{name: "Opus 5.5", total: 100}]}}}})
     }
 

@@ -13,17 +13,17 @@ KCM.SimpleKCM {
     Kirigami.FormLayout {
         QQC2.SpinBox {
             id: warnSpin
-            Kirigami.FormData.label: "Warning at (%):"
+            Kirigami.FormData.label: i18n("Warning at (%):")
             from: 1; to: critSpin.value - 1
         }
         QQC2.SpinBox {
             id: critSpin
-            Kirigami.FormData.label: "Critical at (%):"
+            Kirigami.FormData.label: i18n("Critical at (%):")
             from: warnSpin.value + 1; to: 100
         }
         QQC2.CheckBox {
             id: claudeBox
-            Kirigami.FormData.label: "Show:"
+            Kirigami.FormData.label: i18n("Show:")
             text: "Claude"
         }
         QQC2.CheckBox {
@@ -31,8 +31,9 @@ KCM.SimpleKCM {
             text: "Codex"
         }
         QQC2.ComboBox {
-            Kirigami.FormData.label: "Panel:"
-            model: [{value: "ring", text: "Ring"}, {value: "number", text: "Number"}]
+            Kirigami.FormData.label: i18n("Panel:")
+            model: [{value: "ring", text: i18nc("panel display style", "Ring")},
+                    {value: "number", text: i18nc("panel display style", "Number")}]
             textRole: "text"
             valueRole: "value"
             currentIndex: indexOfValue(cfg_compactStyle)
