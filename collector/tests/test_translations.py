@@ -33,6 +33,11 @@ def _compile(po: Path, mo: Path) -> Path:
     return mo
 
 
+def test_plasmoid_template_marks_kde_format_strings(templates):
+    # with KDE format flags, msgfmt --check-format also checks the %1 placeholders of the widget
+    assert "#, kde-format" in (templates / "plasmoid.pot").read_text()
+
+
 def test_there_is_a_german_catalog_for_both_parts():
     assert {p.relative_to(PO).as_posix() for p in CATALOGS} >= {"plasmoid/de.po", "collector/de.po"}
 

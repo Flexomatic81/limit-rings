@@ -23,6 +23,32 @@ TestCase {
         compare(F.i18nc("ctx", "Week"), "Week")
     }
 
+    // Panel and desktop instance share format.js: removing the newer one must leave the older one
+    // with its translation, not with English.
+    function test_remaining_instance_keeps_its_translation() {
+        const first = Qt.createQmlObject('import QtQuick; Item { function tr(t) { return "first:" + t } }', this)
+        const second = Qt.createQmlObject('import QtQuick; Item { function tr(t) { return "second:" + t } }', this)
+        const h1 = F.init({i18n: t => first.tr(t), i18nc: (c, t) => first.tr(t), i18np: (s, p, n) => first.tr(s)})
+        const h2 = F.init({i18n: t => second.tr(t), i18nc: (c, t) => second.tr(t), i18np: (s, p, n) => second.tr(s)})
+        verify(h1 && h2 && h1 !== h2)
+        compare(F.i18n("Week"), "second:Week")
+        second.destroy()
+        wait(0)
+        compare(F.i18n("Week"), "first:Week")
+        F.release(h1)
+        compare(F.i18n("Week"), "Week")
+        first.destroy()
+    }
+
+    function test_release_removes_a_live_translator() {
+        const h1 = F.init({i18n: t => "one:" + t})
+        const h2 = F.init({i18n: t => "two:" + t})
+        F.release(h2)
+        compare(F.i18n("Week"), "one:Week")
+        F.release(h1)
+        compare(F.i18n("Week"), "Week")
+    }
+
     // Plasma shares format.js between widget instances: removing the instance whose callbacks were
     // handed over must not blank the texts of the others.
     function test_translator_of_destroyed_object_falls_back() {

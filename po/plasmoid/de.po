@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: agent-stats\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-04 15:42+0200\n"
+"POT-Creation-Date: 2026-10-04 15:54+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -10,34 +10,42 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#, kde-format
 msgctxt "billion abbreviation"
 msgid "B"
 msgstr "Mrd"
 
+#, kde-format
 msgctxt "time ago"
 msgid "%1 s ago"
 msgstr "vor %1 s"
 
+#, kde-format
 msgctxt "time ago"
 msgid "%1 min ago"
 msgstr "vor %1 min"
 
+#, kde-format
 msgctxt "time ago"
 msgid "%1 h ago"
 msgstr "vor %1 h"
 
+#, kde-format
 msgctxt "time ago"
 msgid "%1 d ago"
 msgstr "vor %1 d"
 
+#, kde-format
 msgctxt "limit data source"
 msgid "Status line"
 msgstr "Statuszeile"
 
+#, kde-format
 msgctxt "limit data source"
 msgid "Session log"
 msgstr "Sitzungslog"
 
+#, kde-format
 msgid ""
 "Input: %1\n"
 "Output: %2\n"
@@ -49,25 +57,31 @@ msgstr ""
 "Cache lesen: %3\n"
 "Cache schreiben: %4"
 
+#, kde-format
 msgctxt "Qt date format for the daily chart tooltip (day and month)"
 msgid "MMM d"
 msgstr "dd.MM."
 
+#, kde-format
 msgctxt "daily chart tooltip: %1 date, %2 token count"
 msgid "%1: %2 tokens"
 msgstr "%1: %2 Tokens"
 
+#, kde-format
 msgctxt "%1 = age such as '5 min ago', %2 = data source"
 msgid "Updated %1 · %2"
 msgstr "Stand %1 · %2"
 
+#, kde-format
 msgctxt "limit data is outdated"
 msgid "stale"
 msgstr "veraltet"
 
+#, kde-format
 msgid "No data yet – is the collector running? %1"
 msgstr "Noch keine Daten – läuft der Collector? %1"
 
+#, kde-format
 msgid ""
 "Unknown data format – plasmoid and collector don't match. Run install.sh "
 "again."
@@ -75,128 +89,166 @@ msgstr ""
 "Unbekanntes Datenformat – Plasmoid und Collector passen nicht zusammen. "
 "install.sh erneut ausführen."
 
+#, kde-format
 msgid "stats.json is not readable."
 msgstr "stats.json ist nicht lesbar."
 
+#, kde-format
 msgid "Collector not running – data from %1. Check: %2"
 msgstr "Collector läuft nicht – Daten %1. Prüfen: %2"
 
+#, kde-format
 msgid "Lasts until reset at current pace"
 msgstr "Reicht bei aktuellem Tempo bis zum Reset"
 
+#, kde-format
 msgid "Full soon at current pace"
 msgstr "Bei aktuellem Tempo gleich voll"
 
+#, kde-format
 msgid "Full in ~%1 at current pace (%2)"
 msgstr "Bei aktuellem Tempo voll in ~%1 (%2)"
 
+#, kde-format
 msgid "lasts until reset"
 msgstr "reicht bis Reset"
 
+#, kde-format
 msgid "full in ~%1"
 msgstr "voll in ~%1"
 
+#, kde-format
 msgid "full soon"
 msgstr "gleich voll"
 
+#, kde-format
 msgctxt "limit name: weekly window of one model, %1 = model"
 msgid "Week %1"
 msgstr "Woche %1"
 
+#, kde-format
 msgctxt "limit name: weekly window"
 msgid "Week"
 msgstr "Woche"
 
+#, kde-format
 msgctxt "limit name: 5-hour window"
 msgid "5 h"
 msgstr "5 h"
 
+#, kde-format
 msgid "%1 file unreadable – numbers incomplete"
 msgid_plural "%1 files unreadable – numbers incomplete"
 msgstr[0] "%1 Datei nicht lesbar – Zahlen unvollständig"
 msgstr[1] "%1 Dateien nicht lesbar – Zahlen unvollständig"
 
+#, kde-format
 msgid "Data could not be processed"
 msgstr "Daten konnten nicht verarbeitet werden"
 
+#, kde-format
 msgid "Limits unavailable"
 msgstr "Limits nicht verfügbar"
 
+#, kde-format
 msgctxt "limit state"
 msgid "reset"
 msgstr "zurückgesetzt"
 
+#, kde-format
 msgid "Reset in %1"
 msgstr "Reset in %1"
 
+#, kde-format
 msgid "Login expired – run claude in a terminal"
 msgstr "Anmeldung abgelaufen – claude im Terminal starten"
 
+#, kde-format
 msgid "No login found – run claude in a terminal"
 msgstr "Keine Anmeldung gefunden – claude im Terminal starten"
 
+#, kde-format
 msgid "No data"
 msgstr "Keine Daten"
 
+#, kde-format
 msgid "no limit data"
 msgstr "keine Limit-Daten"
 
+#, kde-format
 msgid "Last 7 days"
 msgstr "Letzte 7 Tage"
 
+#, kde-format
 msgid "Since weekly reset (%1)"
 msgstr "Seit Wochen-Reset (%1)"
 
+#, kde-format
 msgctxt "breakdown entry for all remaining projects or models"
 msgid "Other"
 msgstr "Andere"
 
+#, kde-format
 msgid "%1 tokens"
 msgstr "%1 Tokens"
 
+#, kde-format
 msgid "General"
 msgstr "Allgemein"
 
+#, kde-format
 msgid "Warning at (%):"
 msgstr "Warnung ab (%):"
 
+#, kde-format
 msgid "Critical at (%):"
 msgstr "Kritisch ab (%):"
 
+#, kde-format
 msgid "Show:"
 msgstr "Anzeigen:"
 
+#, kde-format
 msgid "Panel:"
 msgstr "Leiste:"
 
+#, kde-format
 msgctxt "panel display style"
 msgid "Ring"
 msgstr "Ring"
 
+#, kde-format
 msgctxt "panel display style"
 msgid "Number"
 msgstr "Zahl"
 
+#, kde-format
 msgid "No limit data"
 msgstr "Keine Limit-Daten"
 
+#, kde-format
 msgctxt "token totals"
 msgid "Today"
 msgstr "Heute"
 
+#, kde-format
 msgctxt "token totals"
 msgid "Week"
 msgstr "Woche"
 
+#, kde-format
 msgctxt "token totals"
 msgid "Month"
 msgstr "Monat"
 
+#, kde-format
 msgid "%1 · share of tokens"
 msgstr "%1 · Anteil an Tokens"
 
+#, kde-format
 msgid "Projects"
 msgstr "Projekte"
 
+#, kde-format
 msgid "Models"
 msgstr "Modelle"

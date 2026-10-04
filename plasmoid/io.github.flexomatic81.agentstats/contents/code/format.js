@@ -1,7 +1,8 @@
 .pragma library
 
-// Translation: main.qml hands over KDE's i18n functions and the system locale via init();
-// without that (e.g. in tests) the English source texts and an English locale are used.
+// Translation: every widget instance hands over KDE's i18n functions and the system locale via
+// init() and gives them back via release(); this library is shared by all instances of the widget.
+// Without a translator (e.g. in tests) the English source texts and an English locale are used.
 function _subst(text, args) {
     return text.replace(/%(\d)/g, (m, d) => args[d - 1] !== undefined ? String(args[d - 1]) : m)
 }
@@ -12,19 +13,38 @@ const _fallback = {
     i18np: (singular, plural, n, ...args) => _subst(n === 1 ? singular : plural, [n].concat(args)),
     locale: Qt.locale("en_US")
 }
-let _tr = _fallback
+let _translators = []  // [{handle, tr}], newest last
+let _nextHandle = 1
 
+// Registers a translator and returns its handle for release(); init(null) drops all of them.
 function init(tr) {
-    _tr = tr ? Object.assign({}, _fallback, tr) : _fallback
-    return true
+    if (!tr) {
+        _translators = []
+        return 0
+    }
+    const handle = _nextHandle++
+    _translators.push({handle: handle, tr: Object.assign({}, _fallback, tr)})
+    return handle
 }
 
-// The translator of a removed widget instance may throw or return nothing: fall back to English then.
+function release(handle) {
+    _translators = _translators.filter(t => t.handle !== handle)
+}
+
+function _current() {
+    return _translators.length > 0 ? _translators[_translators.length - 1].tr : _fallback
+}
+
+// The translator of a removed widget instance may throw or return nothing: drop it and use the
+// next one, English only when none is left.
 function _call(name, args) {
-    try {
-        const out = _tr[name].apply(null, args)
-        if (typeof out === "string") return out
-    } catch (e) {
+    for (let i = _translators.length - 1; i >= 0; i--) {
+        try {
+            const out = _translators[i].tr[name].apply(null, args)
+            if (typeof out === "string") return out
+        } catch (e) {
+        }
+        _translators.splice(i, 1)
     }
     return _fallback[name].apply(null, args)
 }
@@ -36,11 +56,11 @@ function i18np(...args) { return _call("i18np", args) }
 const _SHORT_FORMAT = 1  // Locale.ShortFormat (QML enums are not visible in a .pragma library)
 
 function formatInt(n) {
-    return _tr.locale.toString(Math.round(n), "f", 0)
+    return _current().locale.toString(Math.round(n), "f", 0)
 }
 
 function _decimal(x) {
-    return _tr.locale.toString(x, "f", 1)
+    return _current().locale.toString(x, "f", 1)
 }
 
 function compactNumber(n) {
@@ -134,7 +154,7 @@ function dayTooltip(entry) {
     const date = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
     const format = i18nc("Qt date format for the daily chart tooltip (day and month)", "MMM d")
     return i18nc("daily chart tooltip: %1 date, %2 token count", "%1: %2 tokens",
-                 date.toLocaleDateString(_tr.locale, format), formatInt(entry.total))
+                 date.toLocaleDateString(_current().locale, format), formatInt(entry.total))
 }
 
 const STALE_MS = 300000
@@ -175,7 +195,7 @@ function _time(d) {
 // "Sat 14:00"
 function _weekdayClock(epochSec) {
     const d = new Date(epochSec * 1000)
-    return _tr.locale.standaloneDayName(d.getDay(), _SHORT_FORMAT) + " " + _time(d)
+    return _current().locale.standaloneDayName(d.getDay(), _SHORT_FORMAT) + " " + _time(d)
 }
 
 // Clock time, with the weekday once it is a day or more away

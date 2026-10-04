@@ -155,10 +155,11 @@ Rules:
 
 - `limits` is a list of arbitrary length (depending on the plan, Codex only has `primary`, Claude
   two windows). Empty list = no limit data available.
-- `label` is derived from `window_minutes`: 300 → "5 h", 10080 → "Week", otherwise "N h"/"N d".
-- Model-specific weekly limits from the `limits` list of the OAuth response (`kind: "weekly_scoped"`)
-  appear as a separate entry "Week <Model>" (id `weekly_scoped:<model>`); malformed
-  entries are dropped, labels that already exist are not listed twice.
+- A limit has no display name; the plasmoid names it from `window_minutes` (300 → "5 h",
+  10080 → "Week", otherwise "N h"/"N d") and `model` ("Week Opus"), in the system language.
+- Model-specific weekly limits (`seven_day_opus`, `seven_day_sonnet` and the `limits` list of the
+  OAuth response with `kind: "weekly_scoped"`, id `weekly_scoped:<model>`) carry `model`;
+  malformed entries are dropped, a model that already has a weekly limit is not listed twice.
 - `limits_source`: `"oauth"` | `"statusline"` | `"session_log"` | `null`.
   Codex: `"oauth"` (usage endpoint) or `"session_log"`; Codex token statistics only count
   terminal sessions, because the plugin does not store token counts.
