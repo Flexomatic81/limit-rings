@@ -158,7 +158,7 @@ function dayTooltip(entry) {
 }
 
 const STALE_MS = 300000
-const _STATUS_COMMAND = "systemctl --user status agent-stats.timer"
+const _STATUS_COMMAND = "systemctl --user status limit-rings.timer"
 const LIMITS_STALE_MS = 6 * 3600 * 1000
 
 // Limit data older than 6 h (e.g. a Codex log from days ago) is shown as "stale"

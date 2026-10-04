@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtTest
-import "../io.github.flexomatic81.agentstats/contents/ui" as UI
+import "../io.github.flexomatic81.limitrings/contents/ui" as UI
 
 TestCase {
     name: "Layout"
@@ -25,7 +25,7 @@ TestCase {
                      month: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4}},
             daily: [{date: "2026-10-04", total: 4}], errors: [],
             breakdown: {since: "2026-09-29T06:00:00+02:00", basis: "window", total: 110,
-                        projects: [{name: "website", total: 67}, {name: "agent-stats", total: 33},
+                        projects: [{name: "website", total: 67}, {name: "limit-rings", total: 33},
                                    {name: null, other: true, total: 10}],
                         models: [{name: "Opus 5.5", total: 100}]}}}})
     }
@@ -40,7 +40,7 @@ TestCase {
     // Plasma creates the popup with width 0 and adopts the first minimum height; after that it
     // never shrinks. If the cards were stacked at that point, empty space would remain at the bottom.
     function test_first_minimum_height_already_uses_two_columns() {
-        const comp = Qt.createComponent("../io.github.flexomatic81.agentstats/contents/ui/FullRepresentation.qml")
+        const comp = Qt.createComponent("../io.github.flexomatic81.limitrings/contents/ui/FullRepresentation.qml")
         const obj = comp.createObject(this, {providers: full.providers, nowMs: full.nowMs, warn: 70, crit: 90,
                                              stats: full.stats})
         const first = obj.Layout.minimumHeight

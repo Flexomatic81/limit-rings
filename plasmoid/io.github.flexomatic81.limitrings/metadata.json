@@ -1,15 +1,15 @@
 {
     "KPlugin": {
-        "Id": "io.github.flexomatic81.agentstats",
-        "Name": "Agent Stats",
+        "Id": "io.github.flexomatic81.limitrings",
+        "Name": "Limit Rings",
         "Description": "Usage limits and token statistics for Claude Code and Codex",
         "Description[de]": "Nutzungslimits und Token-Statistiken von Claude Code und Codex",
         "Icon": "utilities-system-monitor",
         "Category": "System Information",
         "Authors": [{ "Name": "Flexomatic81" }],
-        "Website": "https://github.com/Flexomatic81/agent-stats",
+        "Website": "https://github.com/Flexomatic81/limit-rings",
         "License": "MIT",
-        "Version": "0.1.0",
+        "Version": "0.2.0",
         "FormFactors": ["desktop", "panel"]
     },
     "KPackageStructure": "Plasma/Applet",

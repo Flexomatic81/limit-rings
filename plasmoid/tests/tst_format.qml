@@ -1,6 +1,6 @@
 import QtQuick
 import QtTest
-import "../io.github.flexomatic81.agentstats/contents/code/format.js" as F
+import "../io.github.flexomatic81.limitrings/contents/code/format.js" as F
 
 TestCase {
     name: "Format"
@@ -136,7 +136,7 @@ TestCase {
         const fresh = {generated_at: "2026-10-03T19:41:00+02:00"}
         const old = {generated_at: "2026-10-03T19:30:00+02:00"}
         compare(F.statusMessage("", fresh, t), "")
-        verify(F.statusMessage("", old, t).indexOf("systemctl --user status agent-stats.timer") >= 0)
+        verify(F.statusMessage("", old, t).indexOf("systemctl --user status limit-rings.timer") >= 0)
         verify(F.statusMessage("nofile", null, t).indexOf("No data yet") === 0)
         verify(F.statusMessage("schema", null, t).indexOf("install.sh") >= 0)
         verify(F.statusMessage("parse", null, t).length > 0)

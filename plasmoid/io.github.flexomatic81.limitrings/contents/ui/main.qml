@@ -25,13 +25,13 @@ PlasmoidItem {
         if (Plasmoid.configuration.showCodex) list.push({key: "codex", name: "Codex", short: "X"})
         return list
     }
-    readonly property string statsCommand: 'cat "$HOME/.cache/agent-stats/stats.json"'
+    readonly property string statsCommand: 'cat "$HOME/.cache/limit-rings/stats.json"'
 
     preferredRepresentation: Plasmoid.formFactor === PlasmaCore.Types.Planar ? fullRepresentation : compactRepresentation
     switchWidth: Kirigami.Units.gridUnit * 12
     switchHeight: Kirigami.Units.gridUnit * 8
 
-    toolTipMainText: "Agent Stats"
+    toolTipMainText: "Limit Rings"
     toolTipSubText: translationHandle ? Format.tooltipText(stats, providers, nowSec) : ""
 
     compactRepresentation: CompactRepresentation {

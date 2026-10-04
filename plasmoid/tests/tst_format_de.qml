@@ -1,6 +1,6 @@
 import QtQuick
 import QtTest
-import "../io.github.flexomatic81.agentstats/contents/code/format.js" as F
+import "../io.github.flexomatic81.limitrings/contents/code/format.js" as F
 
 TestCase {
     id: testCase
