@@ -4,6 +4,7 @@ import logging
 import subprocess
 from dataclasses import dataclass
 
+from .i18n import _
 from .limits import public_limit, same_window, window_text
 
 log = logging.getLogger(__name__)
@@ -28,11 +29,11 @@ def _limit_name(limit: dict) -> str:
     limit = public_limit(limit)
     minutes, model = limit.get("window_minutes"), limit.get("model")
     if minutes == 10080:
-        return f"weekly {model} limit" if model else "weekly limit"
+        return _("weekly %(model)s limit") % {"model": model} if model else _("weekly limit")
     if minutes == 300 and not model:
-        return "5-hour limit"
+        return _("5-hour limit")
     window = window_text(minutes) if minutes else limit["id"]
-    return f"{window} limit"
+    return _("%(window)s limit") % {"window": window}
 
 
 def _duration(seconds: float) -> str:
@@ -48,7 +49,7 @@ def _duration(seconds: float) -> str:
 def _countdown(resets_at, now: float) -> str:
     if resets_at is None or resets_at <= now:
         return ""
-    return "Reset in " + _duration(resets_at - now)
+    return _("Reset in %(duration)s") % {"duration": _duration(resets_at - now)}
 
 
 def _early_warning_due(limit: dict, now: float) -> bool:
@@ -59,10 +60,12 @@ def _early_warning_due(limit: dict, now: float) -> bool:
 
 def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> Notice:
     eta = limit["forecast"]["eta"]
-    when = f"full in ~{_duration(eta - now)}" if eta > now else "almost full"
+    args = {"provider": name, "limit": _limit_name(limit), "duration": _duration(eta - now)}
+    summary = (_("%(provider)s: %(limit)s full in ~%(duration)s") if eta > now
+               else _("%(provider)s: %(limit)s almost full")) % args
     reset = _countdown(limit.get("resets_at"), now)
-    return Notice(key=key, level=EARLY_LEVEL, summary=f"{name}: {_limit_name(limit)} {when}",
-                  body=f"Now {round(pct)} %" + (f" · {reset}" if reset else ""), urgent=False)
+    body = _("Now %(percent)d %%") % {"percent": round(pct)} + (f" · {reset}" if reset else "")
+    return Notice(key=key, level=EARLY_LEVEL, summary=summary, body=body, urgent=False)
 
 
 def update_notices(providers: dict[str, list[dict]], notified: dict, now: float) -> list[Notice]:
@@ -102,8 +105,9 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
                 entry["resets_at"] = resets_at
                 continue
             notified[key] = {"level": level, "resets_at": resets_at}
-            notices.append(Notice(key=key, level=level,
-                                  summary=f"{name}: {_limit_name(limit)} at {round(pct)} %",
+            summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
+                "provider": name, "limit": _limit_name(limit), "percent": round(pct)}
+            notices.append(Notice(key=key, level=level, summary=summary,
                                   body=_countdown(resets_at, now), urgent=level >= URGENT_LEVEL))
     for gone in set(notified) - current:
         del notified[gone]

@@ -129,3 +129,16 @@ def test_legacy_label_without_model_still_names_the_model():
     old = {"id": "seven_day_opus", "label": "Woche Opus", "used_percent": 96.0, "resets_at": None,
            "window_minutes": 10080}
     assert update_notices({"Claude": [old]}, {}, NOW)[0].summary == "Claude: weekly Opus limit at 96 %"
+
+
+def test_texts_go_through_the_translation(monkeypatch):
+    import gettext
+    from agent_stats import i18n
+
+    class Marked(gettext.NullTranslations):
+        def gettext(self, message):
+            return "»" + message
+
+    monkeypatch.setattr(i18n, "_translation", Marked())
+    notice = update_notices({"Claude": [limit()]}, {}, NOW)[0]
+    assert (notice.summary, notice.body) == ("»Claude: »5-hour limit at 82 %", "»Reset in 1 h 13 min")
