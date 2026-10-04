@@ -60,7 +60,7 @@ def test_summarize_since_window_start_with_top_four_and_others():
     assert s["total"] == 950
     assert s["projects"] == [{"name": "website", "total": 880}, {"name": "agent-stats", "total": 30},
                              {"name": "tools", "total": 20}, {"name": "a", "total": 10},
-                             {"name": "Other", "total": 10}]
+                             {"name": None, "other": True, "total": 10}]
     assert s["models"] == [{"name": "Opus 5", "total": 945}, {"name": "Sonnet 5", "total": 5}]
 
 

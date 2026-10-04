@@ -9,7 +9,6 @@ from pathlib import Path
 from .models import TokenEvent
 
 KEEP_SECONDS = 8 * 86400
-OTHERS = "Other"
 
 _MODEL_RE = re.compile(r"^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$")
 
@@ -79,7 +78,7 @@ def _top(counts: dict[str, int], top: int) -> list[dict]:
     out = [{"name": name, "total": total} for name, total in ranked[:top]]
     rest = sum(total for _, total in ranked[top:])
     if rest:
-        out.append({"name": OTHERS, "total": rest})
+        out.append({"name": None, "other": True, "total": rest})
     return out
 
 

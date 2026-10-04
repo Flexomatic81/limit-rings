@@ -18,7 +18,7 @@ from .state import load_state, prune_state, save_state
 
 log = logging.getLogger("agent_stats")
 
-SCHEMA = 1
+SCHEMA = 2
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,7 @@ def _iso(epoch: float | None, tz: tzinfo) -> str | None:
     return datetime.fromtimestamp(epoch, tz).isoformat(timespec="seconds")
 
 
-def _provider(section: dict, today, tz, limits_source, plan, error) -> dict:
+def _provider(section: dict, today, tz, limits_source, plan, errors) -> dict:
     rec = section["limits"]
     return {
         "limits": rec["limits"] if rec else [],
@@ -77,7 +77,7 @@ def _provider(section: dict, today, tz, limits_source, plan, error) -> dict:
         "plan": plan,
         "tokens": aggregate.summarize(section["buckets"], today),
         "daily": aggregate.daily_series(section["buckets"], today),
-        "error": error,
+        "errors": errors,
     }
 
 
@@ -123,8 +123,12 @@ def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
     return {"since": _iso(since, tz), "basis": basis, **breakdown.summarize(section["hourly"], since)}
 
 
-def _unreadable_text(count: int) -> str:
-    return f"{count} file(s) unreadable – numbers incomplete"
+def _unreadable_error(count: int) -> dict:
+    return {"code": "logs_unreadable", "count": count}
+
+
+LOGS_FAILED = {"code": "logs_failed"}
+LIMITS_UNAVAILABLE = {"code": "limits_unavailable"}
 
 
 def _add_breakdown(hourly: dict, events, resolver, since: float) -> None:
@@ -143,7 +147,7 @@ def _backfill_hourly(section: dict, paths, now_ts: float, resolver) -> None:
     section["hourly_backfill"] = False
 
 
-def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[str | None, str | None]:
+def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[list[dict], str | None]:
     section = state["claude"]
     errors = []
     resolver = breakdown.ProjectResolver()
@@ -157,11 +161,11 @@ def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[str | None, str | 
         for ev in res.events:
             aggregate.add_event(section["buckets"], ev, tz)
         if res.unreadable:
-            errors.append(_unreadable_text(res.unreadable))
+            errors.append(_unreadable_error(res.unreadable))
     except Exception:
         log.exception("Claude logs: unexpected error")
         section.update(snapshot)
-        errors.append("Claude data could not be processed")
+        errors.append(dict(LOGS_FAILED))
 
     plan = None
     try:
@@ -172,12 +176,12 @@ def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[str | None, str | 
     except Exception as e:
         log.error("Claude limits: unexpected error: %s", type(e).__name__)
         section["oauth_last_attempt"] = now_ts  # throttle here too, otherwise it queries on every run
-        errors.append("Claude limits unavailable")
-    return ("; ".join(errors) or None), plan
+        errors.append(dict(LIMITS_UNAVAILABLE))
+    return errors, plan
 
 
-def _process_codex(state, paths, now_ts, tz, fetch) -> str | None:
-    error = _process_codex_logs(state, paths, tz)
+def _process_codex(state, paths, now_ts, tz, fetch) -> list[dict]:
+    errors = _process_codex_logs(state, paths, tz)
     section = state["codex"]
     try:
         # The Claude Code plugin writes no session logs: also query the limits directly.
@@ -186,10 +190,10 @@ def _process_codex(state, paths, now_ts, tz, fetch) -> str | None:
     except Exception as e:
         log.error("Codex limits: unexpected error: %s", type(e).__name__)
         section["oauth_last_attempt"] = now_ts
-    return error
+    return errors
 
 
-def _process_codex_logs(state, paths, tz) -> str | None:
+def _process_codex_logs(state, paths, tz) -> list[dict]:
     section = state["codex"]
     snapshot = copy.deepcopy(section)
     try:
@@ -202,11 +206,11 @@ def _process_codex_logs(state, paths, tz) -> str | None:
             if prev is None or ts > prev["updated_at"]:
                 section["limits"] = {"limits": res.limits, "plan": res.plan, "updated_at": ts,
                                      "source": "session_log"}
-        return _unreadable_text(res.unreadable) if res.unreadable else None
+        return [_unreadable_error(res.unreadable)] if res.unreadable else []
     except Exception:
         log.exception("Codex logs: unexpected error")
         state["codex"] = snapshot
-        return "Codex data could not be processed"
+        return [dict(LOGS_FAILED)]
 
 
 def _fingerprint(state: dict) -> str:
@@ -219,8 +223,8 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
 
-    claude_error, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch)
-    codex_error = _process_codex(state, paths, now.timestamp(), tz, codex_fetch)
+    claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch)
+    codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch)
     _update_history(state)
     with_forecasts = {
         key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
@@ -240,12 +244,12 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
         "providers": {
             "claude": {**_provider(claude, today, tz,
                                    claude["limits"]["source"] if claude["limits"] else None,
-                                   claude_plan, claude_error),
+                                   claude_plan, claude_errors),
                        "auth": _auth(paths.credentials, now.timestamp(), tz),
                        "breakdown": _breakdown(claude, now.timestamp(), tz)},
             "codex": _provider(codex, today, tz,
                                codex["limits"].get("source", "session_log") if codex["limits"] else None,
-                               codex["limits"]["plan"] if codex["limits"] else None, codex_error),
+                               codex["limits"]["plan"] if codex["limits"] else None, codex_errors),
         },
     }
     for key, limits in with_forecasts.items():

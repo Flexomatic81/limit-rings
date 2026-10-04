@@ -55,11 +55,12 @@ def test_full_run_writes_valid_stats(tmp_path):
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
 
     assert json.loads(p.stats_file.read_text()) == stats
-    assert stats["schema"] == 1
+    assert stats["schema"] == 2
     assert stats["generated_at"] == "2026-10-03T19:42:00+02:00"
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
     assert c["tokens"]["today"]["total"] == 11
-    assert c["limits_source"] == "oauth" and c["plan"] == "pro" and c["error"] is None
+    assert c["limits_source"] == "oauth" and c["plan"] == "pro" and c["errors"] == []
+    assert "error" not in c
     assert [l["id"] for l in c["limits"]] == ["five_hour", "seven_day"]
     assert all("label" not in l for l in c["limits"])
     assert x["tokens"]["today"]["total"] == 0 and x["tokens"]["week"]["total"] == 500
@@ -105,9 +106,9 @@ def test_provider_failure_is_isolated(tmp_path, monkeypatch):
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
-    assert c["error"] == "Claude data could not be processed"
+    assert c["errors"] == [{"code": "logs_failed"}]
     assert c["limits_source"] == "oauth"               # limits still work
-    assert x["error"] is None and x["tokens"]["today"]["total"] == 500
+    assert x["errors"] == [] and x["tokens"]["today"]["total"] == 500
 
 
 def test_corrupt_state_triggers_full_reread(tmp_path):
@@ -139,7 +140,7 @@ def test_unreadable_transcript_is_reported_but_rest_counts(tmp_path):
     finally:
         bad.chmod(0o600)
     c = stats["providers"]["claude"]
-    assert c["error"] == "1 file(s) unreadable – numbers incomplete"
+    assert c["errors"] == [{"code": "logs_unreadable", "count": 1}]
     assert c["tokens"]["today"]["total"] == 11
 
 
@@ -160,7 +161,7 @@ def test_unexpected_limits_failure_still_records_attempt(tmp_path, monkeypatch):
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
 
-    assert "Claude limits unavailable" in stats["providers"]["claude"]["error"]
+    assert {"code": "limits_unavailable"} in stats["providers"]["claude"]["errors"]
     state = json.loads(p.state_file.read_text())
     assert state["claude"]["oauth_last_attempt"] == NOW.timestamp()
 
@@ -304,7 +305,7 @@ def test_codex_falls_back_to_session_log_without_api(tmp_path):
         raise TimeoutError()
 
     x = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=down, notifier=lambda n: True)["providers"]["codex"]
-    assert x["limits_source"] == "session_log" and x["error"] is None
+    assert x["limits_source"] == "session_log" and x["errors"] == []
     assert x["limits"][0]["used_percent"] == 8.0
 
 
