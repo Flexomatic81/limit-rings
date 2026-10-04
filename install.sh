@@ -149,7 +149,7 @@ if [[ -f "$appletsrc" ]] && grep -qxF "plugin=$old_id" "$appletsrc"; then
         systemctl --user stop plasma-plasmashell
         switch_widgets || echo "  Warning: switching failed – $appletsrc left as it was."
         systemctl --user start plasma-plasmashell
-    elif pgrep -x plasmashell >/dev/null; then
+    elif pgrep -u "$UID" -x plasmashell >/dev/null; then
         echo "  plasmashell is not run by systemd – quit it (kquitapp6 plasmashell), re-run install.sh with"
         echo "  --migrate-widgets, then start it again (kstart plasmashell)."
     else

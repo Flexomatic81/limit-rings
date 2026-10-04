@@ -1,5 +1,6 @@
 """install.sh and uninstall.sh in a scratch HOME; systemctl, kpackagetool6 and pgrep are stubs that log their calls."""
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -392,3 +393,10 @@ def test_uninstall_removes_the_timer_link_even_if_disable_does_not(env):
     (wants / "limit-rings.timer").symlink_to("../limit-rings.timer")
     run("uninstall.sh", env, "--purge")
     assert not (wants / "limit-rings.timer").is_symlink()
+
+
+def test_only_the_users_own_plasmashell_counts(env):
+    old_install(env)
+    write(home(env) / APPLETSRC, APPLETS)
+    run("install.sh", env, "--migrate-widgets")
+    assert f"pgrep -u {os.getuid()} -x plasmashell" in calls(env)
