@@ -293,14 +293,17 @@ get no early warning. Notifications already sent are recorded in `state.json` un
   confirmation — with a backup copy `statusline-command.sh.bak-limit-rings` first. The line
   writes to its own `mktemp` file on each call and renames it afterwards, so that parallel
   Claude sessions do not produce half-written files.
-5. Migration from Agent Stats (≤ 0.1): if the old share directory, timer or cache exists, the old
-   timer and service are stopped and removed first, then `~/.cache/agent-stats` is moved to
-   `~/.cache/limit-rings` (into an existing one only if it has no `state.json` yet, without replacing
-   files; if both hold state, the old one is left untouched), and the status line hook is rewritten to
+5. Migration from Agent Stats (≤ 0.1): if the old share directory or timer exists, the old timer and
+   service are stopped and removed first; only then is `~/.cache/agent-stats` moved to
+   `~/.cache/limit-rings`. If the new one already exists and only one of them holds `state.json`, the
+   old files are moved in without replacing any; if both do, the old one is left untouched and every
+   run says how to remove it. A unit that is still `activating`/`deactivating` after the stop aborts
+   the run before anything is deleted. The status line hook is rewritten to
    the new marker and path. Placed widgets are switched by rewriting
    `plugin=io.github.flexomatic81.agentstats` in `plasma-org.kde.plasma.desktop-appletsrc` – only
    while `plasma-plasmashell` is stopped (it writes the file on exit), after confirmation or with
-   `--migrate-widgets`, with a backup `.bak-limit-rings`. The old package is removed afterwards.
+   `--migrate-widgets`, with a backup `.bak-limit-rings`; a trap restarts the shell even if the run
+   is interrupted. The old package is removed afterwards.
 
 `uninstall.sh` reverts 1–3 and points out the status line addition; it removes
 `~/.cache/limit-rings/` only after confirmation.

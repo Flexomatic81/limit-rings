@@ -1,6 +1,7 @@
 """install.sh and uninstall.sh in a scratch HOME; systemctl, kpackagetool6 and pgrep are stubs that log their calls."""
 
 import os
+import pty
 import shutil
 import subprocess
 from pathlib import Path
@@ -419,3 +420,34 @@ def test_plasmashell_is_restarted_when_the_switch_is_interrupted(env, tmp_path, 
     assert rc.read_text() == APPLETS
     log = calls(env)
     assert log.index("systemctl --user stop plasma-plasmashell") < log.index("systemctl --user start plasma-plasmashell")
+
+
+def run_interactive(env: dict, answers: str, **extra: str) -> str:
+    """install.sh on a terminal, with the answers to its prompts typed ahead."""
+    master, slave = pty.openpty()
+    try:
+        os.write(master, answers.encode())
+        return subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, **extra}, stdin=slave,
+                              capture_output=True, text=True, check=True).stdout
+    finally:
+        os.close(master)
+        os.close(slave)
+
+
+def test_interactive_yes_switches_widgets_and_inserts_the_hook(env):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    sl = write(home(env) / ".claude/statusline-command.sh", "input=$(cat)\n")
+    run_interactive(env, "y\ny\n")
+    assert f"plugin={ID}" in rc.read_text()
+    assert sl.read_text() == f"input=$(cat)\n{MARKER}\n{SNIPPET}\n"
+
+
+def test_interactive_no_changes_nothing(env):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    sl = write(home(env) / ".claude/statusline-command.sh", "input=$(cat)\n")
+    out = run_interactive(env, "n\nn\n")
+    assert rc.read_text() == APPLETS
+    assert sl.read_text() == "input=$(cat)\n"
+    assert "Not switched" in out
