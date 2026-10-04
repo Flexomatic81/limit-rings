@@ -9,7 +9,7 @@ cache="$HOME/.cache/limit-rings"
 # otherwise a running collector would rewrite the cache after it has been deleted.
 systemctl --user stop limit-rings.timer limit-rings.service 2>/dev/null || true
 systemctl --user disable limit-rings.timer 2>/dev/null || true
-rm -f "$units/limit-rings.timer" "$units/limit-rings.service"
+rm -f "$units/limit-rings.timer" "$units/limit-rings.service" "$units/timers.target.wants/limit-rings.timer"
 systemctl --user daemon-reload
 rm -rf "$HOME/.local/share/limit-rings"
 rm -f "$HOME/.local/bin/limit-rings-collect"

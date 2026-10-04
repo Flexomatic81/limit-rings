@@ -346,3 +346,49 @@ def test_unrecognised_old_marker_is_reported_instead_of_switched(env):
     assert sl.read_text() == before
     assert "switched" not in out
     assert "please adjust it by hand" in out
+
+
+def test_leftover_old_cache_with_state_only_repeats_the_hint(env):
+    old_install(env)
+    write(home(env) / ".cache/limit-rings/state.json", "new")
+    run("install.sh", env)
+    Path(env["STUB_LOG"]).write_text("")
+    out = run("install.sh", env)
+    assert "rm -r " + str(home(env) / ".cache/agent-stats") in out
+    assert not any(c.startswith("systemctl") and "agent-stats" in c for c in calls(env))
+
+
+def test_leftovers_of_an_interrupted_merge_are_completed(env):
+    write(home(env) / ".cache/limit-rings/state.json", "merged")
+    write(home(env) / ".cache/agent-stats/claude-statusline-limits.json", "{}")
+    out = run("install.sh", env)
+    h = home(env)
+    assert (h / ".cache/limit-rings/state.json").read_text() == "merged"
+    assert (h / ".cache/limit-rings/claude-statusline-limits.json").is_file()
+    assert not (h / ".cache/agent-stats").exists()
+    assert "cache merged" in out
+
+
+def test_a_leftover_old_timer_alone_triggers_the_migration(env):
+    timer = write(home(env) / ".config/systemd/user/agent-stats.timer", "")
+    run("install.sh", env)
+    assert "systemctl --user stop agent-stats.timer agent-stats.service" in calls(env)
+    assert not timer.exists()
+
+
+def test_migration_removes_the_old_timer_link_even_if_disable_does_not(env):
+    old_install(env)
+    wants = home(env) / ".config/systemd/user/timers.target.wants"
+    wants.mkdir(parents=True)
+    (wants / "agent-stats.timer").symlink_to("../agent-stats.timer")
+    run("install.sh", env)
+    assert not (wants / "agent-stats.timer").is_symlink()
+
+
+def test_uninstall_removes_the_timer_link_even_if_disable_does_not(env):
+    run("install.sh", env)
+    wants = home(env) / ".config/systemd/user/timers.target.wants"
+    wants.mkdir(parents=True)
+    (wants / "limit-rings.timer").symlink_to("../limit-rings.timer")
+    run("uninstall.sh", env, "--purge")
+    assert not (wants / "limit-rings.timer").is_symlink()

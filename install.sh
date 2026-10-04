@@ -58,6 +58,8 @@ switch_widgets() {
 
 if [[ -d "$old_share" || -f "$units/agent-stats.timer" || -d "$old_cache" ]]; then
     echo "→ Migrating from Agent Stats"
+fi
+if [[ -d "$old_share" || -f "$units/agent-stats.timer" ]]; then
     # Stop first (stop waits for a running pass) – otherwise the old collector keeps writing the old cache.
     systemctl --user stop agent-stats.timer agent-stats.service 2>/dev/null || true
     if systemctl --user is-active --quiet agent-stats.timer agent-stats.service; then
@@ -66,23 +68,27 @@ if [[ -d "$old_share" || -f "$units/agent-stats.timer" || -d "$old_cache" ]]; th
         exit 1
     fi
     systemctl --user disable agent-stats.timer 2>/dev/null || true
-    rm -f "$units/agent-stats.timer" "$units/agent-stats.service"
+    rm -f "$units/agent-stats.timer" "$units/agent-stats.service" "$units/timers.target.wants/agent-stats.timer"
     systemctl --user daemon-reload
     rm -rf "$old_share"
     rm -f "$HOME/.local/bin/agent-stats-collect" "$HOME"/.local/share/locale/*/LC_MESSAGES/plasma_applet_$old_id.mo
-    if [[ -d "$old_cache" && ! -e "$cache" ]]; then
-        mv "$old_cache" "$cache"
-        echo "  cache moved to $cache (history and notification state kept)."
-    elif [[ -d "$old_cache" && ! -e "$cache/state.json" ]]; then
-        # The new cache exists but holds no state yet (e.g. a collector run by hand): take the old files over.
-        for f in "$old_cache"/*; do
-            if [[ -e "$f" && ! -e "$cache/${f##*/}" ]]; then mv "$f" "$cache/"; fi
-        done
-        rm -rf "$old_cache"
-        echo "  cache merged into $cache (history and notification state kept)."
-    elif [[ -d "$old_cache" ]]; then
-        echo "  Note: $old_cache and $cache both exist – the old one is left untouched."
-    fi
+fi
+# Only reached once the old collector is gone (above, or in an earlier run), so nothing writes the old cache any more.
+if [[ ! -d "$old_cache" ]]; then
+    :
+elif [[ ! -e "$cache" ]]; then
+    mv "$old_cache" "$cache"
+    echo "  cache moved to $cache (history and notification state kept)."
+elif [[ -e "$old_cache/state.json" && -e "$cache/state.json" ]]; then
+    echo "  Note: $old_cache and $cache both hold history – the old one is left untouched and no longer used."
+    echo "  Remove it once you no longer need it: rm -r $old_cache"
+else
+    # Only one of them holds state (a collector run by hand, or a merge that broke off): take the old files over.
+    for f in "$old_cache"/*; do
+        if [[ -e "$f" && ! -e "$cache/${f##*/}" ]]; then mv "$f" "$cache/"; fi
+    done
+    rm -rf "$old_cache"
+    echo "  cache merged into $cache (history and notification state kept)."
 fi
 
 echo "→ Collector to $share"
