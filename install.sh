@@ -62,11 +62,16 @@ fi
 if [[ -d "$old_share" || -f "$units/agent-stats.timer" ]]; then
     # Stop first (stop waits for a running pass) – otherwise the old collector keeps writing the old cache.
     systemctl --user stop agent-stats.timer agent-stats.service 2>/dev/null || true
-    if systemctl --user is-active --quiet agent-stats.timer agent-stats.service; then
-        echo "Error: the old agent-stats timer could not be stopped – nothing was migrated. Check:" >&2
-        echo "  systemctl --user status agent-stats.timer agent-stats.service" >&2
-        exit 1
-    fi
+    # Any state but inactive/failed – including activating and deactivating – means a pass may still write.
+    old_states="$(systemctl --user show -p ActiveState --value agent-stats.timer agent-stats.service 2>/dev/null || true)"
+    while read -r state; do
+        case "$state" in
+            "" | inactive | failed) ;;
+            *)  echo "Error: the old agent-stats timer could not be stopped ($state) – nothing was migrated. Check:" >&2
+                echo "  systemctl --user status agent-stats.timer agent-stats.service" >&2
+                exit 1 ;;
+        esac
+    done <<< "$old_states"
     systemctl --user disable agent-stats.timer 2>/dev/null || true
     rm -f "$units/agent-stats.timer" "$units/agent-stats.service" "$units/timers.target.wants/agent-stats.timer"
     systemctl --user daemon-reload

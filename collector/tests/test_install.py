@@ -21,7 +21,8 @@ case "$call" in
     "kpackagetool6 -t Plasma/Applet --show "*) grep -qxF "${call##* }" "$STUB_PACKAGES" ;;
     "kpackagetool6 -t Plasma/Applet --install "*) [ -z "$STUB_INSTALL_FAIL" ] ;;
     "systemctl --user is-active --quiet plasma-plasmashell") [ -n "$STUB_SHELL_ACTIVE" ] ;;
-    "systemctl --user is-active --quiet agent-stats"*) [ -n "$STUB_OLD_ACTIVE" ] ;;
+    # like the real output: one state per unit, separated by an empty line
+    "systemctl --user show -p ActiveState --value agent-stats"*) printf '%s\n\nfailed\n' "${STUB_OLD_STATE:-inactive}" ;;
     "systemctl --user stop agent-stats"*)
         if [ -d "$HOME/.cache/agent-stats" ]; then echo "old cache present at stop" >> "$STUB_LOG"; fi ;;
     "systemctl --user stop plasma-plasmashell")
@@ -218,9 +219,10 @@ def test_failed_statusline_rewrite_leaves_the_script_intact(env, tmp_path):
     assert [p.name for p in sl.parent.glob(sl.name + "*")] == [sl.name]
 
 
-def test_migration_aborts_when_the_old_collector_does_not_stop(env):
+@pytest.mark.parametrize("state", ["active", "deactivating", "activating"])
+def test_migration_aborts_when_the_old_collector_does_not_stop(env, state):
     old_install(env)
-    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "STUB_OLD_ACTIVE": "1"},
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "STUB_OLD_STATE": state},
                        stdin=subprocess.DEVNULL, capture_output=True, text=True)
     h = home(env)
     assert r.returncode == 1 and "could not be stopped" in r.stderr
