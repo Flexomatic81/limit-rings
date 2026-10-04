@@ -1,0 +1,45 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: agent-stats\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-04 15:41+0200\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, python-format
+msgid "weekly %(model)s limit"
+msgstr "Wochenlimit %(model)s"
+
+msgid "weekly limit"
+msgstr "Wochenlimit"
+
+msgid "5-hour limit"
+msgstr "5-h-Limit"
+
+#, python-format
+msgid "%(window)s limit"
+msgstr "Limit %(window)s"
+
+#, python-format
+msgid "Reset in %(duration)s"
+msgstr "Reset in %(duration)s"
+
+#, python-format
+msgid "%(provider)s: %(limit)s full in ~%(duration)s"
+msgstr "%(provider)s: %(limit)s in ~%(duration)s voll"
+
+#, python-format
+msgid "%(provider)s: %(limit)s almost full"
+msgstr "%(provider)s: %(limit)s gleich voll"
+
+#, python-format
+msgid "Now %(percent)d %%"
+msgstr "Jetzt %(percent)d %%"
+
+#, python-format
+msgid "%(provider)s: %(limit)s at %(percent)d %%"
+msgstr "%(provider)s: %(limit)s bei %(percent)d %%"

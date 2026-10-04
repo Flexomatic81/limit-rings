@@ -1,0 +1,202 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: agent-stats\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-04 15:42+0200\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "billion abbreviation"
+msgid "B"
+msgstr "Mrd"
+
+msgctxt "time ago"
+msgid "%1 s ago"
+msgstr "vor %1 s"
+
+msgctxt "time ago"
+msgid "%1 min ago"
+msgstr "vor %1 min"
+
+msgctxt "time ago"
+msgid "%1 h ago"
+msgstr "vor %1 h"
+
+msgctxt "time ago"
+msgid "%1 d ago"
+msgstr "vor %1 d"
+
+msgctxt "limit data source"
+msgid "Status line"
+msgstr "Statuszeile"
+
+msgctxt "limit data source"
+msgid "Session log"
+msgstr "Sitzungslog"
+
+msgid ""
+"Input: %1\n"
+"Output: %2\n"
+"Cache read: %3\n"
+"Cache write: %4"
+msgstr ""
+"Input: %1\n"
+"Output: %2\n"
+"Cache lesen: %3\n"
+"Cache schreiben: %4"
+
+msgctxt "Qt date format for the daily chart tooltip (day and month)"
+msgid "MMM d"
+msgstr "dd.MM."
+
+msgctxt "daily chart tooltip: %1 date, %2 token count"
+msgid "%1: %2 tokens"
+msgstr "%1: %2 Tokens"
+
+msgctxt "%1 = age such as '5 min ago', %2 = data source"
+msgid "Updated %1 · %2"
+msgstr "Stand %1 · %2"
+
+msgctxt "limit data is outdated"
+msgid "stale"
+msgstr "veraltet"
+
+msgid "No data yet – is the collector running? %1"
+msgstr "Noch keine Daten – läuft der Collector? %1"
+
+msgid ""
+"Unknown data format – plasmoid and collector don't match. Run install.sh "
+"again."
+msgstr ""
+"Unbekanntes Datenformat – Plasmoid und Collector passen nicht zusammen. "
+"install.sh erneut ausführen."
+
+msgid "stats.json is not readable."
+msgstr "stats.json ist nicht lesbar."
+
+msgid "Collector not running – data from %1. Check: %2"
+msgstr "Collector läuft nicht – Daten %1. Prüfen: %2"
+
+msgid "Lasts until reset at current pace"
+msgstr "Reicht bei aktuellem Tempo bis zum Reset"
+
+msgid "Full soon at current pace"
+msgstr "Bei aktuellem Tempo gleich voll"
+
+msgid "Full in ~%1 at current pace (%2)"
+msgstr "Bei aktuellem Tempo voll in ~%1 (%2)"
+
+msgid "lasts until reset"
+msgstr "reicht bis Reset"
+
+msgid "full in ~%1"
+msgstr "voll in ~%1"
+
+msgid "full soon"
+msgstr "gleich voll"
+
+msgctxt "limit name: weekly window of one model, %1 = model"
+msgid "Week %1"
+msgstr "Woche %1"
+
+msgctxt "limit name: weekly window"
+msgid "Week"
+msgstr "Woche"
+
+msgctxt "limit name: 5-hour window"
+msgid "5 h"
+msgstr "5 h"
+
+msgid "%1 file unreadable – numbers incomplete"
+msgid_plural "%1 files unreadable – numbers incomplete"
+msgstr[0] "%1 Datei nicht lesbar – Zahlen unvollständig"
+msgstr[1] "%1 Dateien nicht lesbar – Zahlen unvollständig"
+
+msgid "Data could not be processed"
+msgstr "Daten konnten nicht verarbeitet werden"
+
+msgid "Limits unavailable"
+msgstr "Limits nicht verfügbar"
+
+msgctxt "limit state"
+msgid "reset"
+msgstr "zurückgesetzt"
+
+msgid "Reset in %1"
+msgstr "Reset in %1"
+
+msgid "Login expired – run claude in a terminal"
+msgstr "Anmeldung abgelaufen – claude im Terminal starten"
+
+msgid "No login found – run claude in a terminal"
+msgstr "Keine Anmeldung gefunden – claude im Terminal starten"
+
+msgid "No data"
+msgstr "Keine Daten"
+
+msgid "no limit data"
+msgstr "keine Limit-Daten"
+
+msgid "Last 7 days"
+msgstr "Letzte 7 Tage"
+
+msgid "Since weekly reset (%1)"
+msgstr "Seit Wochen-Reset (%1)"
+
+msgctxt "breakdown entry for all remaining projects or models"
+msgid "Other"
+msgstr "Andere"
+
+msgid "%1 tokens"
+msgstr "%1 Tokens"
+
+msgid "General"
+msgstr "Allgemein"
+
+msgid "Warning at (%):"
+msgstr "Warnung ab (%):"
+
+msgid "Critical at (%):"
+msgstr "Kritisch ab (%):"
+
+msgid "Show:"
+msgstr "Anzeigen:"
+
+msgid "Panel:"
+msgstr "Leiste:"
+
+msgctxt "panel display style"
+msgid "Ring"
+msgstr "Ring"
+
+msgctxt "panel display style"
+msgid "Number"
+msgstr "Zahl"
+
+msgid "No limit data"
+msgstr "Keine Limit-Daten"
+
+msgctxt "token totals"
+msgid "Today"
+msgstr "Heute"
+
+msgctxt "token totals"
+msgid "Week"
+msgstr "Woche"
+
+msgctxt "token totals"
+msgid "Month"
+msgstr "Monat"
+
+msgid "%1 · share of tokens"
+msgstr "%1 · Anteil an Tokens"
+
+msgid "Projects"
+msgstr "Projekte"
+
+msgid "Models"
+msgstr "Modelle"
