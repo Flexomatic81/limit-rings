@@ -1,4 +1,4 @@
-# Agent Stats
+# Limit Rings
 
 KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code** and **Codex**.
 
@@ -15,14 +15,14 @@ KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code*
 
 ## Important: unofficial APIs
 
-Agent Stats fetches usage limits from **undocumented endpoints** of Anthropic
+Limit Rings fetches usage limits from **undocumented endpoints** of Anthropic
 (`api.anthropic.com/api/oauth/usage`) and OpenAI (`chatgpt.com/backend-api/wham/usage`). To do so,
 it reads the login tokens that Claude Code (`~/.claude/.credentials.json`) and Codex
 (`~/.codex/auth.json`) store locally.
 
 - The tokens are only read — never refreshed, stored or logged — and are only sent to the
   respective provider; redirects are rejected. The endpoints are queried at most every 5 minutes.
-- The endpoints may change or disappear at any time; Agent Stats then falls back to local data
+- The endpoints may change or disappear at any time; Limit Rings then falls back to local data
   (status line or session logs).
 - Please check for yourself whether this use complies with the terms of service of Anthropic and
   OpenAI. This project is not affiliated with Anthropic or OpenAI; "Claude" and "Codex" are
@@ -32,7 +32,7 @@ it reads the login tokens that Claude Code (`~/.claude/.credentials.json`) and C
 
 A Python collector (`collector/`, standard library only) runs as a systemd user timer every 60 s,
 incrementally reads `~/.claude/projects/**/*.jsonl` and `~/.codex/sessions/**/*.jsonl`, and writes
-`~/.cache/agent-stats/stats.json`. The plasmoid (`plasmoid/io.github.flexomatic81.agentstats`) only reads this file.
+`~/.cache/limit-rings/stats.json`. The plasmoid (`plasmoid/io.github.flexomatic81.limitrings`) only reads this file.
 
 Claude limits come from the (undocumented) OAuth usage endpoint; the token from
 `~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. If the endpoint
@@ -52,9 +52,10 @@ Requirements: KDE Plasma 6 (`kpackagetool6`), Python ≥ 3.10 at `/usr/bin/pytho
 ```bash
 ./install.sh            # asks before modifying the status line
 ./install.sh --statusline   # inserts the status line hook without asking
+./install.sh --migrate-widgets   # switches placed "Agent Stats" widgets without asking
 ```
 
-Then drag "Agent Stats" from "Add Widgets" onto a panel and/or the desktop.
+Then drag "Limit Rings" from "Add Widgets" onto a panel and/or the desktop.
 
 The status line fallback requires a custom Claude Code status line script at
 `~/.claude/statusline-command.sh` containing a line `input=$(cat)`; `install.sh` inserts the
@@ -63,20 +64,20 @@ required line (`statusline-snippet.sh`) there. Without such a script, this step 
 ### Download and install
 
 ```bash
-git clone https://github.com/Flexomatic81/agent-stats.git
-cd agent-stats
+git clone https://github.com/Flexomatic81/limit-rings.git
+cd limit-rings
 ./install.sh
 ```
 
 Then place the widget as described above and check:
 
 ```bash
-systemctl --user list-timers agent-stats.timer   # next run ≤ 60 s
-jq '.providers | map_values({limits_source, error})' ~/.cache/agent-stats/stats.json
+systemctl --user list-timers limit-rings.timer   # next run ≤ 60 s
+jq '.providers | map_values({limits_source, error})' ~/.cache/limit-rings/stats.json
 ```
 
 - Token statistics only count the logs of **this** machine; the limits belong to the account and
-  are the same on every machine. To use Agent Stats on several machines, simply install it on each.
+  are the same on every machine. To use Limit Rings on several machines, simply install it on each.
 - If `~/.claude/.credentials.json` holds a valid token, the Claude limits come via OAuth
   (`limits_source: "oauth"`). Claude Code only refreshes the token while it runs in a terminal (it
   is valid for about 8 h); the Claude desktop app does not write a token to this file. Without a
@@ -90,19 +91,28 @@ git pull
 systemctl --user restart plasma-plasmashell   # only needed if the widget has changed
 ```
 
+### Upgrading from Agent Stats
+
+Versions up to 0.1 were called *Agent Stats*. `./install.sh` takes an existing installation over:
+it stops and removes the old timer and collector, moves `~/.cache/agent-stats` to
+`~/.cache/limit-rings` (history and notification state are kept) and points the status line hook
+at the new path (backup: `statusline-command.sh.bak-limit-rings`). Widgets that are already placed
+are switched to the new plugin ID after confirmation, keeping position and settings – this
+restarts the Plasma shell. `./install.sh --migrate-widgets` does it without asking.
+
 ## Uninstalling
 
 ```bash
-./uninstall.sh          # asks whether to delete ~/.cache/agent-stats
+./uninstall.sh          # asks whether to delete ~/.cache/limit-rings
 ./uninstall.sh --purge
 ```
 
 ## Troubleshooting
 
 ```bash
-systemctl --user status agent-stats.timer
-journalctl --user -u agent-stats.service -n 50
-jq . ~/.cache/agent-stats/stats.json
+systemctl --user status limit-rings.timer
+journalctl --user -u limit-rings.service -n 50
+jq . ~/.cache/limit-rings/stats.json
 ```
 
 ## Development
@@ -110,7 +120,7 @@ jq . ~/.cache/agent-stats/stats.json
 ```bash
 cd collector && uv run --no-project --with pytest pytest -q
 /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
-plasmawindowed io.github.flexomatic81.agentstats
+plasmawindowed io.github.flexomatic81.limitrings
 ```
 
 ## Translations

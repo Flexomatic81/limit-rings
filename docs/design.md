@@ -1,4 +1,4 @@
-# Agent-Stats Plasmoid — Design
+# Limit Rings Plasmoid — Design
 
 As of: 2026-10-03 · Status: under review
 
@@ -33,10 +33,10 @@ project/model, active sessions.
 
 ```
 ~/.claude/projects/**/*.jsonl ─┐
-~/.codex/sessions/**/*.jsonl  ─┼─► agent-stats-collect (Python, systemd user timer, 60 s)
+~/.codex/sessions/**/*.jsonl  ─┼─► limit-rings-collect (Python, systemd user timer, 60 s)
 Anthropic OAuth usage API     ─┤        │  incremental: byte offset per file in state.json
 Status line cache (fallback)  ─┘        ▼
-                              ~/.cache/agent-stats/stats.json  (atomic: tmp + rename)
+                              ~/.cache/limit-rings/stats.json  (atomic: tmp + rename)
                                         │
                                         ▼
                          Plasmoid (QML) reads every 30 s → panel + desktop/popup
@@ -61,9 +61,9 @@ Decisions:
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
-| `collect.py` | Orchestrates a run, writes `stats.json` atomically. CLI entry point `agent-stats-collect`. | all of the above |
-| Plasmoid `io.github.flexomatic81.agentstats` | Presentation only, no computation. | `stats.json` |
-| Status line addition | One line in `statusline-command.sh`: writes `.rate_limits` to `~/.cache/agent-stats/claude-statusline-limits.json`. | — |
+| `collect.py` | Orchestrates a run, writes `stats.json` atomically. CLI entry point `limit-rings-collect`. | all of the above |
+| Plasmoid `io.github.flexomatic81.limitrings` | Presentation only, no computation. | `stats.json` |
+| Status line addition | One line in `statusline-command.sh`: writes `.rate_limits` to `~/.cache/limit-rings/claude-statusline-limits.json`. | — |
 
 ### Token events
 
@@ -87,7 +87,7 @@ moved or copied session files are not counted twice.
 
 ### State and incrementality
 
-- `~/.cache/agent-stats/state.json` holds `{offset, inode}` per file, the daily buckets per
+- `~/.cache/limit-rings/state.json` holds `{offset, inode}` per file, the daily buckets per
   provider (local date → token totals), the booked usage states per Claude response for the
   last 35 days (older ones are discarded; files of that age are no longer written to)
   and the Codex session states.
@@ -236,7 +236,7 @@ Rules:
   arrives.
 - `errors` not empty → subtle notice in the card, other values remain visible.
 - `stats.json` missing or older than 5 minutes → notice "Collector not running" with the command
-  `systemctl --user status agent-stats.timer`.
+  `systemctl --user status limit-rings.timer`.
 
 ### Settings
 
@@ -267,7 +267,7 @@ get no early warning. Notifications already sent are recorded in `state.json` un
   is newer. As long as the last OAuth attempt succeeded, its data stays in place
   during the 5-minute throttle — a newer status line does not displace it. Unexpected
   response shapes are logged to the journal with field names (never with values from the request).
-- Collector output goes to the journal: `journalctl --user -u agent-stats`.
+- Collector output goes to the journal: `journalctl --user -u limit-rings`.
 
 ## Security
 
@@ -278,24 +278,32 @@ get no early warning. Notifications already sent are recorded in `state.json` un
   `state.json`, logs or error messages. Redirects are rejected because `urllib` would otherwise
   send the `Authorization` header along to the redirect target.
 - `stats.json`, `state.json` and the status line cache are created with mode `0600`,
-  `~/.cache/agent-stats/` with `0700`.
+  `~/.cache/limit-rings/` with `0700`.
 
 ## Installation
 
 `install.sh` (idempotent) and `uninstall.sh`:
 
-1. Collector to `~/.local/share/agent-stats/`, launcher script `~/.local/bin/agent-stats-collect`.
-2. `systemd/agent-stats.service` (oneshot) and `agent-stats.timer` (`OnBootSec=30s`,
+1. Collector to `~/.local/share/limit-rings/`, launcher script `~/.local/bin/limit-rings-collect`.
+2. `systemd/limit-rings.service` (oneshot) and `limit-rings.timer` (`OnBootSec=30s`,
    `OnUnitActiveSec=60s`) to `~/.config/systemd/user/`, `daemon-reload`, enable the timer,
    start the first run immediately.
 3. Plasmoid via `kpackagetool6 -t Plasma/Applet --install` or `--upgrade`.
 4. Status line: the script shows the line to be inserted and only inserts it after explicit
-  confirmation — with a backup copy `statusline-command.sh.bak-agent-stats` first. The line
+  confirmation — with a backup copy `statusline-command.sh.bak-limit-rings` first. The line
   writes to its own `mktemp` file on each call and renames it afterwards, so that parallel
   Claude sessions do not produce half-written files.
+5. Migration from Agent Stats (≤ 0.1): if the old share directory, timer or cache exists, the old
+   timer and service are stopped and removed first, then `~/.cache/agent-stats` is moved to
+   `~/.cache/limit-rings` (into an existing one only if it has no `state.json` yet, without replacing
+   files; if both hold state, the old one is left untouched), and the status line hook is rewritten to
+   the new marker and path. Placed widgets are switched by rewriting
+   `plugin=io.github.flexomatic81.agentstats` in `plasma-org.kde.plasma.desktop-appletsrc` – only
+   while `plasma-plasmashell` is stopped (it writes the file on exit), after confirmation or with
+   `--migrate-widgets`, with a backup `.bak-limit-rings`. The old package is removed afterwards.
 
 `uninstall.sh` reverts 1–3 and points out the status line addition; it removes
-`~/.cache/agent-stats/` only after confirmation.
+`~/.cache/limit-rings/` only after confirmation.
 
 ## Tests
 
@@ -310,6 +318,10 @@ get no early warning. Notifications already sent are recorded in `state.json` un
 - An error in one provider leaves the other untouched.
 - `stats.json` satisfies the rules from the section "Interface" (30 days, `total` sum).
 
+**Install scripts (pytest, `collector/tests/test_install.py`):** `install.sh` and `uninstall.sh`
+run in a scratch `HOME`; `systemctl`, `kpackagetool6` and `pgrep` are stubs that log their calls.
+Covers the fresh install and every migration step above.
+
 **Widget:** formatting functions (k/M, countdown, threshold colour, "reset") as pure
 functions in `contents/code/format.js`, tested with `qmltestrunner`. Presentation checked manually with
 `plasmoidviewer` as a panel and as a desktop widget.
@@ -320,20 +332,20 @@ independent `jq` count.
 ## Project structure
 
 ```
-agent-stats/
+limit-rings/
   collector/
-    agent_stats/
+    limit_rings/
       __init__.py  collect.py  aggregate.py  state.py
       sources/  __init__.py  claude_logs.py  codex_logs.py  claude_limits.py
     tests/
       fixtures/
-  plasmoid/io.github.flexomatic81.agentstats/
+  plasmoid/io.github.flexomatic81.limitrings/
     metadata.json
     contents/ui/      main.qml  CompactRepresentation.qml  FullRepresentation.qml
                       ProviderCard.qml  configGeneral.qml
     contents/code/    format.js
     contents/config/  main.xml  config.qml
-  systemd/  agent-stats.service  agent-stats.timer
+  systemd/  limit-rings.service  limit-rings.timer
   install.sh  uninstall.sh  README.md
   docs/design.md
 ```
