@@ -104,3 +104,215 @@ def test_uninstall_removes_the_new_names(env):
         assert not (h / gone).exists(), gone
     assert "systemctl --user stop limit-rings.timer limit-rings.service" in calls(env)
     assert f"kpackagetool6 -t Plasma/Applet --remove {ID}" in calls(env)
+
+
+OLD_MARKER = "# agent-stats: record limits for the plasmoid"
+OLD_MARKER_DE = "# agent-stats: Limits für das Plasmoid mitschneiden"
+OLD_SNIPPET = SNIPPET.replace("limit-rings", "agent-stats")
+APPLETSRC = ".config/plasma-org.kde.plasma.desktop-appletsrc"
+APPLETS = f"""[Containments][117][Applets][146]
+immutability=1
+plugin={OLD_ID}
+
+[Containments][117][Applets][146][Configuration][General]
+warnThreshold=70
+
+[Containments][117][Applets][147]
+plugin=org.kde.plasma.digitalclock
+"""
+
+
+def old_install(env):
+    """What Agent Stats 0.1 left behind."""
+    h = home(env)
+    write(h / ".local/share/agent-stats/agent_stats/collect.py", "")
+    write(h / ".local/bin/agent-stats-collect", "#!/bin/sh\n")
+    write(h / ".config/systemd/user/agent-stats.timer", "")
+    write(h / ".config/systemd/user/agent-stats.service", "")
+    write(h / ".cache/agent-stats/state.json", '{"claude": {"days": "history"}}')
+    write(h / ".cache/agent-stats/stats.json", "{}")
+    Path(env["STUB_PACKAGES"]).write_text(OLD_ID + "\n")
+
+
+def test_unknown_option_is_rejected(env):
+    r = subprocess.run(["bash", str(ROOT / "install.sh"), "--bogus"], env=env, stdin=subprocess.DEVNULL,
+                       capture_output=True, text=True)
+    assert r.returncode == 2 and "Unknown option" in r.stderr
+
+
+def test_migration_stops_the_old_timer_before_moving_the_cache(env):
+    old_install(env)
+    out = run("install.sh", env)
+    h = home(env)
+    assert "→ Migrating from Agent Stats" in out
+    assert "systemctl --user stop agent-stats.timer agent-stats.service" in calls(env)
+    assert "old cache present at stop" in calls(env)
+    assert "systemctl --user disable agent-stats.timer" in calls(env)
+    assert (h / ".cache/limit-rings/state.json").read_text() == '{"claude": {"days": "history"}}'
+    for gone in (".cache/agent-stats", ".local/share/agent-stats", ".local/bin/agent-stats-collect",
+                 ".config/systemd/user/agent-stats.timer", ".config/systemd/user/agent-stats.service"):
+        assert not (h / gone).exists(), gone
+
+
+def test_migration_fills_an_existing_cache_without_state(env):
+    old_install(env)
+    write(home(env) / ".cache/limit-rings/stats.json", "new")
+    out = run("install.sh", env)
+    h = home(env)
+    assert (h / ".cache/limit-rings/state.json").read_text() == '{"claude": {"days": "history"}}'
+    assert (h / ".cache/limit-rings/stats.json").read_text() == "new"
+    assert not (h / ".cache/agent-stats").exists()
+    assert "cache merged" in out
+
+
+def test_failed_install_can_simply_be_rerun(env):
+    old_install(env)
+    before = f"input=$(cat)\n{OLD_MARKER}\n{OLD_SNIPPET}\n"
+    sl = write(home(env) / ".claude/statusline-command.sh", before)
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "STUB_INSTALL_FAIL": "1"},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert r.returncode != 0 and "run it again" in r.stderr
+    run("install.sh", env)
+    assert sl.read_text() == f"input=$(cat)\n{MARKER}\n{SNIPPET}\n"
+    assert (home(env) / ".cache/limit-rings/state.json").read_text() == '{"claude": {"days": "history"}}'
+
+
+def test_migration_removes_the_old_widget_translations(env):
+    old_install(env)
+    mo = write(home(env) / f".local/share/locale/de/LC_MESSAGES/plasma_applet_{OLD_ID}.mo", "")
+    run("install.sh", env)
+    assert not mo.exists()
+
+
+def test_migration_keeps_both_caches_when_the_new_one_exists(env):
+    old_install(env)
+    write(home(env) / ".cache/limit-rings/state.json", "new")
+    out = run("install.sh", env)
+    assert (home(env) / ".cache/limit-rings/state.json").read_text() == "new"
+    assert (home(env) / ".cache/agent-stats/state.json").is_file()
+    assert "left untouched" in out
+
+
+@pytest.mark.parametrize("old_marker, indent", [(OLD_MARKER, ""), (OLD_MARKER_DE, "    ")])
+def test_migration_rewrites_the_statusline_hook(env, old_marker, indent):
+    before = f"#!/bin/sh\ninput=$(cat)\n{indent}{old_marker}\n{indent}{OLD_SNIPPET}\necho hi\n"
+    after = f"#!/bin/sh\ninput=$(cat)\n{MARKER}\n{SNIPPET}\necho hi\n"
+    sl = write(home(env) / ".claude/statusline-command.sh", before)
+    sl.chmod(0o755)
+    run("install.sh", env)
+    assert sl.read_text() == after
+    assert sl.stat().st_mode & 0o777 == 0o755
+    assert (home(env) / ".claude/statusline-command.sh.bak-limit-rings").read_text() == before
+    run("install.sh", env)
+    assert sl.read_text() == after
+
+
+def test_failed_statusline_rewrite_leaves_the_script_intact(env, tmp_path):
+    before = f"#!/bin/sh\ninput=$(cat)\n{OLD_MARKER}\n{OLD_SNIPPET}\n"
+    sl = write(home(env) / ".claude/statusline-command.sh", before)
+    failing_awk(tmp_path)
+    out = run("install.sh", env, STUB_AWK_FAIL='ENVIRON["OLD"]')
+    assert sl.read_text() == before
+    assert "could not be rewritten" in out
+    assert [p.name for p in sl.parent.glob(sl.name + "*")] == [sl.name]
+
+
+def test_migration_aborts_when_the_old_collector_does_not_stop(env):
+    old_install(env)
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "STUB_OLD_ACTIVE": "1"},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    h = home(env)
+    assert r.returncode == 1 and "could not be stopped" in r.stderr
+    assert (h / ".cache/agent-stats/state.json").is_file() and not (h / ".cache/limit-rings").exists()
+    assert (h / ".local/share/agent-stats").is_dir()
+
+
+def test_migration_warns_when_the_old_cache_path_remains(env):
+    sl = write(home(env) / ".claude/statusline-command.sh",
+               f"input=$(cat)\n{OLD_MARKER}\necho 'my own line'\nd=$HOME/.cache/agent-stats\n")
+    out = run("install.sh", env)
+    assert "still refers to ~/.cache/agent-stats" in out
+    assert "echo 'my own line'" in sl.read_text()
+    assert MARKER in sl.read_text()
+
+
+def test_widgets_switched_while_the_shell_is_stopped(env):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    run("install.sh", env, "--migrate-widgets", STUB_SHELL_ACTIVE="1")
+    assert rc.read_text() == APPLETS.replace(f"plugin={OLD_ID}", f"plugin={ID}")
+    assert (home(env) / (APPLETSRC + ".bak-limit-rings")).read_text() == APPLETS
+    log = calls(env)
+    assert "old plugin present at shell stop" in log
+    stop = log.index("systemctl --user stop plasma-plasmashell")
+    start = log.index("systemctl --user start plasma-plasmashell")
+    assert stop < log.index(f"kpackagetool6 -t Plasma/Applet --remove {OLD_ID}") < start
+
+
+FAILING_AWK = """#!/bin/sh
+# Simulates a write that breaks off: partial output, then failure – for calls whose arguments contain $STUB_AWK_FAIL.
+case "$*" in
+    *"$STUB_AWK_FAIL"*) echo "partial"; exit 1 ;;
+esac
+exec /usr/bin/awk "$@"
+"""
+
+
+def failing_awk(tmp_path):
+    awk = write(tmp_path / "stubs" / "awk", FAILING_AWK)
+    awk.chmod(0o755)
+
+
+def test_failed_widget_switch_leaves_the_layout_intact(env, tmp_path):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    failing_awk(tmp_path)
+    out = run("install.sh", env, "--migrate-widgets", STUB_SHELL_ACTIVE="1", STUB_AWK_FAIL="plugin=")
+    assert rc.read_text() == APPLETS
+    assert "switching failed" in out
+    assert [p.name for p in rc.parent.glob(rc.name + "*")] == [rc.name]  # no temp file, no backup of a failed try
+    assert "systemctl --user start plasma-plasmashell" in calls(env)
+
+
+def test_widgets_not_switched_without_consent(env):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    out = run("install.sh", env, STUB_SHELL_ACTIVE="1")
+    assert rc.read_text() == APPLETS
+    assert "--migrate-widgets" in out
+    assert not any("plasma-plasmashell" in c or f"--remove {OLD_ID}" in c for c in calls(env))
+
+
+def test_widgets_not_switched_when_plasmashell_runs_outside_systemd(env):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    out = run("install.sh", env, "--migrate-widgets", STUB_SHELL_RUNNING="1")
+    assert rc.read_text() == APPLETS
+    assert "kquitapp6 plasmashell" in out
+
+
+def test_widgets_switched_directly_when_no_shell_runs(env):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    run("install.sh", env, "--migrate-widgets")
+    assert f"plugin={ID}" in rc.read_text()
+    assert not any(c in ("systemctl --user stop plasma-plasmashell", "systemctl --user start plasma-plasmashell")
+                   for c in calls(env))
+
+
+def test_old_package_removed_when_no_widget_is_placed(env):
+    old_install(env)
+    run("install.sh", env)
+    assert f"kpackagetool6 -t Plasma/Applet --remove {OLD_ID}" in calls(env)
+
+
+def test_second_run_after_migration_does_not_migrate_again(env):
+    old_install(env)
+    write(home(env) / APPLETSRC, APPLETS)
+    run("install.sh", env, "--migrate-widgets")
+    Path(env["STUB_LOG"]).write_text("")
+    out = run("install.sh", env)
+    assert "Migrating" not in out
+    # only systemctl calls: kpackagetool6 calls carry the checkout path, which may itself contain "agent-stats"
+    assert not any(c.startswith("systemctl") and ("agent-stats" in c or "plasma-plasmashell" in c)
+                   for c in calls(env))
