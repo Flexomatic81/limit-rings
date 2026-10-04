@@ -1,5 +1,5 @@
 [Unit]
-Description=Update Agent Stats every 60 seconds
+Description=Update Limit Rings every 60 seconds
 
 [Timer]
 OnBootSec=30s
