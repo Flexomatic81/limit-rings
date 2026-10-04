@@ -255,7 +255,10 @@ def test_widgets_switched_while_the_shell_is_stopped(env):
 FAILING_AWK = """#!/bin/sh
 # Simulates a write that breaks off: partial output, then failure – for calls whose arguments contain $STUB_AWK_FAIL.
 case "$*" in
-    *"$STUB_AWK_FAIL"*) echo "partial"; exit 1 ;;
+    *"$STUB_AWK_FAIL"*)
+        echo "partial"
+        if [ -n "$STUB_AWK_SIGNAL" ]; then kill -"$STUB_AWK_SIGNAL" 0; fi  # to the process group, like Ctrl-C
+        exit 1 ;;
 esac
 exec /usr/bin/awk "$@"
 """
@@ -402,3 +405,17 @@ def test_only_the_users_own_plasmashell_counts(env):
     write(home(env) / APPLETSRC, APPLETS)
     run("install.sh", env, "--migrate-widgets")
     assert f"pgrep -u {os.getuid()} -x plasmashell" in calls(env)
+
+
+@pytest.mark.parametrize("signal", ["INT", "TERM"])
+def test_plasmashell_is_restarted_when_the_switch_is_interrupted(env, tmp_path, signal):
+    old_install(env)
+    rc = write(home(env) / APPLETSRC, APPLETS)
+    failing_awk(tmp_path)
+    r = subprocess.run(["bash", str(ROOT / "install.sh"), "--migrate-widgets"],
+                       env={**env, "STUB_SHELL_ACTIVE": "1", "STUB_AWK_FAIL": "plugin=", "STUB_AWK_SIGNAL": signal},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True, start_new_session=True)
+    assert r.returncode != 0
+    assert rc.read_text() == APPLETS
+    log = calls(env)
+    assert log.index("systemctl --user stop plasma-plasmashell") < log.index("systemctl --user start plasma-plasmashell")

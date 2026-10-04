@@ -152,7 +152,11 @@ if [[ -f "$appletsrc" ]] && grep -qxF "plugin=$old_id" "$appletsrc"; then
     elif systemctl --user is-active --quiet plasma-plasmashell; then
         # plasmashell writes its configuration on exit, so edit it only while the shell is stopped.
         systemctl --user stop plasma-plasmashell
+        # Whatever happens from here on (an error, Ctrl-C), the desktop must not be left without its shell.
+        trap 'systemctl --user start plasma-plasmashell' EXIT
+        trap 'exit 130' INT TERM HUP
         switch_widgets || echo "  Warning: switching failed – $appletsrc left as it was."
+        trap - EXIT INT TERM HUP
         systemctl --user start plasma-plasmashell
     elif pgrep -u "$UID" -x plasmashell >/dev/null; then
         echo "  plasmashell is not run by systemd – quit it (kquitapp6 plasmashell), re-run install.sh with"
