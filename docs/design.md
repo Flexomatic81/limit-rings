@@ -1,6 +1,6 @@
 # Limit Rings Plasmoid — Design
 
-As of: 2026-10-03 · Status: under review
+As of: 2026-10-05 · Status: under review
 
 ## Goal
 
@@ -21,7 +21,7 @@ project/model, active sessions.
 
 ## Environment
 
-- KDE Plasma 6, `kpackagetool6`, Python ≥ 3.10.
+- KDE Plasma 6, Python ≥ 3.10 (python3 in PATH).
 - Claude Code transcripts: `~/.claude/projects/**/*.jsonl` (incl. `*/subagents/*.jsonl`), often
   several hundred MB.
 - Codex session logs: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`.
@@ -33,20 +33,20 @@ project/model, active sessions.
 
 ```
 ~/.claude/projects/**/*.jsonl ─┐
-~/.codex/sessions/**/*.jsonl  ─┼─► limit-rings-collect (Python, systemd user timer, 60 s)
+~/.codex/sessions/**/*.jsonl  ─┼─► collector (Python, started by the widget every 60 s, under a file lock)
 Anthropic OAuth usage API     ─┤        │  incremental: byte offset per file in state.json
 Status line cache (fallback)  ─┘        ▼
                               ~/.cache/limit-rings/stats.json  (atomic: tmp + rename)
                                         │
                                         ▼
-                         Plasmoid (QML) reads every 30 s → panel + desktop/popup
+                         Plasmoid (QML) gets stats + notices on stdout → panel + desktop/popup + notifications
 ```
 
 Decisions:
 
-- **Collector separate from the widget** (systemd user timer instead of running from the plasmoid):
-  independently testable, no duplicate computation with two widget instances, errors in the
-  collector do not affect `plasmashell`.
+- **The widget runs the collector** (since 0.3; before: systemd user timer). The KDE Store installs
+  only the widget package, so everything ships in it. A file lock (`~/.cache/limit-rings/.lock`) keeps
+  several widget instances from collecting twice; the instance that collected shows the notifications.
 - **Claude limits from two sources:** OAuth usage endpoint as the primary source (covers all
   usage, including claude.ai/desktop app), status line cache as the fallback.
 - **Python standard library only** — no venv, no dependencies.
@@ -61,8 +61,10 @@ Decisions:
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
-| `collect.py` | Orchestrates a run, writes `stats.json` atomically. CLI entry point `limit-rings-collect`. | all of the above |
-| Plasmoid `io.github.flexomatic81.limitrings` | Presentation only, no computation. | `stats.json` |
+| `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
+| `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect`, `notify` |
+| `run.py` | Checks Python ≥ 3.10, then calls `widget.main`. | `widget` |
+| Plasmoid `io.github.flexomatic81.limitrings` | Presentation, notifications, update check; starts the collector. | collector output |
 | Status line addition | One line in `statusline-command.sh`: writes `.rate_limits` to `~/.cache/limit-rings/claude-statusline-limits.json`. | — |
 
 ### Token events
@@ -107,7 +109,8 @@ correctly.
 
 ## Interface `stats.json`
 
-The only interface between collector and widget. Mode `0600`, written atomically.
+The data contract between collector and widget (the widget receives it inside the envelope on the
+collector's stdout; the file is the persisted copy). Mode `0600`, written atomically.
 
 ```json
 {
@@ -235,18 +238,21 @@ Rules:
 - `resets_at` in the past → show the limit as "reset · 0 %" until new data
   arrives.
 - `errors` not empty → subtle notice in the card, other values remain visible.
-- `stats.json` missing or older than 5 minutes → notice "Collector not running" with the command
-  `systemctl --user status limit-rings.timer`.
+- Collector problems (Python missing or too old, a failed run, a collector newer than the widget's
+  QML after an update) → a notice in the widget instead of data; see "Error handling".
 
 ### Settings
 
 - Warning/critical thresholds (default 70/90).
 - Displayed providers (Claude, Codex; both on by default).
 - Panel display: ring or number.
+- Notifications on/off (default on).
+- Daily update check on/off (default on).
 
 ## Notifications
 
-The collector (not the widget) shows a desktop notification via `notify-send` as soon as a
+The collector decides, the widget shows: due notices come in the envelope and are sent as
+KNotification (`componentName: plasma_workspace`, hint `x-kde-display-appname`) as soon as a
 Claude or Codex limit reaches **80 %** or **95 %** — once per limit and level per window.
 A new window (different `resets_at`) or a drop below 80 % re-arms the notification; a window whose
 reset has passed counts as 0 %. If a limit jumps straight past 95 %, only the 95 % notification is
@@ -254,8 +260,8 @@ sent; it is marked as urgent. In addition, the **5-hour limit** gets an early wa
 sees it full within 30 minutes and 80 % has not yet been reached ("Claude: 5-hour limit full in ~25 min",
 "Now 62 % · Reset in …") — likewise once per window, normal urgency; weekly limits
 get no early warning. Notifications already sent are recorded in `state.json` under
-`notified`. The thresholds are fixed and independent of the widget's colour thresholds. If
-`notify-send` is missing or the call fails, this is logged; the run continues normally.
+`notified`. The thresholds are fixed and independent of the widget's colour thresholds. With
+notifications switched off, due notices are still recorded and dropped.
 
 ## Error handling
 
@@ -266,8 +272,11 @@ get no early warning. Notifications already sent are recorded in `state.json` un
   not a single usable window) → status line cache or last good values, whichever
   is newer. As long as the last OAuth attempt succeeded, its data stays in place
   during the 5-minute throttle — a newer status line does not displace it. Unexpected
-  response shapes are logged to the journal with field names (never with values from the request).
-- Collector output goes to the journal: `journalctl --user -u limit-rings`.
+  response shapes are logged with field names (never with values from the request).
+- Collector output goes to `~/.cache/limit-rings/collector.log` (256 KB, one backup). The widget shows
+  missing Python, a failed run or a newer collector than its QML (after an update: restart Plasma).
+  While the systemd timer of a version ≤ 0.2 still exists, the collector refuses to run (it would
+  collect without the lock) and the widget shows the command that removes the timer.
 
 ## Security
 
@@ -277,36 +286,23 @@ get no early warning. Notifications already sent are recorded in `state.json` un
 - The token is sent exclusively to `api.anthropic.com` — never into `stats.json`,
   `state.json`, logs or error messages. Redirects are rejected because `urllib` would otherwise
   send the `Authorization` header along to the redirect target.
+- The update check sends one unauthenticated GET to `api.github.com` per day and widget instance.
 - `stats.json`, `state.json` and the status line cache are created with mode `0600`,
   `~/.cache/limit-rings/` with `0700`.
 
 ## Installation
 
-`install.sh` (idempotent) and `uninstall.sh`:
+`tools/build_plasmoid.py` builds the one package for both ways: plasmoid, collector
+(`contents/collector/`), catalogs compiled by `tools/msgfmt.py` (`contents/locale/`) and
+`contents/code/build.js` (install source, store ID, repo path, version).
 
-1. Collector to `~/.local/share/limit-rings/`, launcher script `~/.local/bin/limit-rings-collect`.
-2. `systemd/limit-rings.service` (oneshot) and `limit-rings.timer` (`OnBootSec=30s`,
-   `OnUnitActiveSec=60s`) to `~/.config/systemd/user/`, `daemon-reload`, enable the timer,
-   start the first run immediately.
-3. Plasmoid via `kpackagetool6 -t Plasma/Applet --install` or `--upgrade`.
-4. Status line: the script shows the line to be inserted and only inserts it after explicit
-  confirmation — with a backup copy `statusline-command.sh.bak-limit-rings` first. The line
-  writes to its own `mktemp` file on each call and renames it afterwards, so that parallel
-  Claude sessions do not produce half-written files.
-5. Migration from Agent Stats (≤ 0.1): if the old share directory or timer exists, the old timer and
-   service are stopped and removed first; only then is `~/.cache/agent-stats` moved to
-   `~/.cache/limit-rings`. If the new one already exists and only one of them holds `state.json`, the
-   old files are moved in without replacing any; if both do, the old one is left untouched and every
-   run says how to remove it. A unit that is still `activating`/`deactivating` after the stop aborts
-   the run before anything is deleted. The status line hook is rewritten to
-   the new marker and path. Placed widgets are switched by rewriting
-   `plugin=io.github.flexomatic81.agentstats` in `plasma-org.kde.plasma.desktop-appletsrc` – only
-   while `plasma-plasmashell` is stopped (it writes the file on exit), after confirmation or with
-   `--migrate-widgets`, with a backup `.bak-limit-rings`; a trap restarts the shell even if the run
-   is interrupted. The old package is removed afterwards.
-
-`uninstall.sh` reverts 1–3 and points out the status line addition; it removes
-`~/.cache/limit-rings/` only after confirmation.
+- **KDE Store:** the release workflow builds the `.plasmoid`; KNewStuff unpacks it to
+  `~/.local/share/plasma/plasmoids/`.
+- **`install.sh`:** checks `kpackagetool6` and Python ≥ 3.10 (naming the install command per
+  distribution), retires the systemd timer of versions ≤ 0.2 and their files, builds the package with
+  `--source git` and installs or upgrades it; the Agent Stats migration and the status line hook work
+  as before.
+- **`uninstall.sh`:** removes the package and leftovers, the cache after confirmation.
 
 ## Tests
 
@@ -322,8 +318,11 @@ get no early warning. Notifications already sent are recorded in `state.json` un
 - `stats.json` satisfies the rules from the section "Interface" (30 days, `total` sum).
 
 **Install scripts (pytest, `collector/tests/test_install.py`):** `install.sh` and `uninstall.sh`
-run in a scratch `HOME`; `systemctl`, `kpackagetool6` and `pgrep` are stubs that log their calls.
-Covers the fresh install and every migration step above.
+run in a scratch `HOME`; `systemctl`, `kpackagetool6` and `pgrep` are stubs that log their calls; a
+reduced `PATH` simulates missing programs. Covers the fresh install and every migration step above.
+
+**Tooling and entry point:** `tools/` (msgfmt, build, release notes) with pytest; `widget.py` lock
+and envelope.
 
 **Widget:** formatting functions (k/M, countdown, threshold colour, "reset") as pure
 functions in `contents/code/format.js`, tested with `qmltestrunner`. Presentation checked manually with
@@ -337,20 +336,19 @@ independent `jq` count.
 ```
 limit-rings/
   collector/
-    limit_rings/
-      __init__.py  collect.py  aggregate.py  state.py
-      sources/  __init__.py  claude_logs.py  codex_logs.py  claude_limits.py
+    run.py
+    limit_rings/  collect.py  widget.py  notify.py  aggregate.py  state.py  …  sources/
     tests/
-      fixtures/
   plasmoid/io.github.flexomatic81.limitrings/
     metadata.json
-    contents/ui/      main.qml  CompactRepresentation.qml  FullRepresentation.qml
-                      ProviderCard.qml  configGeneral.qml
-    contents/code/    format.js
+    contents/ui/      main.qml  FullRepresentation.qml  UpdateMessage.qml  …
+    contents/code/    format.js  build.js
     contents/config/  main.xml  config.qml
-  systemd/  limit-rings.service  limit-rings.timer
-  install.sh  uninstall.sh  README.md
-  docs/design.md
+  po/  plasmoid/  collector/  update.sh
+  tools/  build_plasmoid.py  msgfmt.py  release_notes.py  install-lib.sh
+  .github/workflows/  test.yml  release.yml
+  install.sh  uninstall.sh  README.md  CHANGELOG.md
+  docs/  design.md  store/description.md
 ```
 
 ## Open risks

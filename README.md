@@ -30,9 +30,10 @@ it reads the login tokens that Claude Code (`~/.claude/.credentials.json`) and C
 
 ## How it works
 
-A Python collector (`collector/`, standard library only) runs as a systemd user timer every 60 s,
-incrementally reads `~/.claude/projects/**/*.jsonl` and `~/.codex/sessions/**/*.jsonl`, and writes
-`~/.cache/limit-rings/stats.json`. The plasmoid (`plasmoid/io.github.flexomatic81.limitrings`) only reads this file.
+The widget brings its own collector (`collector/`, Python standard library only) and runs it every 60 s.
+The collector incrementally reads `~/.claude/projects/**/*.jsonl` and `~/.codex/sessions/**/*.jsonl`,
+writes `~/.cache/limit-rings/stats.json` and hands the result and any due notifications back to the
+widget; its log is `~/.cache/limit-rings/collector.log`.
 
 Claude limits come from the (undocumented) OAuth usage endpoint; the token from
 `~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. If the endpoint
@@ -45,35 +46,40 @@ reason, the Codex token statistics only count Codex sessions run in a terminal.
 
 ## Installation
 
-Requirements: KDE Plasma 6 (`kpackagetool6`), Python ≥ 3.10 at `/usr/bin/python3`
-(no extra packages), a systemd user session; `jq` only for the status line fallback;
-`gettext` (`msgfmt`) for the translations – optional, without it everything is shown in English.
+Requirements: KDE Plasma 6 and Python ≥ 3.10 (`python3`, no extra packages). `jq` only for the
+optional status line fallback.
 
-```bash
-./install.sh            # asks before modifying the status line
-./install.sh --statusline   # inserts the status line hook without asking
-./install.sh --migrate-widgets   # switches placed "Agent Stats" widgets without asking
-```
+### From the KDE Store (recommended)
 
-Then drag "Limit Rings" from "Add Widgets" onto a panel and/or the desktop.
+Right-click the panel or desktop → "Add Widgets…" → "Get New Widgets…" → "Download New Plasma Widgets",
+search for **Limit Rings**, install it, then drag it onto a panel and/or the desktop.
 
-The status line fallback requires a custom Claude Code status line script at
-`~/.claude/statusline-command.sh` containing a line `input=$(cat)`; `install.sh` inserts the
-required line (`statusline-snippet.sh`) there. Without such a script, this step is skipped.
-
-### Download and install
+### From GitHub
 
 ```bash
 git clone https://github.com/Flexomatic81/limit-rings.git
 cd limit-rings
-./install.sh
+./install.sh                     # asks before modifying the status line
+./install.sh --statusline        # inserts the status line hook without asking
+./install.sh --migrate-widgets   # switches placed "Agent Stats" widgets without asking
 ```
 
-Then place the widget as described above and check:
+`install.sh` checks the requirements first and names the install command for your distribution if
+something is missing. Use one way or the other: both install the same widget, the last one wins.
+
+### Updating
+
+The widget tells you when a new version is out (it asks GitHub once a day; switch it off in its
+settings). Store installs update via "Get New Widgets…" or Discover; GitHub installs with
+`git pull && ./install.sh`. Afterwards restart Plasma (`systemctl --user restart plasma-plasmashell`)
+or log out and back in.
+
+### After installing
+
+Place the widget as described above and check:
 
 ```bash
-systemctl --user list-timers limit-rings.timer   # next run ≤ 60 s
-jq '.providers | map_values({limits_source, error})' ~/.cache/limit-rings/stats.json
+jq '.providers | map_values({limits_source, errors})' ~/.cache/limit-rings/stats.json
 ```
 
 - Token statistics only count the logs of **this** machine; the limits belong to the account and
@@ -82,14 +88,10 @@ jq '.providers | map_values({limits_source, error})' ~/.cache/limit-rings/stats.
   (`limits_source: "oauth"`). Claude Code only refreshes the token while it runs in a terminal (it
   is valid for about 8 h); the Claude desktop app does not write a token to this file. Without a
   valid token, the status line provides the limits as long as Claude Code is running in a terminal.
-
-### Updating
-
-```bash
-git pull
-./install.sh
-systemctl --user restart plasma-plasmashell   # only needed if the widget has changed
-```
+- The status line fallback requires a custom Claude Code status line script at
+  `~/.claude/statusline-command.sh` containing a line `input=$(cat)`; `install.sh` inserts the
+  required line (`statusline-snippet.sh`) there. Without such a script, this step is skipped.
+  Store installs do not touch the status line; add the snippet by hand if you want the fallback.
 
 ### Upgrading from Agent Stats
 
@@ -99,6 +101,8 @@ it stops and removes the old timer and collector, moves `~/.cache/agent-stats` t
 at the new path (backup: `statusline-command.sh.bak-limit-rings`). Widgets that are already placed
 are switched to the new plugin ID after confirmation, keeping position and settings – this
 restarts the Plasma shell. `./install.sh --migrate-widgets` does it without asking.
+From 0.3 on, `install.sh` also removes the systemd timer of earlier versions; history and
+notification state are kept.
 
 ## Uninstalling
 
@@ -107,13 +111,21 @@ restarts the Plasma shell. `./install.sh --migrate-widgets` does it without aski
 ./uninstall.sh --purge
 ```
 
+Store installs: remove the widget in Plasma, then `rm -r ~/.cache/limit-rings`.
+
 ## Troubleshooting
 
 ```bash
-systemctl --user status limit-rings.timer
-journalctl --user -u limit-rings.service -n 50
+tail -n 50 ~/.cache/limit-rings/collector.log
 jq . ~/.cache/limit-rings/stats.json
+python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py
 ```
+
+## Privacy & network
+
+Limit Rings contacts `api.anthropic.com` and `chatgpt.com` (limits, at most every 5 minutes, with the
+login tokens described above) and `api.github.com` (new version check, once a day, no personal data;
+can be switched off). Nothing else leaves your machine.
 
 ## Development
 
@@ -121,7 +133,12 @@ jq . ~/.cache/limit-rings/stats.json
 cd collector && uv run --no-project --with pytest pytest -q
 /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
 plasmawindowed io.github.flexomatic81.limitrings
+python3 tools/build_plasmoid.py --source store   # dist/limit-rings-<version>.plasmoid
 ```
+
+Releasing: raise `Version` in `metadata.json`, add a `CHANGELOG.md` section, push a tag `vX.Y.Z`.
+The release workflow tests, builds and drafts a GitHub release; upload its `.plasmoid` to the KDE
+Store, then publish the draft.
 
 ## Translations
 
@@ -135,7 +152,8 @@ msginit --no-translator -l <lang> -i "$tmp/plasmoid.pot" -o po/plasmoid/<lang>.p
 msginit --no-translator -l <lang> -i "$tmp/collector.pot" -o po/collector/<lang>.po
 ```
 
-Then translate the `msgstr` entries and run `./install.sh`. After changing texts in the code,
+Then translate the `msgstr` entries and run `./install.sh`. gettext is only needed to edit catalogs,
+not to install. After changing texts in the code,
 run `po/update.sh` to merge them into all catalogs; `collector/tests/test_translations.py` fails
 while a catalog is incomplete.
 
