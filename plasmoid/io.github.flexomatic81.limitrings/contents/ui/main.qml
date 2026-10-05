@@ -3,8 +3,6 @@ import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
-import org.kde.notification
-import org.kde.newstuff as NewStuff
 import "../code/format.js" as Format
 import "../code/build.js" as Build
 
@@ -92,22 +90,14 @@ PlasmoidItem {
     }
 
     function notify(notice) {
-        notificationComponent.createObject(root, {
-            title: notice.summary, text: notice.body || "",
-            urgency: notice.urgent ? Notification.CriticalUrgency : Notification.NormalUrgency
-        }).sendEvent()
+        if (notifier.item) notifier.item.send(notice)
     }
 
-    // A widget from the store cannot install its own .notifyrc, so it notifies as part of the Plasma workspace.
-    Component {
-        id: notificationComponent
-        Notification {
-            componentName: "plasma_workspace"
-            eventId: "notification"
-            iconName: "utilities-system-monitor"
-            hints: ({"x-kde-display-appname": "Limit Rings"})
-            autoDelete: true
-        }
+    // Notifications and the store dialog live in files of their own: some distributions package their QML modules
+    // (org.kde.notification, org.kde.newstuff) separately, and a missing one must only disable its feature.
+    Loader {
+        id: notifier
+        source: "Notifier.qml"
     }
 
     // At most once a day; a failed request is not retried before the next day either.
@@ -134,15 +124,16 @@ PlasmoidItem {
         if (storeDialog.item) {
             storeDialog.item.open()
             storeDialog.item.showEntryDetails(storeProvider, Build.storeId)
-        } else {
-            storeDialog.active = true
+            return
         }
+        storeDialog.active = true   // onLoaded opens the dialog
+        if (storeDialog.status === Loader.Error) Qt.openUrlExternally(root.releasePage)   // no org.kde.newstuff
     }
 
     Loader {
         id: storeDialog
         active: false
-        sourceComponent: NewStuff.Dialog { configFile: "plasmoids.knsrc" }
+        source: "StoreDialog.qml"
         onLoaded: {
             item.open()
             item.showEntryDetails(root.storeProvider, Build.storeId)
