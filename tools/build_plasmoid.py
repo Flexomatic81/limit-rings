@@ -49,7 +49,10 @@ def build_tree(out: Path, source: str, repo_dir: str = "", root: Path = ROOT) ->
         raise ValueError(f"unknown source {source!r}")
     if source == "git" and not repo_dir:
         raise ValueError("--repo-dir is required for --source git")
-    if out.exists():
+    if out.exists() or out.is_symlink():
+        # Only an earlier build or an empty directory is replaced: --dir must not wipe whatever else it points at.
+        if not (out.is_dir() and (not any(out.iterdir()) or (out / "metadata.json").is_file())):
+            raise ValueError(f"{out} exists and is not a widget package – refusing to overwrite it")
         shutil.rmtree(out)
     shutil.copytree(root / "plasmoid" / PLUGIN_ID, out, ignore=_ignore)
     contents = out / "contents"

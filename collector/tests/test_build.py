@@ -46,6 +46,28 @@ def test_git_build_needs_the_repo_dir(tmp_path):
         bp.build_tree(tmp_path / ID, "git")
 
 
+def test_rebuild_replaces_an_earlier_build_or_an_empty_dir(tmp_path):
+    out = bp.build_tree(tmp_path / ID, "store")
+    (out / "stale.txt").write_text("from an earlier build")
+    bp.build_tree(out, "store")
+    assert not (out / "stale.txt").exists() and (out / "metadata.json").is_file()
+    (tmp_path / "empty").mkdir()
+    assert (bp.build_tree(tmp_path / "empty", "store") / "metadata.json").is_file()
+
+
+@pytest.mark.parametrize("make", [lambda p: (p.mkdir(), (p / "notes.txt").write_text("mine")),
+                                  lambda p: p.write_text("a file")])
+def test_refuses_to_overwrite_what_is_not_a_widget_package(tmp_path, make, capsys):
+    out = tmp_path / "docs"
+    make(out)
+    before = sorted(out.rglob("*")) if out.is_dir() else out.read_text()
+    with pytest.raises(ValueError, match="not a widget package"):
+        bp.build_tree(out, "store")
+    assert (sorted(out.rglob("*")) if out.is_dir() else out.read_text()) == before
+    assert bp.main(["--source", "store", "--dir", str(out)]) == 1
+    assert "refusing to overwrite" in capsys.readouterr().err
+
+
 def test_archive_has_metadata_at_the_root_and_is_reproducible(tmp_path):
     a = bp.build_archive(tmp_path / "a.plasmoid", "store")
     b = bp.build_archive(tmp_path / "b.plasmoid", "store")
