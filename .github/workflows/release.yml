@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    uses: ./.github/workflows/test.yml
+
+  draft:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Release notes (also checks the tag against metadata.json)
+        run: python3 tools/release_notes.py "$GITHUB_REF_NAME" > notes.md
+      - name: Build the store package
+        run: python3 tools/build_plasmoid.py --source store --out dist
+      - run: cd dist && sha256sum *.plasmoid > "$(ls *.plasmoid).sha256"
+      - name: Draft release – upload the .plasmoid to the KDE Store, then publish
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --title "Limit Rings ${GITHUB_REF_NAME#v}" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}

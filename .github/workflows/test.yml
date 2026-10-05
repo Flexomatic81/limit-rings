@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+jobs:
+  collector:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"   # the oldest supported version
+      - name: gettext, for the comparison with GNU msgfmt
+        run: sudo apt-get update && sudo apt-get install -y gettext
+      - run: python -m pip install pytest
+      - run: python -m pytest -q
+        working-directory: collector
+
+  widget:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Qt and the Plasma QML modules
+        run: pacman -Syu --noconfirm --needed git qt6-declarative kirigami libplasma plasma5support ksvg
+      - uses: actions/checkout@v4
+      - run: /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
+        env:
+          QT_QPA_PLATFORM: offscreen
