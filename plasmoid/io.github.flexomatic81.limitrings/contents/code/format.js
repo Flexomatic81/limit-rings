@@ -158,7 +158,6 @@ function dayTooltip(entry) {
 }
 
 const STALE_MS = 300000
-const _STATUS_COMMAND = "systemctl --user status limit-rings.timer"
 const LIMITS_STALE_MS = 6 * 3600 * 1000
 
 // Limit data older than 6 h (e.g. a Codex log from days ago) is shown as "stale"
@@ -176,16 +175,120 @@ function footerText(provider, nowMs) {
         + (limitsStale(provider, nowMs) ? " · " + i18nc("limit data is outdated", "stale") : "")
 }
 
-function statusMessage(loadError, stats, nowMs) {
-    if (loadError === "nofile")
-        return i18n("No data yet – is the collector running? %1", _STATUS_COMMAND)
-    if (loadError === "schema")
-        return i18n("Unknown data format – plasmoid and collector don't match. Run install.sh again.")
-    if (loadError === "parse")
-        return i18n("stats.json is not readable.")
+const ENVELOPE = 1   // version of the collector output this widget understands (collector/limit_rings/widget.py)
+const LOG_PATH = "~/.cache/limit-rings/collector.log"
+// stop waits for a running pass of the service; only then may the unit files (the collector's guard) go.
+const LEGACY_COMMAND = "systemctl --user stop limit-rings.timer limit-rings.service && systemctl --user disable limit-rings.timer && rm ~/.config/systemd/user/limit-rings.timer ~/.config/systemd/user/limit-rings.service"
+
+function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+}
+
+// The widget package brings its collector; run.py checks the Python version before importing it.
+// The executable engine shares one source among all widgets that connect the same command and gives each
+// of them the output, so the command carries the applet id: every instance gets only its own pass.
+// notify=false: the collector leaves due notices for another instance instead of using them up.
+function collectorCommand(runPyUrl, instanceId, notify) {
+    const s = String(runPyUrl)
+    return "LIMIT_RINGS_INSTANCE=" + Number(instanceId) + " LIMIT_RINGS_NOTIFY=" + (notify ? "1" : "0")
+        + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
+}
+
+// One collector pass as the widget sees it: exit code and stdout of run.py.
+function readCollectorOutput(exitCode, stdout) {
+    const out = {stats: null, notices: [], error: "", pythonVersion: ""}
+    if (exitCode === 127) {
+        out.error = "nopython"
+        return out
+    }
+    let env
+    try {
+        env = JSON.parse(stdout)
+    } catch (e) {
+        env = null
+    }
+    if (!env || typeof env !== "object" || typeof env.envelope !== "number") {
+        out.error = "parse"
+        return out
+    }
+    if (env.error === "python-too-old") {
+        out.error = "oldpython"
+        out.pythonVersion = String(env.version || "")
+        return out
+    }
+    // A newer collector than this QML: the package was updated, Plasma still runs the old widget code.
+    if (env.envelope > ENVELOPE || (env.stats && env.stats.schema !== 2)) {
+        out.error = "restart"
+        return out
+    }
+    out.stats = env.stats && typeof env.stats === "object" ? env.stats : null
+    out.notices = Array.isArray(env.notices)
+        ? env.notices.filter(n => n && typeof n === "object" && typeof n.summary === "string") : []
+    if (env.error === "legacy-timer") out.error = "legacy"
+    else if (exitCode !== 0) out.error = "failed"
+    else if (!out.stats) out.error = "nodata"
+    return out
+}
+
+function statusMessage(loadError, stats, nowMs, info) {
+    const install = info && info.installCommand ? " " + i18n("Install it with: %1", info.installCommand) : ""
+    switch (loadError) {
+    case "nopython":
+        return i18n("Python 3 not found – Limit Rings needs Python 3.10 or newer.") + install
+    case "oldpython":
+        return i18n("Python %1 is too old – Limit Rings needs 3.10 or newer.", info ? info.pythonVersion : "") + install
+    case "restart":
+        return i18n("Limit Rings was updated – restart Plasma or log out and back in to load the new version.")
+    case "parse":
+        return i18n("The collector output is not readable. Log: %1", LOG_PATH)
+    case "failed":
+        return i18n("The last collector run failed. Log: %1", LOG_PATH)
+    case "nodata":
+        return i18n("No data yet – the first collector run is still in progress.")
+    case "legacy":
+        return i18n("An older Limit Rings installation still collects in the background. Remove it with: %1", LEGACY_COMMAND)
+    }
     if (stats && nowMs - Date.parse(stats.generated_at) > STALE_MS)
-        return i18n("Collector not running – data from %1. Check: %2", ageText(stats.generated_at, nowMs), _STATUS_COMMAND)
+        return i18n("Data from %1 – the collector has not run since. Log: %2", ageText(stats.generated_at, nowMs), LOG_PATH)
     return ""
+}
+
+function _osIds(osRelease) {
+    const ids = []
+    String(osRelease || "").split("\n").forEach(line => {
+        const m = /^(ID|ID_LIKE)=(.*)$/.exec(line.trim())
+        if (m) ids.push(...m[2].replace(/^["']|["']$/g, "").split(/\s+/))
+    })
+    return ids
+}
+
+// The command that installs Python 3 on this distribution (from /etc/os-release), or "" if unknown.
+function pythonInstallCommand(osRelease) {
+    const ids = _osIds(osRelease)
+    if (ids.includes("debian") || ids.includes("ubuntu")) return "sudo apt install python3"
+    if (ids.includes("arch")) return "sudo pacman -S python"
+    if (ids.includes("fedora") || ids.includes("rhel")) return "sudo dnf install python3"
+    if (ids.includes("suse") || ids.includes("opensuse")) return "sudo zypper install python3"
+    return ""
+}
+
+function _version(v) {
+    const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v))
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+}
+
+// True only if both are plain X.Y.Z and candidate is higher – anything unexpected means "no update".
+function isNewerVersion(candidate, current) {
+    const a = _version(candidate)
+    const b = _version(current)
+    if (!a || !b) return false
+    for (let i = 0; i < 3; i++)
+        if (a[i] !== b[i]) return a[i] > b[i]
+    return false
+}
+
+function updateCommand(repoDir) {
+    return "cd " + shellQuote(repoDir) + " && git pull && ./install.sh"
 }
 
 function _time(d) {

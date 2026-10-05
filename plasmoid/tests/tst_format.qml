@@ -132,14 +132,83 @@ TestCase {
     }
 
     function test_statusMessage() {
-        const t = Date.parse("2026-10-03T19:42:00+02:00")
-        const fresh = {generated_at: "2026-10-03T19:41:00+02:00"}
-        const old = {generated_at: "2026-10-03T19:30:00+02:00"}
-        compare(F.statusMessage("", fresh, t), "")
-        verify(F.statusMessage("", old, t).indexOf("systemctl --user status limit-rings.timer") >= 0)
-        verify(F.statusMessage("nofile", null, t).indexOf("No data yet") === 0)
-        verify(F.statusMessage("schema", null, t).indexOf("install.sh") >= 0)
-        verify(F.statusMessage("parse", null, t).length > 0)
+        const t = Date.parse("2026-10-04T13:30:00+02:00")
+        const fresh = {generated_at: "2026-10-04T13:29:30+02:00"}
+        const old = {generated_at: "2026-10-04T13:00:00+02:00"}
+        const info = {pythonVersion: "3.8.10", installCommand: "sudo apt install python3"}
+        compare(F.statusMessage("", fresh, t, info), "")
+        verify(F.statusMessage("", old, t, info).indexOf("collector.log") >= 0)
+        compare(F.statusMessage("nopython", null, t, info),
+                "Python 3 not found – Limit Rings needs Python 3.10 or newer. Install it with: sudo apt install python3")
+        verify(F.statusMessage("oldpython", null, t, info).indexOf("Python 3.8.10 is too old") === 0)
+        compare(F.statusMessage("oldpython", null, t, {pythonVersion: "3.9.2", installCommand: ""}),
+                "Python 3.9.2 is too old – Limit Rings needs 3.10 or newer.")
+        verify(F.statusMessage("restart", null, t, info).indexOf("restart Plasma") >= 0)
+        verify(F.statusMessage("failed", fresh, t, info).indexOf("collector.log") >= 0)
+        verify(F.statusMessage("parse", null, t, info).length > 0)
+        verify(F.statusMessage("nodata", null, t, info).indexOf("No data yet") === 0)
+        verify(F.statusMessage("legacy", fresh, t, info).indexOf("systemctl --user stop limit-rings.timer limit-rings.service && ") >= 0)
+    }
+
+    function test_collectorCommand_quotes_the_path() {
+        compare(F.collectorCommand("file:///home/a/.local/share/plasma/plasmoids/x/contents/collector/run.py", 7, true),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 python3 '/home/a/.local/share/plasma/plasmoids/x/contents/collector/run.py'")
+        compare(F.collectorCommand("file:///home/my%20dir/it's/run.py", 7, false),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=0 python3 '/home/my dir/it'\\''s/run.py'")
+    }
+
+    // The executable engine shares a source between all widgets that connect the same command and hands
+    // every one of them the output – each instance needs its own command, or notifications come twice.
+    function test_collectorCommand_differs_per_instance() {
+        verify(F.collectorCommand("file:///p/run.py", 7, true) !== F.collectorCommand("file:///p/run.py", 8, true))
+    }
+
+    function test_readCollectorOutput() {
+        const ok = F.readCollectorOutput(0, '{"envelope": 1, "stats": {"schema": 2}, "notices": [{"summary": "s", "body": "b", "urgent": true}]}')
+        compare(ok.error, "")
+        compare(ok.stats.schema, 2)
+        compare(ok.notices.length, 1)
+        compare(F.readCollectorOutput(127, "").error, "nopython")
+        const tooOld = F.readCollectorOutput(3, '{"envelope": 1, "error": "python-too-old", "version": "3.8.10"}')
+        compare(tooOld.error, "oldpython")
+        compare(tooOld.pythonVersion, "3.8.10")
+        compare(F.readCollectorOutput(0, '{"envelope": 2, "stats": {"schema": 2}}').error, "restart")
+        compare(F.readCollectorOutput(0, '{"envelope": 1, "stats": {"schema": 3}}').error, "restart")
+        compare(F.readCollectorOutput(0, "garbage").error, "parse")
+        compare(F.readCollectorOutput(2, "").error, "parse")           // e.g. run.py missing after an uninstall
+        compare(F.readCollectorOutput(0, '{"envelope": 1, "stats": null, "notices": []}').error, "nodata")
+        const legacy = F.readCollectorOutput(0, '{"envelope": 1, "error": "legacy-timer", "stats": {"schema": 2}, "notices": []}')
+        compare(legacy.error, "legacy")
+        compare(legacy.stats.schema, 2)
+        const failed = F.readCollectorOutput(1, '{"envelope": 1, "stats": {"schema": 2}, "notices": []}')
+        compare(failed.error, "failed")
+        compare(failed.stats.schema, 2)
+        compare(F.readCollectorOutput(0, '{"envelope": 1, "stats": null, "notices": [1, {"summary": 2}]}').notices.length, 0)
+    }
+
+    function test_pythonInstallCommand() {
+        compare(F.pythonInstallCommand('NAME="Ubuntu"\nID=ubuntu\nID_LIKE=debian\n'), "sudo apt install python3")
+        compare(F.pythonInstallCommand('ID=cachyos\nID_LIKE="arch"\n'), "sudo pacman -S python")
+        compare(F.pythonInstallCommand('ID=fedora\n'), "sudo dnf install python3")
+        compare(F.pythonInstallCommand('ID="opensuse-tumbleweed"\nID_LIKE="opensuse suse"\n'), "sudo zypper install python3")
+        compare(F.pythonInstallCommand('ID=gentoo\n'), "")
+        compare(F.pythonInstallCommand(""), "")
+        compare(F.pythonInstallCommand(undefined), "")
+    }
+
+    function test_isNewerVersion() {
+        verify(F.isNewerVersion("0.3.0", "0.2.0"))
+        verify(F.isNewerVersion("0.10.0", "0.9.0"))
+        verify(F.isNewerVersion("1.0.0", "0.99.99"))
+        verify(!F.isNewerVersion("0.2.0", "0.2.0"))
+        verify(!F.isNewerVersion("0.1.9", "0.2.0"))
+        for (const bad of ["v0.3.0", "0.3", "0.4.0-rc1", "latest", "", null, undefined])
+            verify(!F.isNewerVersion(bad, "0.2.0"), String(bad))
+        verify(!F.isNewerVersion("0.3.0", ""))
+    }
+
+    function test_updateCommand() {
+        compare(F.updateCommand("/home/a/limit rings"), "cd '/home/a/limit rings' && git pull && ./install.sh")
     }
 
     function test_tooltip() {
