@@ -1,0 +1,204 @@
+"""The widget's entry point: one locked pass, the result as one JSON line on stdout, logs in a file."""
+
+import ast
+import fcntl
+import json
+import logging
+import logging.handlers
+import os
+import runpy
+import sys
+import threading
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from limit_rings import widget
+from limit_rings.collect import Paths
+from limit_rings.notify import Notice
+
+TZ = ZoneInfo("Europe/Berlin")
+NOW = datetime(2026, 10, 5, 12, 0, tzinfo=TZ)
+RUN_PY = Path(__file__).resolve().parents[1] / "run.py"
+NOTICE = Notice("claude:five_hour", 80, "Claude: 5-hour limit at 81 %", "Reset in 2 h 0 min", False)
+
+
+@pytest.fixture
+def paths(tmp_path):
+    return Paths.default(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def restore_logging():
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+    yield
+    for h in root.handlers:
+        if h not in handlers:
+            h.close()
+    root.handlers[:], root.level = handlers, level
+
+
+def lock_of(paths: Paths) -> Path:
+    paths.stats_file.parent.mkdir(parents=True, exist_ok=True)
+    return paths.stats_file.parent / ".lock"
+
+
+def test_envelope_carries_stats_and_notices(paths, monkeypatch):
+    def fake(p, now, tz, notifier):
+        notifier(NOTICE)
+        return {"schema": 2}
+    monkeypatch.setattr(widget, "run_safely", fake)
+    envelope, code = widget.collect_once(paths, lock_of(paths), lambda: NOW, TZ)
+    assert code == 0
+    assert envelope == {"envelope": 1, "stats": {"schema": 2}, "notices": [NOTICE.to_json()]}
+
+
+def test_muted_instance_does_not_evaluate_notices(paths, monkeypatch):
+    seen = []
+
+    def fake(p, now, tz, notifier):
+        seen.append(notifier)
+        return {"schema": 2}
+    monkeypatch.setattr(widget, "run_safely", fake)
+    envelope, _ = widget.collect_once(paths, lock_of(paths), lambda: NOW, TZ, notify=False)
+    assert seen == [None] and envelope["notices"] == []
+
+
+def test_main_reads_the_notification_setting_from_the_environment(tmp_path, monkeypatch, capsys):
+    seen = []
+    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier: seen.append(notifier) or {"schema": 2})
+    monkeypatch.setenv("LIMIT_RINGS_NOTIFY", "0")
+    widget.main(home=tmp_path)
+    assert seen == [None]
+
+
+def test_lock_is_held_during_the_run(paths, monkeypatch):
+    lock = lock_of(paths)
+
+    def fake(p, now, tz, notifier):
+        fd = os.open(lock, os.O_RDWR)
+        try:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)
+        return {"schema": 2}
+    monkeypatch.setattr(widget, "run_safely", fake)
+    assert widget.collect_once(paths, lock, lambda: NOW, TZ)[1] == 0
+
+
+def test_waits_for_a_busy_lock_and_then_runs_its_own_pass(paths, monkeypatch):
+    lock = lock_of(paths)
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    threading.Timer(0.3, os.close, [fd]).start()   # the other instance finishes its pass
+
+    def fake(p, now, tz, notifier):
+        notifier(NOTICE)
+        return {"schema": 2}
+    monkeypatch.setattr(widget, "run_safely", fake)
+    envelope, code = widget.collect_once(paths, lock, lambda: NOW, TZ, wait=5)
+    assert code == 0 and envelope["notices"] == [NOTICE.to_json()]
+
+
+def test_clock_is_read_after_waiting_for_the_lock(paths, monkeypatch):
+    seen = []
+    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier: seen.append(now) or {"schema": 2})
+    widget.collect_once(paths, lock_of(paths), lambda: NOW, TZ)
+    assert seen == [NOW]
+
+
+def test_busy_lock_returns_the_last_stats_without_running(paths, monkeypatch):
+    lock = lock_of(paths)
+    paths.stats_file.write_text('{"schema": 2, "generated_at": "x"}')
+    monkeypatch.setattr(widget, "run_safely", lambda *a: pytest.fail("must not run while another pass holds the lock"))
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        envelope, code = widget.collect_once(paths, lock, lambda: NOW, TZ, wait=0)
+    finally:
+        os.close(fd)
+    assert code == 0
+    assert envelope == {"envelope": 1, "stats": {"schema": 2, "generated_at": "x"}, "notices": []}
+
+
+@pytest.mark.parametrize("content", [None, "{not json", "[1, 2]"])
+def test_busy_lock_with_corrupt_stats_gives_null(paths, monkeypatch, content):
+    lock = lock_of(paths)
+    if content is not None:
+        paths.stats_file.write_text(content)
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        envelope, _ = widget.collect_once(paths, lock, lambda: NOW, TZ, wait=0)
+    finally:
+        os.close(fd)
+    assert envelope["stats"] is None
+
+
+def test_failed_run_returns_last_stats_exit_1_and_no_notices(paths, monkeypatch):
+    lock = lock_of(paths)
+    paths.stats_file.write_text('{"schema": 2}')
+
+    def fake(p, now, tz, notifier):
+        notifier(NOTICE)   # recorded before the crash, but state.json was not saved: must not be shown
+        return None
+    monkeypatch.setattr(widget, "run_safely", fake)
+    envelope, code = widget.collect_once(paths, lock, lambda: NOW, TZ)
+    assert code == 1
+    assert envelope == {"envelope": 1, "stats": {"schema": 2}, "notices": []}
+
+
+def test_main_prints_one_json_line_and_logs_to_a_file(tmp_path, monkeypatch, capsys):
+    def fake(p, now, tz, notifier):
+        logging.getLogger("limit_rings").warning("something odd")
+        return {"schema": 2}
+    monkeypatch.setattr(widget, "run_safely", fake)
+    assert widget.main(home=tmp_path) == 0
+    out, err = capsys.readouterr()
+    assert out.endswith("\n") and out.count("\n") == 1
+    assert json.loads(out)["stats"] == {"schema": 2}
+    assert err == ""
+    log = tmp_path / ".cache/limit-rings/collector.log"
+    assert "something odd" in log.read_text()
+    assert oct((tmp_path / ".cache/limit-rings").stat().st_mode & 0o777) == "0o700"
+
+
+def test_log_file_is_capped(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(widget, "run_safely", lambda *a: {"schema": 2})
+    widget.main(home=tmp_path)
+    handler = next(h for h in logging.getLogger().handlers if isinstance(h, logging.handlers.RotatingFileHandler))
+    assert (handler.maxBytes, handler.backupCount) == (256 * 1024, 1)
+
+
+def test_run_py_parses_with_old_python():
+    ast.parse(RUN_PY.read_text(), feature_version=(3, 6))
+
+
+def test_run_py_rejects_old_python(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "version_info", (3, 8, 10, "final", 0))
+    with pytest.raises(SystemExit) as exit_:
+        runpy.run_path(str(RUN_PY), run_name="__main__")
+    assert exit_.value.code == 3
+    assert json.loads(capsys.readouterr().out) == {"envelope": 1, "error": "python-too-old", "version": "3.8.10"}
+
+
+def test_run_py_runs_the_widget_entry_point(monkeypatch):
+    monkeypatch.setattr(widget, "main", lambda: 0)
+    with pytest.raises(SystemExit) as exit_:
+        runpy.run_path(str(RUN_PY), run_name="__main__")
+    assert exit_.value.code == 0
+
+
+def test_legacy_timer_stops_collection_and_is_reported(tmp_path, monkeypatch, capsys):
+    (tmp_path / ".config/systemd/user").mkdir(parents=True)
+    (tmp_path / ".config/systemd/user/limit-rings.timer").write_text("")
+    (tmp_path / ".cache/limit-rings").mkdir(parents=True)
+    (tmp_path / ".cache/limit-rings/stats.json").write_text('{"schema": 2}')
+    monkeypatch.setattr(widget, "run_safely", lambda *a: pytest.fail("must not collect next to the old timer"))
+    assert widget.main(home=tmp_path) == 0
+    assert json.loads(capsys.readouterr().out) == {"envelope": 1, "error": "legacy-timer",
+                                                   "stats": {"schema": 2}, "notices": []}
