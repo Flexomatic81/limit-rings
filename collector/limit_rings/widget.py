@@ -1,7 +1,8 @@
 """Entry point for the widget: one locked collector pass, the result as one JSON line on stdout.
 
-Several widget instances (panel and desktop) start passes independently; the lock makes the others
-return the last stats.json without collecting, so notifications come from one instance only.
+Several widget instances (panel and desktop) start passes independently; the lock serialises them: each
+waits for the pass in progress (up to LOCK_WAIT) and then runs its own, and only after a longer wait
+returns the last stats.json. A notice is shown by the instance whose pass finds it due.
 """
 
 import fcntl

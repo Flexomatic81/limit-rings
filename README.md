@@ -111,7 +111,8 @@ notification state are kept.
 ./uninstall.sh --purge
 ```
 
-Store installs: remove the widget in Plasma, then `rm -r ~/.cache/limit-rings`.
+Store installs: uninstall the widget via "Get New Widgets…" (removing it from the panel does not uninstall
+the package), then `rm -r ~/.cache/limit-rings`.
 
 ## Troubleshooting
 

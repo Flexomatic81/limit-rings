@@ -45,8 +45,8 @@ Status line cache (fallback)  ─┘        ▼
 Decisions:
 
 - **The widget runs the collector** (since 0.3; before: systemd user timer). The KDE Store installs
-  only the widget package, so everything ships in it. A file lock (`~/.cache/limit-rings/.lock`) keeps
-  several widget instances from collecting twice; the instance that collected shows the notifications.
+  only the widget package, so everything ships in it. A file lock (`~/.cache/limit-rings/.lock`)
+  serialises the passes of several widget instances; a notice is shown by the instance whose pass finds it due.
 - **Claude limits from two sources:** OAuth usage endpoint as the primary source (covers all
   usage, including claude.ai/desktop app), status line cache as the fallback.
 - **Python standard library only** — no venv, no dependencies.
@@ -62,7 +62,7 @@ Decisions:
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
-| `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect`, `notify` |
+| `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect` |
 | `run.py` | Checks Python ≥ 3.10, then calls `widget.main`. | `widget` |
 | Plasmoid `io.github.flexomatic81.limitrings` | Presentation, notifications, update check; starts the collector. | collector output |
 | Status line addition | One line in `statusline-command.sh`: writes `.rate_limits` to `~/.cache/limit-rings/claude-statusline-limits.json`. | — |
@@ -261,7 +261,8 @@ sees it full within 30 minutes and 80 % has not yet been reached ("Claude: 5-hou
 "Now 62 % · Reset in …") — likewise once per window, normal urgency; weekly limits
 get no early warning. Notifications already sent are recorded in `state.json` under
 `notified`. The thresholds are fixed and independent of the widget's colour thresholds. With
-notifications switched off, due notices are still recorded and dropped.
+notifications switched off in an instance, its passes leave due notices untouched (nothing is
+recorded), so an instance that has them on – or switching them back on – still shows them.
 
 ## Error handling
 
