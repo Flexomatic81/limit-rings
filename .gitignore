@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 *.mo
 *.pot
+dist/
+build/

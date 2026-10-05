@@ -4,7 +4,8 @@ import gettext
 from pathlib import Path
 
 DOMAIN = "limit-rings"
-LOCALEDIR = Path(__file__).resolve().parent / "locale"
+# In the widget package the catalogs sit next to the collector: contents/locale (see tools/build_plasmoid.py).
+LOCALEDIR = Path(__file__).resolve().parents[2] / "locale"
 
 _translation: gettext.NullTranslations = gettext.NullTranslations()
 
