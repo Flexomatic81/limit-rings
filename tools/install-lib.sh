@@ -27,7 +27,7 @@ retire_timer() {
     states="$(systemctl --user show -p ActiveState --value "$unit.timer" "$unit.service" 2>/dev/null)" || states=""
     if [[ "$(grep -cxE 'inactive|failed' <<< "$states")" != 2 ]]; then
         echo "Error: the old $unit timer could not be stopped, or its state is unknown ($(echo $states)) –" >&2
-        echo "  nothing was changed. Check: systemctl --user status $unit.timer $unit.service" >&2
+        echo "  the old timer was left in place. Check: systemctl --user status $unit.timer $unit.service" >&2
         exit 1
     fi
     systemctl --user disable "$unit.timer" 2>/dev/null || true

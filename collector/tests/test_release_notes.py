@@ -30,4 +30,4 @@ def test_tag_must_match_the_metadata_version():
 
 def test_the_repository_changelog_covers_the_current_version():
     from build_plasmoid import ROOT, version
-    assert rn.changelog_section((ROOT / "CHANGELOG.md").read_text(), version())
+    assert rn.changelog_section((ROOT / "CHANGELOG.md").read_text(encoding="utf-8"), version())

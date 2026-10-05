@@ -9,6 +9,7 @@ if sys.version_info < (3, 10):
                       "version": "%d.%d.%d" % tuple(sys.version_info[:3])}))
     sys.exit(3)
 
+sys.dont_write_bytecode = True  # package updates keep the zip mtimes: a stale .pyc could outlive its source
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from limit_rings import widget  # noqa: E402
 

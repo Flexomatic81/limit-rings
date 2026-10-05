@@ -119,7 +119,8 @@ the package), then `rm -r ~/.cache/limit-rings`.
 ```bash
 tail -n 50 ~/.cache/limit-rings/collector.log
 jq . ~/.cache/limit-rings/stats.json
-python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py
+# one pass by hand; LIMIT_RINGS_NOTIFY=0 leaves due notices for the widget to show
+LIMIT_RINGS_NOTIFY=0 python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py
 ```
 
 ## Privacy & network
