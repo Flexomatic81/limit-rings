@@ -1,8 +1,0 @@
-[Unit]
-Description=Limit Rings: collect Claude Code and Codex usage
-
-[Service]
-Type=oneshot
-ExecStart=%h/.local/bin/limit-rings-collect
-Nice=10
-IOSchedulingClass=idle

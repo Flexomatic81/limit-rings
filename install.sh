@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the collector, systemd timer and plasmoid. Safe to run repeatedly.
+# Installs the Limit Rings widget – it brings and runs its own collector – from this checkout. Safe to run repeatedly.
 # --statusline: insert the status line hook without asking.
 # --migrate-widgets: switch placed "Agent Stats" widgets to Limit Rings without asking (restarts the Plasma shell).
 set -euo pipefail
@@ -7,11 +7,13 @@ set -euo pipefail
 trap 'echo "install.sh stopped early – fix the cause above and run it again; it picks up where it stopped." >&2' ERR
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+units="$HOME/.config/systemd/user"
+# shellcheck source=tools/install-lib.sh
+. "$here/tools/install-lib.sh"
 id="io.github.flexomatic81.limitrings"
 share="$HOME/.local/share/limit-rings"
 bin="$HOME/.local/bin/limit-rings-collect"
 cache="$HOME/.cache/limit-rings"
-units="$HOME/.config/systemd/user"
 statusline="$HOME/.claude/statusline-command.sh"
 appletsrc="$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
 marker="# limit-rings: record limits for the plasmoid"
@@ -33,6 +35,24 @@ for arg in "$@"; do
         *) echo "Unknown option: $arg" >&2; exit 2 ;;
     esac
 done
+
+echo "→ Checking requirements"
+missing=no
+if ! command -v kpackagetool6 >/dev/null 2>&1; then
+    echo "  kpackagetool6 not found – it comes with KDE Plasma 6 (KDE Frameworks package \"kpackage\")." >&2
+    missing=yes
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "  python3 not found – install it: $(install_hint python3 python python3 python3)" >&2
+    missing=yes
+elif ! py_version="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2]); sys.exit(sys.version_info < (3, 10))')"; then
+    echo "  Python $py_version is too old – Limit Rings needs 3.10 or newer: $(install_hint python3 python python3 python3)" >&2
+    missing=yes
+fi
+if [[ $missing == yes ]]; then
+    echo "Nothing was changed. Install what is missing and run install.sh again." >&2
+    exit 1
+fi
 
 # Replaces file $1 with the output of the command "${@:3}" – atomically and keeping its mode – and keeps the
 # first original as backup $2 (a retry never overwrites it). If the command or a write fails, $1 stays as it was.
@@ -59,25 +79,8 @@ switch_widgets() {
 if [[ -d "$old_share" || -f "$units/agent-stats.timer" || -d "$old_cache" ]]; then
     echo "→ Migrating from Agent Stats"
 fi
-if [[ -d "$old_share" || -f "$units/agent-stats.timer" ]]; then
-    # Stop first (stop waits for a running pass) – otherwise the old collector keeps writing the old cache.
-    systemctl --user stop agent-stats.timer agent-stats.service 2>/dev/null || true
-    # Any state but inactive/failed – including activating and deactivating – means a pass may still write.
-    old_states="$(systemctl --user show -p ActiveState --value agent-stats.timer agent-stats.service 2>/dev/null || true)"
-    while read -r state; do
-        case "$state" in
-            "" | inactive | failed) ;;
-            *)  echo "Error: the old agent-stats timer could not be stopped ($state) – nothing was migrated. Check:" >&2
-                echo "  systemctl --user status agent-stats.timer agent-stats.service" >&2
-                exit 1 ;;
-        esac
-    done <<< "$old_states"
-    systemctl --user disable agent-stats.timer 2>/dev/null || true
-    rm -f "$units/agent-stats.timer" "$units/agent-stats.service" "$units/timers.target.wants/agent-stats.timer"
-    systemctl --user daemon-reload
-    rm -rf "$old_share"
-    rm -f "$HOME/.local/bin/agent-stats-collect" "$HOME"/.local/share/locale/*/LC_MESSAGES/plasma_applet_$old_id.mo
-fi
+retire_timer agent-stats "$old_share" "$HOME/.local/bin/agent-stats-collect" \
+    "$HOME"/.local/share/locale/*/LC_MESSAGES/plasma_applet_$old_id.mo
 # Only reached once the old collector is gone (above, or in an earlier run), so nothing writes the old cache any more.
 if [[ ! -d "$old_cache" ]]; then
     :
@@ -96,48 +99,27 @@ else
     echo "  cache merged into $cache (history and notification state kept)."
 fi
 
-echo "→ Collector to $share"
-mkdir -p "$share" "$(dirname "$bin")"
-rm -rf "$share/limit_rings"
-cp -r "$here/collector/limit_rings" "$share/"
-find "$share" -name __pycache__ -prune -exec rm -rf {} +
-cat > "$bin" <<'EOF'
-#!/bin/sh
-PYTHONPATH="$HOME/.local/share/limit-rings${PYTHONPATH:+:$PYTHONPATH}" exec /usr/bin/python3 -m limit_rings.collect "$@"
-EOF
-chmod 755 "$bin"
-
-echo "→ Translations"
-if command -v msgfmt >/dev/null 2>&1; then
-    for po in "$here"/po/plasmoid/*.po; do
-        dir="$HOME/.local/share/locale/$(basename "$po" .po)/LC_MESSAGES"
-        mkdir -p "$dir"
-        msgfmt -o "$dir/plasma_applet_$id.mo" "$po" \
-            || echo "  Warning: ${po#"$here"/} could not be compiled – skipped."
-    done
-    for po in "$here"/po/collector/*.po; do
-        dir="$share/limit_rings/locale/$(basename "$po" .po)/LC_MESSAGES"
-        mkdir -p "$dir"
-        msgfmt -o "$dir/limit-rings.mo" "$po" \
-            || echo "  Warning: ${po#"$here"/} could not be compiled – skipped."
-    done
-else
-    echo "  Warning: gettext (msgfmt) not found – widget and notifications stay in English."
-fi
-
-echo "→ systemd timer"
-mkdir -p "$units"
-cp "$here/systemd/limit-rings.service" "$here/systemd/limit-rings.timer" "$units/"
-systemctl --user daemon-reload
-systemctl --user enable --now limit-rings.timer
-systemctl --user start limit-rings.service || echo "  Warning: first run failed – journalctl --user -u limit-rings.service"
-
-echo "→ Plasmoid"
+# The new package goes in first: if building or installing fails, the old timer keeps collecting. Until it is
+# retired below, the new collector does not collect next to it (widget.py checks for the timer).
+echo "→ Widget"
+pkg_dir="$(mktemp -d)"
+python3 "$here/tools/build_plasmoid.py" --source git --repo-dir "$here" --dir "$pkg_dir/$id" >/dev/null
+upgrade=no
 if kpackagetool6 -t Plasma/Applet --show "$id" >/dev/null 2>&1; then
-    kpackagetool6 -t Plasma/Applet --upgrade "$here/plasmoid/$id"
+    upgrade=yes
+    kpackagetool6 -t Plasma/Applet --upgrade "$pkg_dir/$id"
 else
-    kpackagetool6 -t Plasma/Applet --install "$here/plasmoid/$id"
+    kpackagetool6 -t Plasma/Applet --install "$pkg_dir/$id"
 fi
+rm -rf "$pkg_dir"
+
+if [[ -d "$share" || -f "$units/limit-rings.timer" ]]; then
+    echo "→ Removing the systemd timer of earlier versions (the widget runs the collector now)"
+fi
+retire_timer limit-rings "$share" "$bin"
+# Translations now come with the package; copies from earlier versions would take precedence.
+rm -f "$HOME"/.local/share/locale/*/LC_MESSAGES/plasma_applet_$id.mo
+
 if [[ -f "$appletsrc" ]] && grep -qxF "plugin=$old_id" "$appletsrc"; then
     answer=n
     if [[ $auto_widgets == yes ]]; then
@@ -218,6 +200,13 @@ else
     fi
 fi
 
+if [[ -f "$statusline" ]] && grep -qF "$marker" "$statusline" && ! command -v jq >/dev/null 2>&1; then
+    echo "  Note: the status line hook needs jq, which is missing: $(install_hint jq jq jq jq)"
+fi
+
 echo
-echo "Done. Drag the \"Limit Rings\" widget from \"Add Widgets\" onto a panel or the desktop."
-echo "After an upgrade you may need: systemctl --user restart plasma-plasmashell"
+if [[ $upgrade == yes ]]; then
+    echo "Done. Restart Plasma to load the new version: systemctl --user restart plasma-plasmashell"
+else
+    echo "Done. Drag the \"Limit Rings\" widget from \"Add Widgets\" onto a panel or the desktop."
+fi

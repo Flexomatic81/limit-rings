@@ -2,8 +2,8 @@
 
 import os
 import pty
-import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -20,10 +20,17 @@ call="$(basename "$0") $*"
 echo "$call" >> "$STUB_LOG"
 case "$call" in
     "kpackagetool6 -t Plasma/Applet --show "*) grep -qxF "${call##* }" "$STUB_PACKAGES" ;;
-    "kpackagetool6 -t Plasma/Applet --install "*) [ -z "$STUB_INSTALL_FAIL" ] ;;
+    "kpackagetool6 -t Plasma/Applet --install "*|"kpackagetool6 -t Plasma/Applet --upgrade "*)
+        if [ -n "$STUB_INSTALLED" ]; then rm -rf "$STUB_INSTALLED"; cp -r "${call##* }" "$STUB_INSTALLED"; fi
+        case "$call" in *--install*) [ -z "$STUB_INSTALL_FAIL" ] ;; esac ;;
+    "kpackagetool6 -t Plasma/Applet --remove "*)
+        [ -z "$STUB_REMOVE_FAIL" ] || exit 1
+        grep -vxF "${call##* }" "$STUB_PACKAGES" > "$STUB_PACKAGES.new"; mv "$STUB_PACKAGES.new" "$STUB_PACKAGES" ;;
     "systemctl --user is-active --quiet plasma-plasmashell") [ -n "$STUB_SHELL_ACTIVE" ] ;;
     # like the real output: one state per unit, separated by an empty line
-    "systemctl --user show -p ActiveState --value agent-stats"*) printf '%s\n\nfailed\n' "${STUB_OLD_STATE:-inactive}" ;;
+    "systemctl --user show -p ActiveState --value "*)
+        [ -z "$STUB_SHOW_FAIL" ] || exit 1
+        printf '%s\n\nfailed\n' "${STUB_OLD_STATE:-inactive}" ;;
     "systemctl --user stop agent-stats"*)
         if [ -d "$HOME/.cache/agent-stats" ]; then echo "old cache present at stop" >> "$STUB_LOG"; fi ;;
     "systemctl --user stop plasma-plasmashell")
@@ -44,8 +51,10 @@ def env(tmp_path):
     (tmp_path / "home").mkdir()
     (tmp_path / "packages").write_text("")
     (tmp_path / "calls").write_text("")
+    (tmp_path / "os-release").write_text("ID=ubuntu\nID_LIKE=debian\n")
     return {"HOME": str(tmp_path / "home"), "PATH": f"{stubs}:/usr/bin:/bin", "LANG": "C.UTF-8",
-            "STUB_LOG": str(tmp_path / "calls"), "STUB_PACKAGES": str(tmp_path / "packages")}
+            "STUB_LOG": str(tmp_path / "calls"), "STUB_PACKAGES": str(tmp_path / "packages"),
+            "STUB_INSTALLED": str(tmp_path / "installed"), "OS_RELEASE": str(tmp_path / "os-release")}
 
 
 def home(env) -> Path:
@@ -69,24 +78,44 @@ def write(path: Path, text: str) -> Path:
     return path
 
 
-def test_fresh_install_uses_the_new_names(env):
+def path_without(tmp_path: Path, *names: str) -> str:
+    """A PATH like the normal one, but without the given programs (and without the stubs for them)."""
+    bin_dir = tmp_path / "bin-without"
+    bin_dir.mkdir(exist_ok=True)
+    for d in ("/usr/bin", "/bin"):
+        for exe in Path(d).iterdir():
+            if not any(exe.name == n or exe.name.startswith(n + ".") for n in names) and not (bin_dir / exe.name).is_symlink():
+                (bin_dir / exe.name).symlink_to(exe)
+    stubs = tmp_path / "stubs"
+    for n in names:
+        (stubs / n).unlink(missing_ok=True)
+    return f"{stubs}:{bin_dir}"
+
+
+def installed(env) -> Path:
+    return Path(env["STUB_INSTALLED"])
+
+
+def test_fresh_install_builds_and_installs_the_package(env):
     out = run("install.sh", env)
-    h = home(env)
-    assert (h / ".local/share/limit-rings/limit_rings/collect.py").is_file()
-    assert "-m limit_rings.collect" in (h / ".local/bin/limit-rings-collect").read_text()
-    assert "limit-rings-collect" in (h / ".config/systemd/user/limit-rings.service").read_text()
-    assert (h / ".config/systemd/user/limit-rings.timer").is_file()
-    assert "systemctl --user enable --now limit-rings.timer" in calls(env)
-    assert f"kpackagetool6 -t Plasma/Applet --install {ROOT}/plasmoid/{ID}" in calls(env)
+    assert any(c.startswith("kpackagetool6 -t Plasma/Applet --install ") and c.endswith(f"/{ID}") for c in calls(env))
+    pkg = installed(env)
+    assert (pkg / "contents/collector/run.py").is_file()
+    build_js = (pkg / "contents/code/build.js").read_text()
+    assert 'const installSource = "git"' in build_js and f'const repoDir = "{ROOT}"' in build_js
+    assert not any(c.startswith("systemctl") for c in calls(env))   # no timer any more
+    assert not (home(env) / ".config/systemd/user/limit-rings.timer").exists()
     assert 'Drag the "Limit Rings" widget' in out
 
 
-@pytest.mark.skipif(not shutil.which("msgfmt"), reason="gettext missing")
-def test_fresh_install_compiles_translations_under_the_new_domains(env):
+def test_translations_are_installed_without_gettext(env, tmp_path):
+    failing = write(tmp_path / "stubs" / "msgfmt", '#!/bin/sh\necho "msgfmt called" >> "$STUB_LOG"\nexit 1\n')
+    failing.chmod(0o755)
     run("install.sh", env)
-    h = home(env)
-    assert (h / f".local/share/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo").is_file()
-    assert (h / ".local/share/limit-rings/limit_rings/locale/de/LC_MESSAGES/limit-rings.mo").is_file()
+    pkg = installed(env)
+    assert (pkg / f"contents/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo").is_file()
+    assert (pkg / "contents/locale/de/LC_MESSAGES/limit-rings.mo").is_file()
+    assert "msgfmt called" not in calls(env)
 
 
 def test_statusline_hook_inserted_with_the_new_marker(env):
@@ -97,16 +126,33 @@ def test_statusline_hook_inserted_with_the_new_marker(env):
     assert sl.read_text().count(MARKER) == 1
 
 
-def test_uninstall_removes_the_new_names(env):
+def test_uninstall_removes_the_widget_and_the_cache(env):
     run("install.sh", env)
     write(home(env) / ".cache/limit-rings/stats.json", "{}")
     run("uninstall.sh", env, "--purge")
-    h = home(env)
-    for gone in (".local/share/limit-rings", ".local/bin/limit-rings-collect", ".cache/limit-rings",
-                 ".config/systemd/user/limit-rings.timer", ".config/systemd/user/limit-rings.service"):
-        assert not (h / gone).exists(), gone
-    assert "systemctl --user stop limit-rings.timer limit-rings.service" in calls(env)
+    assert not (home(env) / ".cache/limit-rings").exists()
     assert f"kpackagetool6 -t Plasma/Applet --remove {ID}" in calls(env)
+    assert not any(c.startswith("systemctl") for c in calls(env))
+
+
+def test_purge_waits_for_a_running_collector_pass(env):
+    cache = write(home(env) / ".cache/limit-rings/stats.json", "{}").parent
+    holder = subprocess.Popen(["flock", str(cache / ".lock"), "sleep", "1.5"])   # a pass that is still writing
+    time.sleep(0.3)
+    started = time.monotonic()
+    run("uninstall.sh", env, "--purge")
+    holder.wait()
+    assert time.monotonic() - started >= 1.0
+    assert not cache.exists()
+
+
+def test_purge_is_refused_while_the_widget_stays_installed(env):
+    Path(env["STUB_PACKAGES"]).write_text(ID + "\n")
+    cache = write(home(env) / ".cache/limit-rings/stats.json", "{}").parent
+    r = subprocess.run(["bash", str(ROOT / "uninstall.sh"), "--purge"], env={**env, "STUB_REMOVE_FAIL": "1"},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert r.returncode == 1 and "could not be removed" in r.stderr
+    assert cache.is_dir()
 
 
 OLD_MARKER = "# agent-stats: record limits for the plasmoid"
@@ -393,7 +439,7 @@ def test_migration_removes_the_old_timer_link_even_if_disable_does_not(env):
 
 
 def test_uninstall_removes_the_timer_link_even_if_disable_does_not(env):
-    run("install.sh", env)
+    write(home(env) / ".config/systemd/user/limit-rings.timer", "")
     wants = home(env) / ".config/systemd/user/timers.target.wants"
     wants.mkdir(parents=True)
     (wants / "limit-rings.timer").symlink_to("../limit-rings.timer")
@@ -451,3 +497,96 @@ def test_interactive_no_changes_nothing(env):
     assert rc.read_text() == APPLETS
     assert sl.read_text() == "input=$(cat)\n"
     assert "Not switched" in out
+
+
+def earlier_version(env):
+    """What Limit Rings 0.2 left behind: collector, launcher, systemd units, translations outside the package."""
+    h = home(env)
+    write(h / ".local/share/limit-rings/limit_rings/collect.py", "")
+    write(h / ".local/bin/limit-rings-collect", "#!/bin/sh\n")
+    write(h / ".config/systemd/user/limit-rings.timer", "")
+    write(h / ".config/systemd/user/limit-rings.service", "")
+    write(h / f".local/share/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo", "")
+    write(h / ".cache/limit-rings/state.json", "history")
+    Path(env["STUB_PACKAGES"]).write_text(ID + "\n")
+
+
+def test_timer_of_an_earlier_version_is_removed_and_history_kept(env):
+    earlier_version(env)
+    out = run("install.sh", env)
+    h = home(env)
+    assert "systemctl --user stop limit-rings.timer limit-rings.service" in calls(env)
+    assert "systemctl --user disable limit-rings.timer" in calls(env)
+    for gone in (".local/share/limit-rings", ".local/bin/limit-rings-collect",
+                 ".config/systemd/user/limit-rings.timer", ".config/systemd/user/limit-rings.service",
+                 f".local/share/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo"):
+        assert not (h / gone).exists(), gone
+    assert (h / ".cache/limit-rings/state.json").read_text() == "history"
+    assert any(c.startswith("kpackagetool6 -t Plasma/Applet --upgrade ") for c in calls(env))
+    assert "systemctl --user restart plasma-plasmashell" in out
+
+
+@pytest.mark.parametrize("missing, hint", [("python3", "sudo apt install python3"), ("kpackagetool6", "kpackage")])
+def test_missing_requirement_stops_before_anything_changes(env, tmp_path, missing, hint):
+    earlier_version(env)
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "PATH": path_without(tmp_path, missing)},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert r.returncode == 1 and hint in r.stderr and "Nothing was changed" in r.stderr
+    assert "stopped early" not in r.stderr
+    assert calls(env) == []
+    assert (home(env) / ".config/systemd/user/limit-rings.timer").is_file()
+
+
+def test_failed_upgrade_keeps_the_earlier_version_collecting(env):
+    earlier_version(env)
+    Path(env["STUB_PACKAGES"]).write_text("")   # → --install, which the stub lets fail
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "STUB_INSTALL_FAIL": "1"},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    h = home(env)
+    assert r.returncode != 0 and "run it again" in r.stderr
+    assert (h / ".config/systemd/user/limit-rings.timer").is_file()
+    assert (h / ".local/share/limit-rings/limit_rings/collect.py").is_file()
+    assert not any(c.startswith("systemctl --user stop limit-rings") for c in calls(env))
+
+
+def test_unknown_timer_state_deletes_nothing(env):
+    earlier_version(env)
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "STUB_SHOW_FAIL": "1"},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    h = home(env)
+    assert r.returncode == 1 and "state is unknown" in r.stderr
+    assert (h / ".config/systemd/user/limit-rings.timer").is_file()   # keeps the new collector from running
+    assert (h / ".local/share/limit-rings").is_dir()
+
+
+def test_too_old_python_is_reported_with_its_version(env, tmp_path):
+    old = write(tmp_path / "stubs" / "python3",
+                '#!/bin/sh\ncase "$*" in *version_info*) echo 3.8; exit 1 ;; esac\nexec /usr/bin/python3 "$@"\n')
+    old.chmod(0o755)
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env=env, stdin=subprocess.DEVNULL,
+                       capture_output=True, text=True)
+    assert r.returncode == 1 and "Python 3.8 is too old" in r.stderr
+
+
+@pytest.mark.parametrize("os_release, hint", [
+    ("ID=cachyos\nID_LIKE=arch\n", "sudo pacman -S python"),
+    ('ID="opensuse-tumbleweed"\nID_LIKE="opensuse suse"\n', "sudo zypper install python3"),
+    ("ID=fedora\n", "sudo dnf install python3")])
+def test_requirement_hint_follows_the_distribution(env, tmp_path, os_release, hint):
+    Path(env["OS_RELEASE"]).write_text(os_release)
+    r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "PATH": path_without(tmp_path, "python3")},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert hint in r.stderr
+
+
+def test_requirement_hint_on_an_unknown_system(env, tmp_path):
+    r = subprocess.run(["bash", str(ROOT / "install.sh")],
+                       env={**env, "PATH": path_without(tmp_path, "python3"), "OS_RELEASE": str(tmp_path / "none")},
+                       stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert r.returncode == 1 and "with your package manager" in r.stderr
+
+
+def test_missing_jq_is_pointed_out_for_the_status_line_hook(env, tmp_path):
+    write(home(env) / ".claude/statusline-command.sh", f"input=$(cat)\n{MARKER}\n{SNIPPET}\n")
+    out = run("install.sh", env, PATH=path_without(tmp_path, "jq"))
+    assert "needs jq" in out and "sudo apt install jq" in out
