@@ -10,5 +10,8 @@
     <entry name="showCodex" type="Bool"><default>true</default></entry>
     <entry name="compactStyle" type="String"><default>ring</default></entry>
     <entry name="showNotifications" type="Bool"><default>true</default></entry>
+    <entry name="checkUpdates" type="Bool"><default>true</default></entry>
+    <entry name="lastUpdateCheck" type="Double"><default>0</default></entry>
+    <entry name="latestVersion" type="String"><default></default></entry>
   </group>
 </kcfg>

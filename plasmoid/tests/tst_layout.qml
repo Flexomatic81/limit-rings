@@ -6,6 +6,7 @@ import "../io.github.flexomatic81.limitrings/contents/ui" as UI
 TestCase {
     name: "Layout"
     when: windowShown
+    visible: true   // TestCase defaults to invisible, which would hide every child item
     width: 700
     height: 200
 
@@ -17,6 +18,8 @@ TestCase {
         nowMs: Date.parse("2026-10-04T13:30:00+02:00")
         warn: 70
         crit: 90
+        installSource: "git"
+        updateCommand: "cd '/x' && git pull && ./install.sh"
         stats: ({schema: 2, generated_at: "2026-10-04T13:29:30+02:00", providers: {claude: {
             limits: [{id: "five_hour", used_percent: 6, resets_at: null, window_minutes: 300}],
             limits_source: "oauth", limits_updated_at: "2026-10-04T13:29:00+02:00", plan: "pro",
@@ -28,6 +31,16 @@ TestCase {
                         projects: [{name: "website", total: 67}, {name: "limit-rings", total: 33},
                                    {name: null, other: true, total: 10}],
                         models: [{name: "Opus 5.5", total: 100}]}}}})
+    }
+
+    function test_update_message_appears_only_with_a_version() {
+        const msg = findChild(full, "updateMessage")
+        verify(msg !== null)
+        verify(!msg.visible)
+        full.updateVersion = "0.4.0"
+        verify(msg.visible)
+        verify(msg.text.indexOf("0.4.0") >= 0 && msg.text.indexOf("git pull") >= 0)
+        full.updateVersion = ""
     }
 
     function test_minimum_height_covers_content() {

@@ -11,6 +11,12 @@ Item {
     property int warn
     property int crit
     property string message: ""
+    property string updateVersion: ""
+    property string installSource: "dev"
+    property bool hasStoreEntry: false
+    property string updateCommand: ""
+    signal openStore()
+    signal openReleasePage()
     property real cardMinWidth: 0   // largest minimum width reported by any card
 
     Layout.preferredWidth: Kirigami.Units.gridUnit * 38
@@ -30,6 +36,15 @@ Item {
             visible: full.message !== ""
             type: Kirigami.MessageType.Warning
             text: full.message
+        }
+
+        UpdateMessage {
+            version: full.updateVersion
+            installSource: full.installSource
+            hasStoreEntry: full.hasStoreEntry
+            command: full.updateCommand
+            onOpenStore: full.openStore()
+            onOpenReleasePage: full.openReleasePage()
         }
 
         GridLayout {

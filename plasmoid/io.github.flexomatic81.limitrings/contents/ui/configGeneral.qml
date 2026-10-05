@@ -9,6 +9,7 @@ KCM.SimpleKCM {
     property alias cfg_showClaude: claudeBox.checked
     property alias cfg_showCodex: codexBox.checked
     property alias cfg_showNotifications: notificationsBox.checked
+    property alias cfg_checkUpdates: updatesBox.checked
     property string cfg_compactStyle
 
     Kirigami.FormLayout {
@@ -44,6 +45,11 @@ KCM.SimpleKCM {
             valueRole: "value"
             currentIndex: indexOfValue(cfg_compactStyle)
             onActivated: cfg_compactStyle = currentValue
+        }
+        QQC2.CheckBox {
+            id: updatesBox
+            Kirigami.FormData.label: i18n("Updates:")
+            text: i18n("Check daily for a new version (asks GitHub)")
         }
     }
 }

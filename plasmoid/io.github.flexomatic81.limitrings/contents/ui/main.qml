@@ -4,7 +4,9 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 import org.kde.notification
+import org.kde.newstuff as NewStuff
 import "../code/format.js" as Format
+import "../code/build.js" as Build
 
 PlasmoidItem {
     id: root
@@ -30,6 +32,12 @@ PlasmoidItem {
     }
     readonly property string collectorCommand: Format.collectorCommand(Qt.resolvedUrl("../collector/run.py"), Plasmoid.id,
                                                                        Plasmoid.configuration.showNotifications)
+    readonly property string releaseApi: "https://api.github.com/repos/Flexomatic81/limit-rings/releases/latest"
+    readonly property string releasePage: "https://github.com/Flexomatic81/limit-rings/releases/latest"
+    readonly property string storeProvider: "api.kde-look.org"   // KNewStuff provider ID of store.kde.org
+    readonly property string updateVersion: Plasmoid.configuration.checkUpdates
+        && Format.isNewerVersion(Plasmoid.configuration.latestVersion, Build.version)
+        ? Plasmoid.configuration.latestVersion : ""
     readonly property string osReleaseCommand: "cat /etc/os-release"
     readonly property string statusMessage: translationHandle
         ? Format.statusMessage(loadError, stats, nowMs,
@@ -41,7 +49,10 @@ PlasmoidItem {
     switchHeight: Kirigami.Units.gridUnit * 8
 
     toolTipMainText: "Limit Rings"
-    toolTipSubText: translationHandle ? Format.tooltipText(stats, providers, nowSec) : ""
+    toolTipSubText: translationHandle
+        ? Format.tooltipText(stats, providers, nowSec)
+          + (updateVersion ? "\n" + Format.i18n("Update available: %1", updateVersion) : "")
+        : ""
 
     compactRepresentation: CompactRepresentation {
         plasmoidItem: root
@@ -61,6 +72,12 @@ PlasmoidItem {
         warn: root.warn
         crit: root.crit
         message: root.statusMessage
+        updateVersion: root.updateVersion
+        installSource: Build.installSource
+        hasStoreEntry: Build.storeId !== ""
+        updateCommand: Format.updateCommand(Build.repoDir)
+        onOpenStore: root.openStoreEntry()
+        onOpenReleasePage: Qt.openUrlExternally(root.releasePage)
     }
 
     Component.onDestruction: Format.release(translationHandle)
@@ -93,6 +110,45 @@ PlasmoidItem {
         }
     }
 
+    // At most once a day; a failed request is not retried before the next day either.
+    function checkForUpdate() {
+        if (!Plasmoid.configuration.checkUpdates || Build.installSource === "dev") return
+        const now = Date.now() / 1000
+        if (now - Plasmoid.configuration.lastUpdateCheck < 86400) return
+        Plasmoid.configuration.lastUpdateCheck = now
+        const xhr = new XMLHttpRequest()
+        xhr.onreadystatechange = () => {
+            if (xhr.readyState !== XMLHttpRequest.DONE || xhr.status !== 200) return
+            try {
+                const tag = JSON.parse(xhr.responseText).tag_name
+                if (typeof tag === "string") Plasmoid.configuration.latestVersion = tag.replace(/^v/, "")
+            } catch (e) {
+            }
+        }
+        xhr.open("GET", releaseApi)
+        xhr.setRequestHeader("Accept", "application/vnd.github+json")
+        xhr.send()
+    }
+
+    function openStoreEntry() {
+        if (storeDialog.item) {
+            storeDialog.item.open()
+            storeDialog.item.showEntryDetails(storeProvider, Build.storeId)
+        } else {
+            storeDialog.active = true
+        }
+    }
+
+    Loader {
+        id: storeDialog
+        active: false
+        sourceComponent: NewStuff.Dialog { configFile: "plasmoids.knsrc" }
+        onLoaded: {
+            item.open()
+            item.showEntryDetails(root.storeProvider, Build.storeId)
+        }
+    }
+
     P5Support.DataSource {
         id: executable
         engine: "executable"
@@ -121,5 +177,13 @@ PlasmoidItem {
         running: true
         repeat: true
         onTriggered: root.nowMs = Date.now()
+    }
+
+    Timer {
+        interval: 3600000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.checkForUpdate()
     }
 }
