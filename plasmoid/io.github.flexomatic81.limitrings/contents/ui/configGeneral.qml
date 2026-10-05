@@ -8,6 +8,7 @@ KCM.SimpleKCM {
     property alias cfg_criticalThreshold: critSpin.value
     property alias cfg_showClaude: claudeBox.checked
     property alias cfg_showCodex: codexBox.checked
+    property alias cfg_showNotifications: notificationsBox.checked
     property string cfg_compactStyle
 
     Kirigami.FormLayout {
@@ -29,6 +30,11 @@ KCM.SimpleKCM {
         QQC2.CheckBox {
             id: codexBox
             text: "Codex"
+        }
+        QQC2.CheckBox {
+            id: notificationsBox
+            Kirigami.FormData.label: i18n("Notifications:")
+            text: i18n("Warn when a limit reaches 80 % or 95 %")
         }
         QQC2.ComboBox {
             Kirigami.FormData.label: i18n("Panel:")
