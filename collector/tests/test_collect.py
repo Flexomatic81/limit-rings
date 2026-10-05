@@ -2,7 +2,8 @@ import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from limit_rings.collect import Paths, run
+from limit_rings import collect
+from limit_rings.collect import Paths, run, run_safely
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 3, 19, 42, tzinfo=BERLIN)
@@ -38,6 +39,10 @@ def codex_line(ts, total):
                  "last_token_usage": {"input_tokens": total, "cached_input_tokens": 0, "output_tokens": 0}},
         "rate_limits": {"primary": {"used_percent": 8.0, "window_minutes": 10080, "resets_at": 1791280728},
                         "secondary": None, "plan_type": "plus"}}})
+
+
+def hot(token, timeout=10.0):
+    return {"five_hour": {"utilization": 85.0, "resets_at": None}}
 
 
 def ok_fetch(token, timeout=10.0):
@@ -192,28 +197,28 @@ def test_changed_state_is_saved(tmp_path):
     assert "m2|r" in json.loads(p.state_file.read_text())["claude"]["seen"]
 
 
-def test_main_quarantines_state_after_unexpected_crash(tmp_path, monkeypatch):
-    import limit_rings.collect as collect_mod
-    cache = tmp_path / ".cache" / "limit-rings"
-    cache.mkdir(parents=True)
-    (cache / "state.json").write_text("{}")
-    monkeypatch.setattr(collect_mod.Path, "home", lambda: tmp_path)
-    def boom(*a, **k):
-        raise RuntimeError("broken")
-    monkeypatch.setattr(collect_mod, "run", boom)
-
-    assert collect_mod.main() == 1
-    assert not (cache / "state.json").exists()
-    assert (cache / "state.json.corrupt").exists()
+def test_run_safely_quarantines_state_after_unexpected_crash(tmp_path, monkeypatch):
+    p = make_paths(tmp_path)
+    p.state_file.parent.mkdir(parents=True, exist_ok=True)
+    p.state_file.write_text('{"broken": true}')
+    monkeypatch.setattr(collect, "run", lambda *a, **k: (_ for _ in ()).throw(KeyError("x")))
+    assert run_safely(p, NOW, BERLIN, notifier=lambda n: None) is None
+    assert not p.state_file.exists()
+    assert p.state_file.with_name("state.json.corrupt").read_text() == '{"broken": true}'
 
 
-def test_main_without_state_file_and_crash_still_returns_one(tmp_path, monkeypatch):
-    import limit_rings.collect as collect_mod
-    monkeypatch.setattr(collect_mod.Path, "home", lambda: tmp_path)
-    def boom(*a, **k):
-        raise RuntimeError("broken")
-    monkeypatch.setattr(collect_mod, "run", boom)
-    assert collect_mod.main() == 1
+def test_run_safely_without_state_file_returns_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(collect, "run", lambda *a, **k: (_ for _ in ()).throw(KeyError("x")))
+    assert run_safely(make_paths(tmp_path), NOW, BERLIN, notifier=lambda n: None) is None
+
+
+def test_run_without_notifier_leaves_the_notice_for_a_later_run(tmp_path):
+    # A widget with notifications switched off must not use up a notice another widget would show.
+    p = make_paths(tmp_path)
+    run(p, NOW, BERLIN, fetch=hot)
+    sent = []
+    run(p, NOW + timedelta(minutes=1), BERLIN, fetch=hot, notifier=sent.append)
+    assert len(sent) == 1
 
 
 def test_auth_status_is_reported_for_claude_only(tmp_path):
@@ -229,10 +234,6 @@ def test_auth_status_is_reported_for_claude_only(tmp_path):
 def test_limit_notification_is_sent_once_per_window(tmp_path):
     p = make_paths(tmp_path)
     sent = []
-
-    def hot(token, timeout=10.0):
-        return {"five_hour": {"utilization": 85.0, "resets_at": None}}
-
     run(p, NOW, BERLIN, fetch=hot, notifier=sent.append)
     run(p, NOW + timedelta(minutes=1), BERLIN, fetch=hot, notifier=sent.append)
     assert [n.summary for n in sent] == ["Claude: 5-hour limit at 85 %"]

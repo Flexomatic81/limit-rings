@@ -4,7 +4,6 @@ import copy
 import json
 import logging
 import os
-import sys
 from dataclasses import dataclass
 from datetime import datetime, tzinfo
 from pathlib import Path
@@ -87,6 +86,8 @@ def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
 
 
 def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier) -> None:
+    if notifier is None:  # notifications off: leave them due, another widget instance may show them
+        return
     for notice in notify.update_notices(providers, state["notified"], now_ts):
         try:
             notifier(notice)
@@ -218,7 +219,7 @@ def _fingerprint(state: dict) -> str:
 
 
 def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
-        notifier=notify.send, codex_fetch=codex_limits.fetch_usage) -> dict:
+        notifier=None, codex_fetch=codex_limits.fetch_usage) -> dict:
     state = load_state(paths.state_file)
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
@@ -258,22 +259,14 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
     return stats
 
 
-def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s", stream=sys.stderr)
-    tz = local_zone()
-    paths = Paths.default(Path.home())
+def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier) -> dict | None:
+    """One run that never raises: after an unexpected error, state.json is moved aside so the next run starts fresh."""
     try:
-        run(paths, datetime.now(tz), tz)
+        return run(paths, now, tz, notifier=notifier)
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
-        # Unexpected state shape: move it aside so the next run starts fresh.
         try:
             os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
         except OSError:
             pass
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+        return None

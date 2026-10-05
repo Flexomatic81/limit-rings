@@ -1,7 +1,5 @@
-import subprocess
-
 from limit_rings import notify
-from limit_rings.notify import Notice, send, update_notices
+from limit_rings.notify import Notice, update_notices
 
 NOW = 1_791_100_000.0  # 2026-10-04 07:46:40 UTC
 
@@ -61,27 +59,14 @@ def test_below_threshold_sends_nothing():
     assert update_notices({"Claude": [limit(pct=79.9)], "Codex": []}, {}, NOW) == []
 
 
-def test_send_calls_notify_send(monkeypatch):
-    calls = []
-    monkeypatch.setattr(notify.subprocess, "run", lambda args, **kw: calls.append((args, kw)))
-    send(Notice("k", 95, "Claude: 5-hour limit at 96 %", "Reset in 5 min", True))
-    args, kw = calls[0]
-    assert args == ["notify-send", "-a", "Limit Rings", "-i", "utilities-system-monitor", "-u", "critical",
-                    "Claude: 5-hour limit at 96 %", "Reset in 5 min"]
-    assert kw["check"] is True and kw["timeout"] == 5
+def test_notice_as_json_for_the_widget():
+    n = Notice("claude:five_hour", 95, "Claude: 5-hour limit at 96 %", "Reset in 5 min", True)
+    assert n.to_json() == {"key": "claude:five_hour", "summary": "Claude: 5-hour limit at 96 %",
+                           "body": "Reset in 5 min", "urgent": True}
 
 
-def test_send_failure_is_logged_not_raised(monkeypatch, caplog):
-    def boom(args, **kw):
-        raise FileNotFoundError("notify-send")
-    monkeypatch.setattr(notify.subprocess, "run", boom)
-    assert send(Notice("k", 80, "s", "b", False)) is False
-    assert "FileNotFoundError" in caplog.text
-
-    def fails(args, **kw):
-        raise subprocess.CalledProcessError(1, args)
-    monkeypatch.setattr(notify.subprocess, "run", fails)
-    assert send(Notice("k", 80, "s", "b", False)) is False
+def test_notify_send_is_gone():
+    assert not hasattr(notify, "send")
 
 
 def test_reset_jitter_does_not_notify_again():

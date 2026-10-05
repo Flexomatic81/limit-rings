@@ -1,13 +1,9 @@
-"""Desktop notifications when a limit reaches 80 % or 95 % – once per window."""
+"""When to warn about a limit (80 % or 95 %, once per window) – the widget shows the notifications."""
 
-import logging
-import subprocess
 from dataclasses import dataclass
 
 from .i18n import _
 from .limits import public_limit, same_window, window_text
-
-log = logging.getLogger(__name__)
 
 THRESHOLDS = (80, 95)
 URGENT_LEVEL = 95
@@ -23,6 +19,9 @@ class Notice:
     summary: str
     body: str
     urgent: bool
+
+    def to_json(self) -> dict:
+        return {"key": self.key, "summary": self.summary, "body": self.body, "urgent": self.urgent}
 
 
 def _limit_name(limit: dict) -> str:
@@ -114,15 +113,3 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
     for gone in set(notified) - current:
         del notified[gone]
     return notices
-
-
-def send(notice: Notice) -> bool:
-    """Show the notification via notify-send. Errors are logged, never propagated."""
-    try:
-        subprocess.run(["notify-send", "-a", "Limit Rings", "-i", "utilities-system-monitor",
-                        "-u", "critical" if notice.urgent else "normal", notice.summary, notice.body],
-                       check=True, timeout=5)
-        return True
-    except (OSError, subprocess.SubprocessError) as e:
-        log.warning("notification failed: %s", type(e).__name__)
-        return False
