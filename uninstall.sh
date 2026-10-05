@@ -29,7 +29,10 @@ if [[ -d "$cache" ]]; then
     # The package is gone, so no new pass starts; a running one holds the collector's lock until it has
     # written – wait for it, or it would recreate what was just deleted.
     if [[ $answer == [yY] ]]; then
-        flock -w 120 "$cache/.lock" rm -rf "$cache"
+        if ! flock -w 120 "$cache/.lock" rm -rf "$cache"; then
+            echo "Error: a collector pass still holds the lock – the cache was kept. Try again in a minute." >&2
+            exit 1
+        fi
         echo "Cache deleted."
     fi
 fi

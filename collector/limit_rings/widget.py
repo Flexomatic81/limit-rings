@@ -56,6 +56,16 @@ def _acquire(fd: int, wait: float) -> bool:
             time.sleep(0.5)
 
 
+def _still_the_lock(fd: int, lock_file: Path) -> bool:
+    """False if the locked file is no longer the lock file: uninstall.sh deleted the cache while this pass waited."""
+    try:
+        current = os.stat(lock_file)
+    except FileNotFoundError:
+        return False
+    locked = os.fstat(fd)
+    return (locked.st_dev, locked.st_ino) == (current.st_dev, current.st_ino)
+
+
 def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], tz: tzinfo, notify: bool = True,
                  wait: float = LOCK_WAIT) -> tuple[dict, int]:
     """Run one pass, after the pass of another instance if that one holds the lock; return envelope and exit code.
@@ -65,13 +75,18 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
     little to read, and the limits are fetched at most every 5 minutes anyway. Only a pass that takes longer than
     `wait` (the very first one over all transcripts) makes the others return the last stats.json.
 
-    notify=False (the widget has notifications off) leaves due notices for an instance that shows them."""
+    notify=False (the widget has notifications off) leaves due notices for an instance that shows them.
+
+    A pass that waited while uninstall.sh deleted the cache holds the deleted lock file: it does nothing (stats
+    null, exit 0) and writes nothing, so the deleted directory is not recreated."""
     notices = []
     code = 0
     fd = os.open(lock_file, os.O_CREAT | os.O_RDWR, 0o600)
     try:
         if not _acquire(fd, wait):
             stats = _read_stats(paths.stats_file)
+        elif not _still_the_lock(fd, lock_file):
+            stats = None
         else:
             stats = run_safely(paths, clock(), tz, notices.append if notify else None)
             if stats is None:
@@ -89,6 +104,7 @@ def legacy_timer(home: Path) -> bool:
 
 
 def main(home: Path | None = None) -> int:
+    os.umask(0o077)  # collector.log and its rotated copy are created 0600, like everything else in the cache
     home = home or Path.home()
     paths = Paths.default(home)
     cache = paths.stats_file.parent
@@ -103,5 +119,5 @@ def main(home: Path | None = None) -> int:
         tz = local_zone()
         notify = os.environ.get("LIMIT_RINGS_NOTIFY", "1") != "0"  # set by the widget from its settings
         envelope, code = collect_once(paths, cache / ".lock", lambda: datetime.now(tz), tz, notify)
-    sys.stdout.write(json.dumps(envelope, ensure_ascii=False, separators=(",", ":")) + "\n")
+    sys.stdout.write(json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n")
     return code

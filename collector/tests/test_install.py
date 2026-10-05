@@ -146,6 +146,17 @@ def test_purge_waits_for_a_running_collector_pass(env):
     assert not cache.exists()
 
 
+def test_purge_reports_a_lock_that_stays_busy(env, tmp_path):
+    cache = write(home(env) / ".cache/limit-rings/stats.json", "{}").parent
+    write(tmp_path / "stubs" / "flock", "#!/bin/sh\nexit 1\n").chmod(0o755)   # like flock -w after its timeout
+    r = subprocess.run(["bash", str(ROOT / "uninstall.sh"), "--purge"], env=env, stdin=subprocess.DEVNULL,
+                       capture_output=True, text=True)
+    assert r.returncode == 1
+    assert "still holds the lock – the cache was kept" in r.stderr
+    assert "Cache deleted." not in r.stdout
+    assert cache.is_dir()
+
+
 def test_purge_is_refused_while_the_widget_stays_installed(env):
     Path(env["STUB_PACKAGES"]).write_text(ID + "\n")
     cache = write(home(env) / ".cache/limit-rings/stats.json", "{}").parent

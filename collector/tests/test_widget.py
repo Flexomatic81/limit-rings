@@ -7,8 +7,10 @@ import logging
 import logging.handlers
 import os
 import runpy
+import shutil
 import sys
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -28,6 +30,14 @@ NOTICE = Notice("claude:five_hour", 80, "Claude: 5-hour limit at 81 %", "Reset i
 @pytest.fixture
 def paths(tmp_path):
     return Paths.default(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def restore_umask():
+    mask = os.umask(0o022)   # main() sets the process umask
+    os.umask(mask)
+    yield
+    os.umask(mask)
 
 
 @pytest.fixture(autouse=True)
@@ -104,6 +114,39 @@ def test_waits_for_a_busy_lock_and_then_runs_its_own_pass(paths, monkeypatch):
     assert code == 0 and envelope["notices"] == [NOTICE.to_json()]
 
 
+def test_pass_waiting_while_the_cache_is_purged_does_not_run(paths, monkeypatch):
+    # uninstall.sh deletes the cache under the lock; a pass waiting on the old lock inode must not run afterwards,
+    # or it would recreate the directory that was just deleted.
+    lock = lock_of(paths)
+    cache = paths.stats_file.parent
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    monkeypatch.setattr(widget, "run_safely", lambda *a: pytest.fail("must not run after the cache was purged"))
+    result = {}
+    waiting = threading.Thread(target=lambda: result.update(
+        out=widget.collect_once(paths, lock, lambda: NOW, TZ, wait=5)))
+    waiting.start()
+    time.sleep(0.3)
+    shutil.rmtree(cache)       # as uninstall.sh does while holding the lock
+    os.close(fd)
+    waiting.join()
+    assert result["out"] == ({"envelope": 1, "stats": None, "notices": []}, 0)
+    assert not cache.exists()
+
+
+def test_main_leaves_no_cache_behind_when_it_was_purged_during_the_wait(tmp_path, monkeypatch, capsys):
+    cache = tmp_path / ".cache/limit-rings"
+
+    def purged_while_waiting(fd, wait):
+        shutil.rmtree(cache)
+        return True
+    monkeypatch.setattr(widget, "_acquire", purged_while_waiting)
+    monkeypatch.setattr(widget, "run_safely", lambda *a: pytest.fail("must not run after the cache was purged"))
+    assert widget.main(home=tmp_path) == 0
+    assert json.loads(capsys.readouterr().out) == {"envelope": 1, "stats": None, "notices": []}
+    assert not cache.exists()
+
+
 def test_clock_is_read_after_waiting_for_the_lock(paths, monkeypatch):
     seen = []
     monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier: seen.append(now) or {"schema": 2})
@@ -155,15 +198,18 @@ def test_failed_run_returns_last_stats_exit_1_and_no_notices(paths, monkeypatch)
 def test_main_prints_one_json_line_and_logs_to_a_file(tmp_path, monkeypatch, capsys):
     def fake(p, now, tz, notifier):
         logging.getLogger("limit_rings").warning("something odd")
-        return {"schema": 2}
+        return {"schema": 2, "note": "5-Stunden-Limit für Ä"}
     monkeypatch.setattr(widget, "run_safely", fake)
+    os.umask(0o022)
     assert widget.main(home=tmp_path) == 0
     out, err = capsys.readouterr()
     assert out.endswith("\n") and out.count("\n") == 1
-    assert json.loads(out)["stats"] == {"schema": 2}
+    assert out.isascii()   # independent of the encoding of stdout
+    assert json.loads(out)["stats"] == {"schema": 2, "note": "5-Stunden-Limit für Ä"}
     assert err == ""
     log = tmp_path / ".cache/limit-rings/collector.log"
     assert "something odd" in log.read_text()
+    assert oct(log.stat().st_mode & 0o777) == "0o600"
     assert oct((tmp_path / ".cache/limit-rings").stat().st_mode & 0o777) == "0o700"
 
 
@@ -188,9 +234,11 @@ def test_run_py_rejects_old_python(monkeypatch, capsys):
 
 def test_run_py_runs_the_widget_entry_point(monkeypatch):
     monkeypatch.setattr(widget, "main", lambda: 0)
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)   # restored after the test
     with pytest.raises(SystemExit) as exit_:
         runpy.run_path(str(RUN_PY), run_name="__main__")
     assert exit_.value.code == 0
+    assert sys.dont_write_bytecode   # no .pyc next to the package: its files keep fixed mtimes across updates
 
 
 def test_legacy_timer_stops_collection_and_is_reported(tmp_path, monkeypatch, capsys):
