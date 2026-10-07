@@ -1,7 +1,10 @@
 import QtQuick
 import QtQuick.Controls as QQC2
+import QtQuick.Dialogs as Dialogs
+import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
+import "../code/format.js" as Format
 
 KCM.SimpleKCM {
     property alias cfg_warnThreshold: warnSpin.value
@@ -14,6 +17,22 @@ KCM.SimpleKCM {
     property alias cfg_notifyReset: resetBox.checked
     property alias cfg_checkUpdates: updatesBox.checked
     property string cfg_compactStyle
+    property string cfg_extraAccounts
+    property var accounts: Format.parseAccounts(cfg_extraAccounts)
+
+    function updateAccount(index, change) {
+        const list = accounts.slice()
+        list[index] = Object.assign({}, list[index], change)
+        cfg_extraAccounts = Format.serializeAccounts(list)
+    }
+    function removeAccount(index) {
+        const list = accounts.slice()
+        list.splice(index, 1)
+        cfg_extraAccounts = Format.serializeAccounts(list)
+    }
+    function addAccount(provider) {
+        cfg_extraAccounts = Format.serializeAccounts(accounts.concat([Format.newAccount(provider, accounts)]))
+    }
 
     Kirigami.FormLayout {
         QQC2.SpinBox {
@@ -71,5 +90,75 @@ KCM.SimpleKCM {
             Kirigami.FormData.label: i18n("Updates:")
             text: i18n("Check daily for a new version (asks GitHub)")
         }
+        Kirigami.Separator {
+            Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: i18n("Additional accounts")
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: i18n("For accounts you use with CLAUDE_CONFIG_DIR or CODEX_HOME in their own directory.")
+        }
+        Repeater {
+            model: accounts
+            delegate: RowLayout {
+                id: accountRow
+                required property var modelData
+                required property int index
+                // Handlers below always use accountRow.index: ComboBox.activated passes its own "index"
+                // (the chosen item) that would otherwise shadow the row index.
+                QQC2.ComboBox {
+                    model: ["Claude", "Codex"]
+                    currentIndex: accountRow.modelData.provider === "codex" ? 1 : 0
+                    onActivated: chosen => updateAccount(accountRow.index, {provider: chosen === 1 ? "codex" : "claude"})
+                }
+                QQC2.TextField {
+                    Layout.fillWidth: true
+                    placeholderText: i18n("Directory")
+                    text: accountRow.modelData.dir
+                    onEditingFinished: updateAccount(accountRow.index, {dir: text})
+                }
+                QQC2.ToolButton {
+                    icon.name: "document-open-folder"
+                    QQC2.ToolTip.text: i18n("Choose directory")
+                    QQC2.ToolTip.visible: hovered
+                    onClicked: { folderDialog.accountIndex = accountRow.index; folderDialog.open() }
+                }
+                QQC2.TextField {
+                    placeholderText: i18n("Name")
+                    text: accountRow.modelData.name
+                    onEditingFinished: updateAccount(accountRow.index, {name: text})
+                }
+                QQC2.TextField {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 3
+                    maximumLength: 2
+                    placeholderText: i18nc("short letters for the panel ring", "Short")
+                    text: accountRow.modelData.short
+                    onEditingFinished: updateAccount(accountRow.index, {short: text})
+                }
+                QQC2.CheckBox {
+                    text: i18n("Show")
+                    checked: accountRow.modelData.show
+                    onToggled: updateAccount(accountRow.index, {show: checked})
+                }
+                QQC2.ToolButton {
+                    icon.name: "edit-delete"
+                    QQC2.ToolTip.text: i18n("Remove account")
+                    QQC2.ToolTip.visible: hovered
+                    onClicked: removeAccount(accountRow.index)
+                }
+            }
+        }
+        RowLayout {
+            visible: accounts.length < Format.MAX_ACCOUNTS
+            QQC2.Button { text: i18n("Add Claude account"); icon.name: "list-add"; onClicked: addAccount("claude") }
+            QQC2.Button { text: i18n("Add Codex account"); icon.name: "list-add"; onClicked: addAccount("codex") }
+        }
+    }
+
+    Dialogs.FolderDialog {
+        id: folderDialog
+        property int accountIndex: -1
+        onAccepted: updateAccount(accountIndex, {dir: decodeURIComponent(String(selectedFolder).replace(/^file:\/\//, ""))})
     }
 }

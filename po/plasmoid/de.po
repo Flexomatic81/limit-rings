@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 19:02+0200\n"
+"POT-Creation-Date: 2026-10-07 19:07+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -328,6 +328,50 @@ msgstr "Updates:"
 #, kde-format
 msgid "Check daily for a new version (asks GitHub)"
 msgstr "Täglich nach neuer Version suchen (fragt GitHub)"
+
+#, kde-format
+msgid "Additional accounts"
+msgstr "Weitere Konten"
+
+#, kde-format
+msgid ""
+"For accounts you use with CLAUDE_CONFIG_DIR or CODEX_HOME in their own "
+"directory."
+msgstr "Für Konten, die du mit CLAUDE_CONFIG_DIR oder CODEX_HOME in einem eigenen "
+"Verzeichnis nutzt."
+
+#, kde-format
+msgid "Directory"
+msgstr "Verzeichnis"
+
+#, kde-format
+msgid "Choose directory"
+msgstr "Verzeichnis wählen"
+
+#, kde-format
+msgid "Name"
+msgstr "Name"
+
+#, kde-format
+msgctxt "short letters for the panel ring"
+msgid "Short"
+msgstr "Kürzel"
+
+#, kde-format
+msgid "Show"
+msgstr "Anzeigen"
+
+#, kde-format
+msgid "Remove account"
+msgstr "Konto entfernen"
+
+#, kde-format
+msgid "Add Claude account"
+msgstr "Claude-Konto hinzufügen"
+
+#, kde-format
+msgid "Add Codex account"
+msgstr "Codex-Konto hinzufügen"
 
 #, kde-format
 msgid "Update available: %1"
