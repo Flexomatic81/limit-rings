@@ -1,6 +1,6 @@
 # Limit Rings Plasmoid — Design
 
-As of: 2026-10-05 · Status: under review
+As of: 2026-10-07 · Status: implemented (0.3.0)
 
 ## Goal
 
@@ -16,8 +16,8 @@ and **Codex** side by side — so you can see a limit coming before you run into
 - If one data source fails, the remaining displays stay correct; the age of every value is
   visible.
 
-**Explicitly not in version 1** (possible later): cost estimate in $, breakdown by
-project/model, active sessions.
+**Explicitly not in version 1** (possible later): cost estimate in $, active sessions. (The
+breakdown by project/model, first listed here, has been added since — see `breakdown` below.)
 
 ## Environment
 
