@@ -41,6 +41,15 @@ def test_repo_holds_the_dev_defaults():
     assert committed.read_text() == bp.build_js("dev")
 
 
+def test_collector_knows_the_version_of_its_package(tree):
+    built = (tree / "contents/collector/limit_rings/version.py").read_text()
+    assert built == bp.version_py(bp.version()) and f'VERSION = "{bp.version()}"' in built
+
+
+def test_repo_collector_holds_the_dev_version():
+    assert (bp.ROOT / "collector/limit_rings/version.py").read_text() == bp.version_py("dev")
+
+
 def test_git_build_needs_the_repo_dir(tmp_path):
     with pytest.raises(ValueError, match="repo-dir"):
         bp.build_tree(tmp_path / ID, "git")

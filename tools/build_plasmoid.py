@@ -40,6 +40,13 @@ def build_js(source: str, repo_dir: str = "", ver: str = "") -> str:
             f"const version = {json.dumps(ver)}\n")
 
 
+def version_py(ver: str) -> str:
+    return ('"""Version of the widget this collector belongs to.\n\n'
+            'Written by tools/build_plasmoid.py into the package; the copy in the repository holds the default for running\n'
+            'from the checkout.\n"""\n\n'
+            f"VERSION = {json.dumps(ver)}\n")
+
+
 def _ignore(directory, names):
     return [n for n in names if n == "__pycache__" or n.endswith(".pyc")]
 
@@ -62,6 +69,7 @@ def build_tree(out: Path, source: str, repo_dir: str = "", root: Path = ROOT) ->
         for po in sorted((root / "po" / part).glob("*.po")):
             msgfmt.compile_file(po, contents / "locale" / po.stem / "LC_MESSAGES" / f"{domain}.mo")
     (contents / "code" / "build.js").write_text(build_js(source, repo_dir, version(root)), encoding="utf-8")
+    (contents / "collector" / "limit_rings" / "version.py").write_text(version_py(version(root)), encoding="utf-8")
     return out
 
 

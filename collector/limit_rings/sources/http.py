@@ -4,6 +4,8 @@ import json
 import urllib.error
 import urllib.request
 
+from ..version import VERSION
+
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """urllib keeps Authorization on redirects, even to foreign hosts – so allow none at all."""
@@ -16,7 +18,7 @@ _OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 def get_json(url: str, headers: dict, timeout: float = 10.0):
-    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "limit-rings/0.2",
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": f"limit-rings/{VERSION}",
                                                **headers})
     with _OPENER.open(req, timeout=timeout) as resp:
         return json.load(resp)
