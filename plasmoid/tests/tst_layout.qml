@@ -83,6 +83,20 @@ TestCase {
         full.stats = original
     }
 
+    function test_percentage_is_bold_while_not_normal() {
+        const original = full.stats
+        const stats = JSON.parse(JSON.stringify(original))
+        stats.providers.claude.limits = [{id: "five_hour", used_percent: 75, resets_at: null, window_minutes: 300}]
+        full.stats = stats
+        tryVerify(() => { const l = findChild(full, "percentLabel"); return l && l.text === "75 %" })
+        verify(findChild(full, "percentLabel").font.bold)
+        stats.providers.claude.limits[0].used_percent = 20
+        full.stats = JSON.parse(JSON.stringify(stats))
+        tryVerify(() => findChild(full, "percentLabel").text === "20 %")
+        verify(!findChild(full, "percentLabel").font.bold)
+        full.stats = original
+    }
+
     function test_vanished_limit_leaves_no_bar_behind() {
         const bars = () => {
             const found = []

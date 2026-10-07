@@ -228,7 +228,10 @@ Rules:
 - Colour by threshold (default): below 70 % neutral, from 70 % warning, from 90 % critical —
   Plasma theme colours (`Kirigami.Theme.neutralTextColor` / `negativeTextColor`). On top of that a
   ring (and a bar in the popup) is at least "warning" while its forecast says full before the reset
-  (`Format.limitSeverity`); critical stays with the threshold.
+  (`Format.limitSeverity`); critical stays with the threshold. "Normal" uses the accent colour
+  unless its hue is within 30° of the warning or critical colour (an orange accent next to the orange
+  warning colour); then the positive colour, and if that is too close as well, the dimmed text colour
+  (`Format.normalColor`). In the popup the percentage is bold and coloured while not normal.
 - Time mark: a short stroke across each ring (a vertical one on each bar) at the share of the window
   that has passed, `1 − (resets_at − now) / window` (`Format.elapsedShare`); none without a reset
   time or window length, or after the reset. Usage ahead of the mark runs faster than an even spread.

@@ -92,6 +92,31 @@ function maxPercent(limits, nowSec) {
     return best
 }
 
+// Do two colours look different enough to tell states apart? Greyish colours always do.
+function _distinct(a, b) {
+    if (a.hsvSaturation < 0.25 || b.hsvSaturation < 0.25 || a.hsvHue < 0 || b.hsvHue < 0) return true
+    const d = Math.abs(a.hsvHue - b.hsvHue)
+    return Math.min(d, 1 - d) >= 30 / 360
+}
+
+// Colour for the "normal" state: the accent colour, unless it is too close to the warning or critical
+// colour (e.g. an orange accent next to the orange warning colour); then the positive colour, else grey.
+// theme: Kirigami.Theme or an object with the same colour properties
+function normalColor(theme) {
+    const apart = c => _distinct(c, theme.neutralTextColor) && _distinct(c, theme.negativeTextColor)
+    if (apart(theme.highlightColor)) return theme.highlightColor
+    if (apart(theme.positiveTextColor)) return theme.positiveTextColor
+    const t = theme.textColor
+    return Qt.rgba(t.r, t.g, t.b, 0.6)
+}
+
+// Colour of a ring or bar by severity ("normal" | "warning" | "critical")
+function toneFor(sev, theme) {
+    return sev === "critical" ? theme.negativeTextColor
+         : sev === "warning" ? theme.neutralTextColor
+         : normalColor(theme)
+}
+
 // Severity of one limit: the fixed thresholds, and at least "warning" while the forecast sees it full
 // before the reset at the current pace (the same forecast the popup shows)
 function limitSeverity(limit, nowSec, warn, crit) {

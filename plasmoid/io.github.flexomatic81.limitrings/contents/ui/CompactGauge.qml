@@ -1,6 +1,7 @@
 import QtQuick
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
+import "../code/format.js" as Format
 
 Item {
     id: gauge
@@ -18,9 +19,7 @@ Item {
     property bool dimmed: false
 
     function toneFor(sev) {
-        return sev === "critical" ? Kirigami.Theme.negativeTextColor
-             : sev === "warning" ? Kirigami.Theme.neutralTextColor
-             : Kirigami.Theme.highlightColor
+        return Format.toneFor(sev, Kirigami.Theme)
     }
 
     readonly property color tone: toneFor(severity)

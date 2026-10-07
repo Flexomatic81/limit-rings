@@ -41,9 +41,7 @@ ColumnLayout {
                 width: parent.width * Math.min(100, bar.pct) / 100
                 height: parent.height
                 radius: parent.radius
-                color: bar.sev === "critical" ? Kirigami.Theme.negativeTextColor
-                     : bar.sev === "warning" ? Kirigami.Theme.neutralTextColor
-                     : Kirigami.Theme.highlightColor
+                color: Format.toneFor(bar.sev, Kirigami.Theme)
             }
 
             // Where the window stands in time: usage ahead of this mark runs fast
@@ -59,7 +57,10 @@ ColumnLayout {
         }
 
         PlasmaComponents.Label {
+            objectName: "percentLabel"
             text: bar.reset ? Format.i18nc("limit state", "reset") + " · 0 %" : Math.round(bar.pct) + " %"
+            font.bold: bar.sev !== "normal"
+            color: bar.sev === "normal" ? Kirigami.Theme.textColor : Format.toneFor(bar.sev, Kirigami.Theme)
             Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 3, implicitWidth)
             horizontalAlignment: Text.AlignRight
         }

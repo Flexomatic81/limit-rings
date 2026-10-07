@@ -40,15 +40,15 @@ ColumnLayout {
                 width: parent.width * Math.min(100, extraRow.pct) / 100
                 height: parent.height
                 radius: parent.radius
-                color: extraRow.sev === "critical" ? Kirigami.Theme.negativeTextColor
-                     : extraRow.sev === "warning" ? Kirigami.Theme.neutralTextColor
-                     : Kirigami.Theme.highlightColor
+                color: Format.toneFor(extraRow.sev, Kirigami.Theme)
             }
         }
 
         PlasmaComponents.Label {
             visible: extraRow.hasBar
             text: Math.round(extraRow.pct) + " %"
+            font.bold: extraRow.sev !== "normal"
+            color: extraRow.sev === "normal" ? Kirigami.Theme.textColor : Format.toneFor(extraRow.sev, Kirigami.Theme)
             Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 3, implicitWidth)
             horizontalAlignment: Text.AlignRight
         }

@@ -442,6 +442,32 @@ TestCase {
         compare(F.ringLimits([], now), {outer: null, inner: null})
     }
 
+    function test_normalColor_avoids_the_warning_and_critical_colours() {
+        const rgb = (r, g, b) => Qt.rgba(r / 255, g / 255, b / 255, 1)
+        const theme = (accent, positive, neutral) => ({
+            highlightColor: accent, positiveTextColor: positive || rgb(39, 174, 96),
+            neutralTextColor: neutral || rgb(246, 116, 0), negativeTextColor: rgb(218, 68, 83),
+            textColor: rgb(252, 252, 252)})
+        const blue = rgb(61, 174, 233), orange = rgb(254, 128, 25), green = rgb(104, 157, 106)
+        compare(F.normalColor(theme(blue)), blue)                          // Breeze: unchanged
+        compare(F.normalColor(theme(orange, green)), green)                // Gruvbox: accent too close to warning
+        compare(F.normalColor(theme(rgb(230, 70, 80))), rgb(39, 174, 96))  // accent close to critical
+        const grey = F.normalColor(theme(orange, rgb(240, 110, 10)))       // positive too close as well
+        compare(Qt.rgba(grey.r, grey.g, grey.b, 1), rgb(252, 252, 252))
+        verify(grey.a < 1)
+        compare(F.normalColor(theme(rgb(128, 128, 128))), rgb(128, 128, 128))  // grey accent stays
+    }
+
+    function test_toneFor_by_severity() {
+        const rgb = (r, g, b) => Qt.rgba(r / 255, g / 255, b / 255, 1)
+        const theme = {highlightColor: rgb(61, 174, 233), positiveTextColor: rgb(39, 174, 96),
+                       neutralTextColor: rgb(246, 116, 0), negativeTextColor: rgb(218, 68, 83),
+                       textColor: rgb(252, 252, 252)}
+        compare(F.toneFor("critical", theme), theme.negativeTextColor)
+        compare(F.toneFor("warning", theme), theme.neutralTextColor)
+        compare(F.toneFor("normal", theme), theme.highlightColor)
+    }
+
     function test_limitName() {
         compare(F.limitName({id: "five_hour", window_minutes: 300}), "5 h")
         compare(F.limitName({id: "seven_day", window_minutes: 10080}), "Week")
