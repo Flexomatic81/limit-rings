@@ -244,3 +244,27 @@ def test_reset_times_are_rounded_not_truncated():
     early = normalize_oauth({"five_hour": {"utilization": 1.0, "resets_at": "2026-10-06T03:59:59.990000+00:00"}})
     late = normalize_oauth({"five_hour": {"utilization": 1.0, "resets_at": "2026-10-06T04:00:00.253439+00:00"}})
     assert early[0]["resets_at"] == late[0]["resets_at"] == 1791259200
+
+
+def test_rate_limit_pauses_oauth_and_uses_the_status_line_meanwhile(tmp_path):
+    from limit_rings.sources import backoff
+    err = urllib.error.HTTPError("https://api.anthropic.com/api/oauth/usage", 429, "Too Many Requests",
+                                 {"Retry-After": "3600"}, io.BytesIO(b""))
+    pause = backoff.new()
+    rec, attempt, _ = resolve(None, None, NOW, creds(tmp_path), statusline(tmp_path, NOW - 60),
+                              fetch=_raiser(err), pause=pause)
+    assert rec["source"] == "statusline" and attempt == NOW
+    assert pause == {"until": NOW + 3600, "failures": 1}
+
+    def forbidden(token, timeout=10.0):
+        raise AssertionError("must not fetch during the pause")
+    rec, attempt, _ = resolve(rec, NOW, NOW + 1200, creds(tmp_path), statusline(tmp_path, NOW + 1100),
+                              fetch=forbidden, pause=pause)
+    assert rec["source"] == "statusline" and rec["updated_at"] == NOW + 1100 and attempt == NOW
+
+    ok = json.loads((FIXTURES / "oauth_usage.json").read_text())
+    login = creds(tmp_path, expires_ms=(NOW + 7200) * 1000)
+    rec, _, _ = resolve(rec, NOW, NOW + 3600, login, statusline(tmp_path, NOW + 1100),
+                        fetch=lambda token, timeout=10.0: ok, pause=pause)
+    assert rec["source"] == "oauth"
+    assert pause == backoff.new()

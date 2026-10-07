@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-05 20:16+0200\n"
+"POT-Creation-Date: 2026-10-07 16:57+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -76,6 +76,11 @@ msgstr "Stand %1 · %2"
 msgctxt "limit data is outdated"
 msgid "stale"
 msgstr "veraltet"
+
+#, kde-format
+msgctxt "%1 = clock time; the provider asked to wait before the next request"
+msgid "paused by the provider until %1"
+msgstr "vom Anbieter pausiert bis %1"
 
 #, kde-format
 msgid "Install it with: %1"

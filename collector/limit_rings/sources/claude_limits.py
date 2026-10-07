@@ -10,6 +10,7 @@ import urllib.error
 from pathlib import Path
 
 from ..limits import normalize_oauth, normalize_statusline
+from . import backoff
 from .http import get_json
 
 log = logging.getLogger(__name__)
@@ -65,19 +66,25 @@ def _read_statusline(path: Path) -> dict | None:
 
 
 def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Path,
-            fetch=fetch_oauth_usage):
+            fetch=fetch_oauth_usage, pause: dict | None = None):
+    """pause: back-off state (backoff.new()), updated in place after 429/503 and after a success."""
+    pause = backoff.new() if pause is None else pause
     token, plan = read_credentials(credentials, now)
     # If the clock runs backwards (last_attempt in the future), don't throttle forever.
-    if last_attempt is None or now - last_attempt >= OAUTH_MIN_INTERVAL or now < last_attempt:
+    due = last_attempt is None or now - last_attempt >= OAUTH_MIN_INTERVAL or now < last_attempt
+    if due and backoff.blocked_until(pause, now) is None:
         last_attempt = now
         if token:
             resp = None
             try:
                 resp = fetch(token, timeout=10.0)
                 limits = normalize_oauth(resp)
+                backoff.record_success(pause)
                 return {"limits": limits, "source": "oauth", "updated_at": now}, last_attempt, plan
             except urllib.error.HTTPError as e:
                 log.warning("OAuth usage request failed: HTTP %s", e.code)
+                if backoff.is_rate_limit(e.code):
+                    backoff.record_rate_limit(pause, now, e.headers.get("Retry-After") if e.headers else None)
             except (urllib.error.URLError, TimeoutError, OSError) as e:
                 log.warning("OAuth usage request failed: %s", type(e).__name__)
             except ValueError:

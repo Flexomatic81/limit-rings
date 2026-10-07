@@ -300,6 +300,20 @@ TestCase {
         compare(F.footerText(undefined, t), "")
     }
 
+    function test_footerText_names_a_running_pause() {
+        const t = Date.parse("2026-10-04T18:00:00+02:00")
+        const until = new Date(t + 30 * 60000)
+        const clock = (until.getHours() < 10 ? "0" : "") + until.getHours() + ":"
+            + (until.getMinutes() < 10 ? "0" : "") + until.getMinutes()
+        const p = {limits_updated_at: "2026-10-04T17:55:00+02:00", limits_source: "oauth", limits: [],
+                   limits_paused_until: until.toISOString()}
+        compare(F.footerText(p, t), "Updated 5 min ago · OAuth · paused by the provider until " + clock)
+        // pause over or not set: no hint
+        compare(F.footerText(Object.assign({}, p, {limits_paused_until: "2026-10-04T17:59:00+02:00"}), t),
+                "Updated 5 min ago · OAuth")
+        compare(F.footerText(Object.assign({}, p, {limits_paused_until: null}), t), "Updated 5 min ago · OAuth")
+    }
+
     function test_tooltip_marks_stale_limits() {
         const nowSec = Date.parse("2026-10-04T18:00:00+02:00") / 1000
         const stats = {providers: {codex: {limits_updated_at: "2026-09-30T18:00:00+02:00",

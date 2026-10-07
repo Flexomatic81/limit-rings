@@ -21,7 +21,8 @@ it reads the login tokens that Claude Code (`~/.claude/.credentials.json`) and C
 (`~/.codex/auth.json`) store locally.
 
 - The tokens are only read — never refreshed, stored or logged — and are only sent to the
-  respective provider; redirects are rejected. The endpoints are queried at most every 5 minutes.
+  respective provider; redirects are rejected. The endpoints are queried at most every 5 minutes;
+  if a provider answers "too many requests", Limit Rings waits as long as it asks (at most 6 hours).
 - The endpoints may change or disappear at any time; Limit Rings then falls back to local data
   (status line or session logs).
 - Please check for yourself whether this use complies with the terms of service of Anthropic and
@@ -125,9 +126,9 @@ LIMIT_RINGS_NOTIFY=0 python3 ~/.local/share/plasma/plasmoids/io.github.flexomati
 
 ## Privacy & network
 
-Limit Rings contacts `api.anthropic.com` and `chatgpt.com` (limits, at most every 5 minutes, with the
-login tokens described above) and `api.github.com` (new version check, once a day, no personal data;
-can be switched off). Nothing else leaves your machine.
+Limit Rings contacts `api.anthropic.com` and `chatgpt.com` (limits, at most every 5 minutes and paused
+after "too many requests", with the login tokens described above) and `api.github.com` (new version
+check, once a day, no personal data; can be switched off). Nothing else leaves your machine.
 
 ## Development
 

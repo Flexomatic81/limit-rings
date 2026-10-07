@@ -11,6 +11,7 @@ import urllib.error
 from pathlib import Path
 
 from ..limits import normalize_codex_usage
+from . import backoff
 from .http import get_json
 
 log = logging.getLogger(__name__)
@@ -37,10 +38,14 @@ def fetch_usage(token: str, account_id: str, timeout: float = 10.0, url: str = U
     return get_json(url, {"Authorization": f"Bearer {token}", "ChatGPT-Account-Id": account_id}, timeout)
 
 
-def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usage):
-    """→ (limit record, last attempt). When throttled or on error, previous stays unchanged."""
+def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usage, pause: dict | None = None):
+    """→ (limit record, last attempt). When throttled, paused or on error, previous stays unchanged.
+
+    pause: back-off state (backoff.new()), updated in place after 429/503 and after a success.
+    """
+    pause = backoff.new() if pause is None else pause
     due = last_attempt is None or now - last_attempt >= MIN_INTERVAL or now < last_attempt
-    if not due:
+    if not due or backoff.blocked_until(pause, now) is not None:
         return previous, last_attempt
     token, account = read_auth(auth_path)
     if not token:
@@ -49,9 +54,12 @@ def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usa
     try:
         resp = fetch(token, account, timeout=10.0)
         limits, plan = normalize_codex_usage(resp)
+        backoff.record_success(pause)
         return {"limits": limits, "plan": plan, "updated_at": now, "source": "oauth"}, now
     except urllib.error.HTTPError as e:
         log.warning("Codex usage request failed: HTTP %s", e.code)
+        if backoff.is_rate_limit(e.code):
+            backoff.record_rate_limit(pause, now, e.headers.get("Retry-After") if e.headers else None)
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         log.warning("Codex usage request failed: %s", type(e).__name__)
     except ValueError:

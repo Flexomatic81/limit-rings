@@ -391,3 +391,30 @@ def test_legacy_state_limits_are_published_with_model(tmp_path):
     stats = run(p, NOW, BERLIN, fetch=no_fetch)
     opus = [l for l in stats["providers"]["claude"]["limits"] if l["id"] == "seven_day_opus"]
     assert opus and opus[0]["model"] == "Opus" and "label" not in opus[0]
+
+
+
+def test_rate_limit_pause_is_kept_between_runs_and_published(tmp_path):
+    import io
+    import urllib.error
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+
+    def limited(*a, **k):
+        raise urllib.error.HTTPError("https://example.invalid", 429, "Too Many Requests",
+                                     {"Retry-After": "1800"}, io.BytesIO(b""))
+    stats = run(p, NOW, BERLIN, fetch=limited, codex_fetch=limited)
+    until = (NOW + timedelta(seconds=1800)).isoformat(timespec="seconds")
+    assert stats["providers"]["claude"]["limits_paused_until"] == until
+    assert stats["providers"]["codex"]["limits_paused_until"] == until
+
+    def no_fetch(*a, **k):
+        raise AssertionError("must not fetch during the pause")
+    stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=no_fetch, codex_fetch=no_fetch)
+    assert stats["providers"]["claude"]["limits_paused_until"] == until
+
+    stats = run(p, NOW + timedelta(minutes=30), BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
+    assert stats["providers"]["claude"]["limits_paused_until"] is None
+    assert stats["providers"]["codex"]["limits_paused_until"] is None
+    assert stats["providers"]["codex"]["limits_source"] == "oauth"

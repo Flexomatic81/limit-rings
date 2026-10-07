@@ -69,6 +69,10 @@ def test_load_state_rejects_wrong_shapes(tmp_path):
         _state_with("claude", limits={"limits": [], "updated_at": "yesterday"}),
         _state_with("claude", limits={"updated_at": 1.0}),                               # without limits
         _state_with("claude", oauth_last_attempt="now"),
+        _state_with("claude", oauth_pause=None),
+        _state_with("codex", oauth_pause={"until": "soon", "failures": 1}),
+        _state_with("codex", oauth_pause={"until": None, "failures": -1}),
+        _state_with("codex", oauth_pause={"until": None}),
         _state_with("codex", sessions={"s": {"total": 1}}),                              # without day
         _state_with("codex", sessions={"s": {"total": "1", "day": "2026-10-01"}}),
         _state_with("codex", sessions=None),
@@ -78,7 +82,8 @@ def test_load_state_rejects_wrong_shapes(tmp_path):
         p.write_text(json.dumps(bad))
         assert load_state(p) == new_state(), bad
     ok = new_state()
-    ok["claude"].update(seen={"a|b": good_seen}, limits=good_limits, oauth_last_attempt=5.0)
+    ok["claude"].update(seen={"a|b": good_seen}, limits=good_limits, oauth_last_attempt=5.0,
+                        oauth_pause={"until": 9.0, "failures": 2})
     ok["codex"].update(sessions={"s": {"total": 1, "day": "2026-10-01"}},
                        limits={"limits": [], "plan": None, "updated_at": 2})
     p.write_text(json.dumps(ok))

@@ -90,3 +90,37 @@ def test_throttle_and_missing_auth_skip_the_request(tmp_path):
     # clock set back: last attempt lies in the future → still due
     rec, _ = resolve(prev, NOW + 3600, NOW, auth(tmp_path), fetch=ok_fetch)
     assert rec["source"] == "oauth" and rec["updated_at"] == NOW
+
+
+def _rate_limited(retry_after=None, status=429):
+    headers = {"Retry-After": retry_after} if retry_after is not None else {}
+    return _raiser(urllib.error.HTTPError("https://chatgpt.com/backend-api/wham/usage", status, "Too Many Requests",
+                                          headers, io.BytesIO(b"")))
+
+
+def test_rate_limit_pauses_requests_until_the_provider_allows_them(tmp_path):
+    from limit_rings.sources import backoff
+    prev = {"limits": [], "plan": "plus", "updated_at": NOW - 600, "source": "oauth"}
+    pause = backoff.new()
+    rec, attempt = resolve(prev, None, NOW, auth(tmp_path), fetch=_rate_limited("1800"), pause=pause)
+    assert rec is prev and attempt == NOW
+    assert pause == {"until": NOW + 1800, "failures": 1}
+
+    def forbidden(token, account_id, timeout=10.0):
+        raise AssertionError("must not fetch during the pause")
+    later = NOW + 1000  # past the regular interval, still inside the pause
+    assert resolve(prev, NOW, later, auth(tmp_path), fetch=forbidden, pause=pause) == (prev, NOW)
+
+    rec, _ = resolve(prev, NOW, NOW + 1800, auth(tmp_path), fetch=ok_fetch, pause=pause)
+    assert rec["updated_at"] == NOW + 1800
+    assert pause == backoff.new()
+
+
+def test_503_pauses_too_but_other_errors_keep_the_regular_interval(tmp_path):
+    from limit_rings.sources import backoff
+    pause = backoff.new()
+    resolve(None, None, NOW, auth(tmp_path), fetch=_rate_limited(status=503), pause=pause)
+    assert pause == {"until": NOW + 600, "failures": 1}
+    pause = backoff.new()
+    resolve(None, None, NOW, auth(tmp_path), fetch=_rate_limited(status=401), pause=pause)
+    assert pause == backoff.new()

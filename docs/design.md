@@ -59,6 +59,7 @@ Decisions:
 | `sources/codex_logs.py` | Reads `event_msg`/`token_count` events; yields token events from `last_token_usage` and the most recent `rate_limits` object with its timestamp. | `state` |
 | `sources/codex_limits.py` | Queries the Codex usage endpoint (`chatgpt.com/backend-api/wham/usage`) with the ChatGPT login from `~/.codex/auth.json` (no redirects, at most every 5 min). Needed because Codex via the Claude Code plugin uses ephemeral sessions without a session log. On error, the last state (including from the session log) is kept. | HTTP (urllib), file system |
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
+| `sources/backoff.py` | Pause after 429/503 from a usage endpoint: reads `Retry-After` (seconds or HTTP date), otherwise growing pauses; used by both limit sources, pause state in `state.json`. | – |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
@@ -128,6 +129,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       ],
       "limits_source": "oauth",
       "limits_updated_at": "2026-10-03T19:41:30+02:00",
+      "limits_paused_until": null,
       "plan": "pro",
       "tokens": {
         "today": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "total": 0},
@@ -145,6 +147,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       ],
       "limits_source": "session_log",
       "limits_updated_at": "2026-09-29T21:30:00+02:00",
+      "limits_paused_until": null,
       "plan": "plus",
       "tokens": {"today": {}, "week": {}, "month": {}},
       "daily": [],
@@ -274,6 +277,11 @@ recorded), so an instance that has them on – or switching them back on – sti
   is newer. As long as the last OAuth attempt succeeded, its data stays in place
   during the 5-minute throttle — a newer status line does not displace it. Unexpected
   response shapes are logged with field names (never with values from the request).
+- **Rate limits:** on 429/503 (`sources/backoff.py`) the source pauses as long as `Retry-After` says,
+  otherwise 10, 20, 40, then 60 minutes per further refusal; each pause lasts 5 min to 6 h. The pause
+  (`oauth_pause` in `state.json`) survives between runs and ends with the next success. Meanwhile the
+  fallbacks above apply, and the provider gets `limits_paused_until` (otherwise `null`) – the footer
+  names it.
 - Collector output goes to `~/.cache/limit-rings/collector.log` (256 KB, one backup). The widget shows
   missing Python, a failed run or a newer collector than its QML (after an update: restart Plasma).
   While the systemd timer of a version ≤ 0.2 still exists, the collector refuses to run (it would

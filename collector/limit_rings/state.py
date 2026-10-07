@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .aggregate import prune_buckets
 from .fsutil import write_json_atomic
+from .sources import backoff
 
 log = logging.getLogger(__name__)
 
@@ -19,8 +20,9 @@ def new_state() -> dict:
     return {
         "version": STATE_VERSION,
         "claude": {"files": {}, "seen": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
-                   "hourly": {}, "hourly_backfill": False},
-        "codex": {"files": {}, "sessions": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None},
+                   "oauth_pause": backoff.new(), "hourly": {}, "hourly_backfill": False},
+        "codex": {"files": {}, "sessions": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
+                  "oauth_pause": backoff.new()},
         "notified": {},
         "history": {},
     }
@@ -70,7 +72,13 @@ def _shape_ok(data: dict) -> bool:
             and all(isinstance(pt, list) and len(pt) == 2 and _num(pt[0]) and _num(pt[1]) for pt in v["points"])
             for v in history.values()):
         return False
-    return all(s["oauth_last_attempt"] is None or _num(s["oauth_last_attempt"]) for s in (claude, codex))
+    return all((s["oauth_last_attempt"] is None or _num(s["oauth_last_attempt"])) and _pause_ok(s["oauth_pause"])
+               for s in (claude, codex))
+
+
+def _pause_ok(pause) -> bool:
+    return (isinstance(pause, dict) and (pause.get("until") is None or _num(pause["until"]))
+            and _int(pause.get("failures")) and pause["failures"] >= 0)
 
 
 def load_state(path: Path) -> dict:

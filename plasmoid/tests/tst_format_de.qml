@@ -16,7 +16,9 @@ TestCase {
                                                      "%1 Dateien nicht lesbar – Zahlen unvollständig"],
         "limit name: weekly window|Week": "Woche",
         "limit name: weekly window of one model, %1 = model|Week %1": "Woche %1",
-        "breakdown entry for all remaining projects or models|Other": "Andere"
+        "breakdown entry for all remaining projects or models|Other": "Andere",
+        "%1 = clock time; the provider asked to wait before the next request|paused by the provider until %1":
+            "vom Anbieter pausiert bis %1"
     })
 
     function subst(text, args) {
@@ -37,6 +39,14 @@ TestCase {
     }
 
     function cleanup() { F.init(null) }
+
+    function test_pause_hint_is_german() {
+        const t = Date.parse("2026-10-04T18:00:00+02:00")
+        const until = new Date(t + 30 * 60000)
+        const text = F.footerText({limits_updated_at: "2026-10-04T17:55:00+02:00", limits_source: "oauth",
+                                   limits: [], limits_paused_until: until.toISOString()}, t)
+        verify(/ · vom Anbieter pausiert bis \d\d:\d\d$/.test(text), text)
+    }
 
     function test_numbers() {
         compare(F.formatInt(1234567), "1.234.567")

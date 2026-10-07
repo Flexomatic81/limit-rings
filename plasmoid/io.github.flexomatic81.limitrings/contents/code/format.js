@@ -173,6 +173,15 @@ function footerText(provider, nowMs) {
     return i18nc("%1 = age such as '5 min ago', %2 = data source", "Updated %1 · %2",
                  ageText(provider.limits_updated_at, nowMs), sourceText(provider.limits_source))
         + (limitsStale(provider, nowMs) ? " · " + i18nc("limit data is outdated", "stale") : "")
+        + _pauseText(provider.limits_paused_until, nowMs)
+}
+
+// After a rate limit (HTTP 429) the collector stops asking until the provider allows it again.
+function _pauseText(iso, nowMs) {
+    const until = iso ? Date.parse(iso) : NaN
+    if (!(until > nowMs)) return ""
+    return " · " + i18nc("%1 = clock time; the provider asked to wait before the next request",
+                         "paused by the provider until %1", _clock(until / 1000, nowMs / 1000))
 }
 
 const ENVELOPE = 1   // version of the collector output this widget understands (collector/limit_rings/widget.py)

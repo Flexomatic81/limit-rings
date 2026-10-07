@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from . import aggregate, breakdown, forecast, notify
 from .fsutil import write_json_atomic
 from .limits import public_limit
-from .sources import claude_limits, claude_logs, codex_limits, codex_logs
+from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs
 from .state import load_state, prune_state, save_state
 
 log = logging.getLogger("limit_rings")
@@ -67,12 +67,13 @@ def _iso(epoch: float | None, tz: tzinfo) -> str | None:
     return datetime.fromtimestamp(epoch, tz).isoformat(timespec="seconds")
 
 
-def _provider(section: dict, today, tz, limits_source, plan, errors) -> dict:
+def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors) -> dict:
     rec = section["limits"]
     return {
         "limits": rec["limits"] if rec else [],
         "limits_source": limits_source if rec else None,
         "limits_updated_at": _iso(rec["updated_at"], tz) if rec else None,
+        "limits_paused_until": _iso(backoff.blocked_until(section["oauth_pause"], now_ts), tz),
         "plan": plan,
         "tokens": aggregate.summarize(section["buckets"], today),
         "daily": aggregate.daily_series(section["buckets"], today),
@@ -172,7 +173,7 @@ def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[list[dict], str | 
     try:
         rec, attempt, plan = claude_limits.resolve(
             section["limits"], section["oauth_last_attempt"], now_ts,
-            paths.credentials, paths.statusline_cache, fetch=fetch)
+            paths.credentials, paths.statusline_cache, fetch=fetch, pause=section["oauth_pause"])
         section["limits"], section["oauth_last_attempt"] = rec, attempt
     except Exception as e:
         log.error("Claude limits: unexpected error: %s", type(e).__name__)
@@ -187,7 +188,8 @@ def _process_codex(state, paths, now_ts, tz, fetch) -> list[dict]:
     try:
         # The Claude Code plugin writes no session logs: also query the limits directly.
         section["limits"], section["oauth_last_attempt"] = codex_limits.resolve(
-            section["limits"], section["oauth_last_attempt"], now_ts, paths.codex_auth, fetch=fetch)
+            section["limits"], section["oauth_last_attempt"], now_ts, paths.codex_auth, fetch=fetch,
+            pause=section["oauth_pause"])
     except Exception as e:
         log.error("Codex limits: unexpected error: %s", type(e).__name__)
         section["oauth_last_attempt"] = now_ts
@@ -243,12 +245,12 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
         "schema": SCHEMA,
         "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
         "providers": {
-            "claude": {**_provider(claude, today, tz,
+            "claude": {**_provider(claude, today, tz, now.timestamp(),
                                    claude["limits"]["source"] if claude["limits"] else None,
                                    claude_plan, claude_errors),
                        "auth": _auth(paths.credentials, now.timestamp(), tz),
                        "breakdown": _breakdown(claude, now.timestamp(), tz)},
-            "codex": _provider(codex, today, tz,
+            "codex": _provider(codex, today, tz, now.timestamp(),
                                codex["limits"].get("source", "session_log") if codex["limits"] else None,
                                codex["limits"]["plan"] if codex["limits"] else None, codex_errors),
         },
