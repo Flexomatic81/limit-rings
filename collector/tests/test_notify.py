@@ -189,8 +189,8 @@ def test_entries_from_before_window_lengths_were_recorded_still_count():
 
 def test_labels_name_the_account_but_keep_the_key():
     notified = {}
-    notices = update_notices({"Claude": [limit()]}, notified, NOW, labels={"Claude": "Claude (Arbeit)"})
-    assert notices[0].summary == "Claude (Arbeit): 5-hour limit at 82 %"
+    notices = update_notices({"Claude": [limit()]}, notified, NOW, labels={"Claude": "Claude (Work)"})
+    assert notices[0].summary == "Claude (Work): 5-hour limit at 82 %"
     assert list(notified) == ["claude:five_hour"]
 
 

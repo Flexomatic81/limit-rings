@@ -497,7 +497,7 @@ TestCase {
     }
 
     function test_accounts_round_trip_and_sanitising() {
-        const list = [{id: "k7f3a2", provider: "claude", dir: "~/.claude-a", name: "Arbeit", short: "A", show: true},
+        const list = [{id: "k7f3a2", provider: "claude", dir: "~/.claude-a", name: "Work", short: "A", show: true},
                       {id: "c0d3x1", provider: "codex", dir: "/srv/x", name: "Team", short: "T", show: false}]
         compare(F.parseAccounts(F.serializeAccounts(list)), list)
         compare(F.parseAccounts(""), [])
@@ -536,11 +536,11 @@ TestCase {
 
     function test_displayEntries_and_entryData() {
         const main = [{key: "claude", name: "Claude", short: "C"}]
-        const list = [{id: "k7f3a2", provider: "claude", dir: "~/.c", name: "Arbeit", short: "A", show: true},
+        const list = [{id: "k7f3a2", provider: "claude", dir: "~/.c", name: "Work", short: "A", show: true},
                       {id: "hid123", provider: "codex", dir: "/x", name: "H", short: "H", show: false}]
         const entries = F.displayEntries(main, list)
         compare(entries, [{key: "claude", name: "Claude", short: "C"},
-                          {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Arbeit)", short: "A",
+                          {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Work)", short: "A",
                            dir: "~/.c"}])
         const stats = {providers: {claude: {limits: [1]}},
                        accounts: {k7f3a2: {provider: "claude", dir: "~/.c", limits: [2]}}}
@@ -551,6 +551,13 @@ TestCase {
         compare(F.entryData(stats, Object.assign({}, entries[1], {provider: "codex"})), undefined)
         compare(F.entryData({providers: {}}, entries[1]), undefined)   // older stats.json without accounts
         compare(F.entryData(null, entries[0]), undefined)
+    }
+
+    function test_displayEntries_falls_back_for_an_empty_name() {
+        const list = [{id: "a1", provider: "claude", dir: "~/.c", name: "", short: "A", show: true},
+                      {id: "a2", provider: "codex", dir: "~/.x", name: "  ", short: "B", show: true}]
+        const names = F.displayEntries([], list).map(e => e.name)
+        compare(names, ["Claude (Claude 2)", "Codex (Codex 2)"])
     }
 
     function test_authHint_for_accounts_names_the_directory() {
@@ -570,8 +577,8 @@ TestCase {
                                                           limits: [{window_minutes: 300, used_percent: 42, resets_at: null}],
                                                           limits_updated_at: new Date().toISOString()}}}
         compare(F.tooltipText(stats, [{key: "k7f3a2", account: true, provider: "claude", dir: "~/.c",
-                                       name: "Claude (Arbeit)"}], Date.now() / 1000),
-                "Claude (Arbeit) · 5 h: 42 %")
+                                       name: "Claude (Work)"}], Date.now() / 1000),
+                "Claude (Work) · 5 h: 42 %")
     }
 
     function test_limitName() {

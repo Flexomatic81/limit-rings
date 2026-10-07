@@ -7,7 +7,7 @@ NOW = 1_791_300_000.0
 
 
 def entry(**kw):
-    return {"id": "k7f3a2", "provider": "claude", "dir": "~/.claude-arbeit", "name": "Arbeit", **kw}
+    return {"id": "k7f3a2", "provider": "claude", "dir": "~/.claude-work", "name": "Work", **kw}
 
 
 def test_valid_entries_resolve_the_home_directory(tmp_path):
@@ -15,8 +15,8 @@ def test_valid_entries_resolve_the_home_directory(tmp_path):
                                                          name="Büro \"2\" 'x'")]), tmp_path)
     a, b = accounts
     assert (a.id, a.provider, a.dir, a.dir_text, a.name, a.error) == (
-        "k7f3a2", "claude", (tmp_path / ".claude-arbeit").resolve(), "~/.claude-arbeit", "Arbeit", None)
-    assert a.label == "Claude (Arbeit)"
+        "k7f3a2", "claude", (tmp_path / ".claude-work").resolve(), "~/.claude-work", "Work", None)
+    assert a.label == "Claude (Work)"
     assert (b.provider, str(b.dir), b.name) == ("codex", "/srv/codex b", "Büro \"2\" 'x'")
 
 
@@ -77,8 +77,8 @@ def test_paths_per_provider(tmp_path):
                                    tmp_path)
     home = tmp_path.resolve()
     p = account_paths(claude, tmp_path / "cache")
-    assert p.credentials == home / ".claude-arbeit" / ".credentials.json"
-    assert p.claude_root == home / ".claude-arbeit" / "projects"
+    assert p.credentials == home / ".claude-work" / ".credentials.json"
+    assert p.claude_root == home / ".claude-work" / "projects"
     assert p.statusline_cache is None
     assert p.state_file == tmp_path / "cache" / "accounts" / f"{claude.state_key}.json"
     q = account_paths(codex, tmp_path / "cache")

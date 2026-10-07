@@ -121,7 +121,7 @@ TestCase {
         for (const vertical of [false, true]) {
             const c = createTemporaryObject(compactComponent, tc, {vertical: vertical, stats: stats,
                 providers: tc.providers.concat([{key: "k7f3a2", account: true, provider: "claude", dir: "~/.c",
-                                                 name: "Claude (Arbeit)", short: "A"}])})
+                                                 name: "Claude (Work)", short: "A"}])})
             if (vertical) c.width = 32; else c.height = 32
             waitForItemPolished(c.children[0])
             if (vertical) c.height = c.Layout.preferredHeight; else c.width = c.Layout.preferredWidth

@@ -105,8 +105,8 @@ TestCase {
         stats.accounts.k7f3a2.provider = "claude"
         stats.accounts.k7f3a2.dir = "~/.c"
         const entries = [{key: "claude", name: "Claude", short: "C"},
-                         {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Arbeit)", short: "A", dir: "~/.c"},
-                         {key: "gone12", account: true, provider: "codex", name: "Codex (Alt)", short: "X", dir: "~/.x"}]
+                         {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Work)", short: "A", dir: "~/.c"},
+                         {key: "gone12", account: true, provider: "codex", name: "Codex (Old)", short: "X", dir: "~/.x"}]
         const obj = comp.createObject(this, {providers: entries, nowMs: full.nowMs, warn: 70, crit: 90, stats: stats,
                                              width: 684, height: 600})
         waitForRendering(obj)
@@ -120,7 +120,7 @@ TestCase {
             }
         }
         walk(obj)
-        compare(titles, ["Claude", "Claude (Arbeit)", "Codex (Alt)"])
+        compare(titles, ["Claude", "Claude (Work)", "Codex (Old)"])
         verify(percents.indexOf("77 %") >= 0)
         obj.destroy()
     }

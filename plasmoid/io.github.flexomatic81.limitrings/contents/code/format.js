@@ -328,9 +328,14 @@ function accountsEnv(list) {
 
 function displayEntries(mainEntries, list) {
     const out = mainEntries.slice()
-    for (const a of list)
-        if (a.show) out.push({key: a.id, account: true, provider: a.provider,
-                              name: _PROVIDERS[a.provider].name + " (" + a.name + ")", short: a.short, dir: a.dir})
+    for (const a of list) {
+        if (!a.show) continue
+        const provider = _PROVIDERS[a.provider].name
+        // same fallback as the collector for an empty name
+        const name = String(a.name).trim() || provider + " 2"
+        out.push({key: a.id, account: true, provider: a.provider, name: provider + " (" + name + ")",
+                  short: a.short, dir: a.dir})
+    }
     return out
 }
 

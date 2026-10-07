@@ -58,7 +58,7 @@ Decisions:
   for Codex) and with its own state file `~/.cache/limit-rings/accounts/<provider>-<hash>.json`. The hash
   covers provider and canonical directory: a changed directory starts afresh, and two widgets that list
   the same directory share the state. Directories are compared canonically and must differ from the main
-  account's and from each other. Files of accounts that are not shown are removed after 30 days. No status
+  account's and from other accounts of the same provider. Files of accounts that are not shown are removed after 30 days. No status
   line fallback.
 - **Python standard library only** — no venv, no dependencies.
 

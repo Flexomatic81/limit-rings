@@ -147,8 +147,8 @@ card with its own limits, forecast, token statistics, pause after "too many requ
 - Only the directories you list are read: `<dir>/.credentials.json` and `<dir>/projects` for Claude,
   `<dir>/auth.json` and `<dir>/sessions` for Codex. An account you untick is neither read nor asked.
   The tokens go only to `api.anthropic.com` / `chatgpt.com`, at most every 5 minutes per account.
-- A directory must differ from the main account's (`~/.claude`, `~/.codex`) and from the other
-  accounts' directories.
+- A directory must differ from the main account's (`~/.claude`, `~/.codex`) and from other accounts
+  of the same provider.
 - Additional accounts have no status line fallback: without a valid login, a Claude account shows no
   limits.
 - The state of an account lives in `~/.cache/limit-rings/accounts/`; the files of accounts that are not
