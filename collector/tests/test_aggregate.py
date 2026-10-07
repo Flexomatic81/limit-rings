@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from limit_rings.aggregate import add_event, daily_series, prune_buckets, summarize

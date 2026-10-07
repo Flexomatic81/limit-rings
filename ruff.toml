@@ -1,0 +1,5 @@
+# Only real errors: syntax errors and pyflakes (undefined names, unused imports …). The collector runs on Python 3.10.
+target-version = "py310"
+
+[lint]
+select = ["E9", "F"]

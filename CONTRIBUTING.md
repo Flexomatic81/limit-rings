@@ -32,14 +32,16 @@ see the result.
 
 ## Tests
 
-Both suites run in CI for every pull request and must pass:
+The test suites and the lint check run in CI for every pull request and must pass:
 
 ```bash
 cd collector && uv run --no-project --with pytest pytest -q   # or: python3 -m pytest -q
 /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
+uvx ruff check collector tools                                # or: ruff check collector tools
 ```
 
-Please add tests for new behaviour and for bug fixes.
+CI runs the collector tests on Python 3.10 and on the newest Python release. Please add tests for
+new behaviour and for bug fixes.
 
 ## Ground rules
 
