@@ -17,7 +17,8 @@
 - The normal state no longer looks like a warning when the accent colour is close to the warning
   colour (e.g. orange); the theme's positive colour or grey is used instead.
 - A limit whose window changes length starts its forecast and notifications afresh; hidden providers
-  no longer send notifications; a reset window says so below the bar.
+  no longer send notifications; a reset window says so below the bar; the settings show the chosen
+  panel style instead of an empty box.
 
 ## 0.3.0
 
