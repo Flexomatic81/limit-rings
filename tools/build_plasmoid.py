@@ -19,7 +19,7 @@ import msgfmt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "io.github.flexomatic81.limitrings"
-STORE_ID = ""  # content ID of the entry on store.kde.org – set after the first upload
+STORE_ID = "2377644"  # content ID of the entry on store.kde.org
 SOURCES = ("store", "git", "dev")
 ZIP_DATE = (1980, 1, 1, 0, 0, 0)  # fixed, so that the same sources give the same archive
 

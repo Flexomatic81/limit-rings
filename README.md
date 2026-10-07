@@ -94,7 +94,8 @@ optional status line fallback.
 ### From the KDE Store (recommended)
 
 Right-click the panel or desktop → "Add Widgets…" → "Get New Widgets…" → "Download New Plasma Widgets",
-search for **Limit Rings**, install it, then drag it onto a panel and/or the desktop.
+search for **Limit Rings**, install it, then drag it onto a panel and/or the desktop. The entry on the
+store: <https://store.kde.org/p/2377644/>.
 
 ### From GitHub
 
