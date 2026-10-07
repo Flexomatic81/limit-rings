@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls as QQC2
-import QtQuick.Dialogs as Dialogs
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
@@ -123,7 +122,8 @@ KCM.SimpleKCM {
                     icon.name: "document-open-folder"
                     QQC2.ToolTip.text: i18n("Choose directory")
                     QQC2.ToolTip.visible: hovered
-                    onClicked: { folderDialog.accountIndex = accountRow.index; folderDialog.open() }
+                    visible: folderPicker.status === Loader.Ready
+                    onClicked: { folderPicker.item.accountIndex = accountRow.index; folderPicker.item.open() }
                 }
                 QQC2.TextField {
                     placeholderText: i18n("Name")
@@ -157,9 +157,13 @@ KCM.SimpleKCM {
         }
     }
 
-    Dialogs.FolderDialog {
-        id: folderDialog
-        property int accountIndex: -1
-        onAccepted: updateAccount(accountIndex, {dir: decodeURIComponent(String(selectedFolder).replace(/^file:\/\//, ""))})
+    // The folder dialog lives in a file of its own: QtQuick.Dialogs is a separate package on some distributions
+    Loader {
+        id: folderPicker
+        source: "FolderPicker.qml"
+    }
+    Connections {
+        target: folderPicker.item
+        function onChosen(accountIndex, path) { updateAccount(accountIndex, {dir: path}) }
     }
 }

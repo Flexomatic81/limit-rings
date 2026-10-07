@@ -109,7 +109,6 @@ PlasmoidItem {
         source: "Notifier.qml"
     }
 
-    // At most once a day; a failed request is not retried before the next day either.
     // Runs a collector pass right away: the logs are read anew, the limits only when due (5-minute interval,
     // pauses after a rate limit) – the footer says when they come next.
     function refreshNow() {
@@ -126,6 +125,7 @@ PlasmoidItem {
         }
     ]
 
+    // At most once a day; a failed request is not retried before the next day either.
     function checkForUpdate() {
         if (!Plasmoid.configuration.checkUpdates || Build.installSource === "dev") return
         const now = Date.now() / 1000
