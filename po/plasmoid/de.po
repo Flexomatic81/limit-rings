@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 18:21+0200\n"
+"POT-Creation-Date: 2026-10-07 19:02+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -210,6 +210,10 @@ msgid "Limits unavailable"
 msgstr "Limits nicht verfügbar"
 
 #, kde-format
+msgid "Account settings are invalid – check the directory"
+msgstr "Kontoeinstellungen ungültig – Verzeichnis prüfen"
+
+#, kde-format
 msgctxt "limit state"
 msgid "reset"
 msgstr "zurückgesetzt"
@@ -217,6 +221,22 @@ msgstr "zurückgesetzt"
 #, kde-format
 msgid "Reset in %1"
 msgstr "Reset in %1"
+
+#, kde-format
+msgid "start codex with this CODEX_HOME"
+msgstr "codex mit diesem CODEX_HOME starten"
+
+#, kde-format
+msgid "start claude with this config directory"
+msgstr "claude mit diesem Konfigverzeichnis starten"
+
+#, kde-format
+msgid "Login in %1 expired – %2"
+msgstr "Login in %1 abgelaufen – %2"
+
+#, kde-format
+msgid "No login in %1 – %2"
+msgstr "Kein Login in %1 – %2"
 
 #, kde-format
 msgid "Login expired – run claude in a terminal"

@@ -273,13 +273,73 @@ function shellQuote(s) {
 // notify=false: the collector leaves due notices for another instance instead of using them up.
 // providers: keys of the shown providers; the collector neither reads nor queries the others.
 // notice: {thresholds: [first, second], reset: bool} – when to notify, and whether to tell about resets.
-function collectorCommand(runPyUrl, instanceId, notify, providers, notice) {
+// accountsJson: accountsEnv() of the additional accounts, "" or undefined for none.
+function collectorCommand(runPyUrl, instanceId, notify, providers, notice, accountsJson) {
     const s = String(runPyUrl)
     const shown = providers ? " LIMIT_RINGS_PROVIDERS=" + providers.filter(k => /^[a-z]+$/.test(k)).join(",") : ""
     const settings = notice ? " LIMIT_RINGS_THRESHOLDS=" + notice.thresholds.map(n => Math.round(Number(n))).join(",")
                               + " LIMIT_RINGS_RESET_NOTICE=" + (notice.reset ? "1" : "0") : ""
+    const accounts = accountsJson ? " LIMIT_RINGS_ACCOUNTS=" + shellQuote(accountsJson) : ""
     return "LIMIT_RINGS_INSTANCE=" + Number(instanceId) + " LIMIT_RINGS_NOTIFY=" + (notify ? "1" : "0") + shown
-        + settings + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
+        + settings + accounts + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
+}
+
+// Additional accounts (own CLAUDE_CONFIG_DIR / CODEX_HOME), stored as JSON in the setting extraAccounts
+const MAX_ACCOUNTS = 8
+const _PROVIDERS = {claude: {name: "Claude", short: "C", dir: "~/.claude-"},
+                    codex: {name: "Codex", short: "X", dir: "~/.codex-"}}
+
+function parseAccounts(text) {
+    let raw
+    try { raw = JSON.parse(text || "[]") } catch (e) { return [] }
+    if (!Array.isArray(raw)) return []
+    const out = []
+    for (let i = 0; i < raw.length && out.length < MAX_ACCOUNTS; i++) {
+        const a = raw[i]
+        if (!a || typeof a.id !== "string" || !/^[a-z0-9]{1,16}$/.test(a.id) || !_PROVIDERS[a.provider]) continue
+        out.push({id: a.id, provider: a.provider, dir: typeof a.dir === "string" ? a.dir : "",
+                  name: typeof a.name === "string" ? a.name : "",
+                  short: typeof a.short === "string" && a.short ? a.short.slice(0, 2) : _PROVIDERS[a.provider].short,
+                  show: a.show !== false})
+    }
+    return out
+}
+
+function serializeAccounts(list) {
+    return JSON.stringify(list)
+}
+
+function newAccount(provider, list) {
+    const taken = list.map(a => a.id)
+    let id
+    do {
+        id = ""
+        for (let i = 0; i < 6; i++) id += "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]
+    } while (taken.indexOf(id) >= 0)
+    const p = _PROVIDERS[provider]
+    return {id: id, provider: provider, dir: p.dir, name: p.name + " 2", short: p.short + "2", show: true}
+}
+
+// JSON for LIMIT_RINGS_ACCOUNTS: only the shown accounts, "" when there are none
+function accountsEnv(list) {
+    const shown = list.filter(a => a.show).map(a => ({id: a.id, provider: a.provider, dir: a.dir, name: a.name}))
+    return shown.length ? JSON.stringify(shown) : ""
+}
+
+function displayEntries(mainEntries, list) {
+    const out = mainEntries.slice()
+    for (const a of list)
+        if (a.show) out.push({key: a.id, account: true, provider: a.provider,
+                              name: _PROVIDERS[a.provider].name + " (" + a.name + ")", short: a.short, dir: a.dir})
+    return out
+}
+
+function entryData(stats, entry) {
+    if (!stats || !entry) return undefined
+    if (!entry.account) return stats.providers ? stats.providers[entry.key] : undefined
+    const data = stats.accounts ? stats.accounts[entry.key] : undefined
+    // after an edit in the settings the last output may still describe the old directory or provider
+    return data && data.provider === entry.provider && data.dir === entry.dir ? data : undefined
 }
 
 // One collector pass as the widget sees it: exit code and stdout of run.py.
@@ -465,6 +525,7 @@ function errorText(errors) {
             return i18np("%1 file unreadable – numbers incomplete", "%1 files unreadable – numbers incomplete", e.count)
         if (e.code === "logs_failed") return i18n("Data could not be processed")
         if (e.code === "limits_unavailable") return i18n("Limits unavailable")
+        if (e.code === "account_invalid") return i18n("Account settings are invalid – check the directory")
         return e.code
     }).join("; ")
 }
@@ -477,8 +538,14 @@ function limitLine(name, limit, nowSec) {
     return head + Math.round(limit.used_percent) + " %" + (rest ? " · " + i18n("Reset in %1", rest) : "") + (fc ? " · " + fc : "")
 }
 
-function authHint(auth) {
+function authHint(auth, entry) {
     if (!auth || auth.status === "ok") return ""
+    if (entry && entry.account) {
+        const how = entry.provider === "codex" ? i18n("start codex with this CODEX_HOME")
+                                               : i18n("start claude with this config directory")
+        return auth.status === "expired" ? i18n("Login in %1 expired – %2", entry.dir, how)
+                                         : i18n("No login in %1 – %2", entry.dir, how)
+    }
     if (auth.status === "expired") return i18n("Login expired – run claude in a terminal")
     return i18n("No login found – run claude in a terminal")
 }
@@ -487,7 +554,7 @@ function tooltipText(stats, providers, nowSec, refreshedAtMs) {
     if (!stats) return i18n("No data")
     const lines = []
     for (let i = 0; i < providers.length; i++) {
-        const p = stats.providers[providers[i].key]
+        const p = entryData(stats, providers[i])
         if (!p || !p.limits || p.limits.length === 0)
             lines.push(providers[i].name + ": " + i18n("no limit data"))
         else {
@@ -495,7 +562,7 @@ function tooltipText(stats, providers, nowSec, refreshedAtMs) {
             for (let j = 0; j < p.limits.length; j++)
                 lines.push(limitLine(providers[i].name, p.limits[j], nowSec) + stale)
         }
-        const hint = p ? authHint(p.auth) : ""
+        const hint = p ? authHint(p.auth, providers[i]) : ""
         if (hint) lines.push(providers[i].name + ": " + hint)
         const again = refreshHint(p, nowSec * 1000, refreshedAtMs)
         if (again) lines.push(providers[i].name + ": " + again)

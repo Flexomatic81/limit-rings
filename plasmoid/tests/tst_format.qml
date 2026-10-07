@@ -496,6 +496,84 @@ TestCase {
         compare(F.toneFor("normal", theme), theme.highlightColor)
     }
 
+    function test_accounts_round_trip_and_sanitising() {
+        const list = [{id: "k7f3a2", provider: "claude", dir: "~/.claude-a", name: "Arbeit", short: "A", show: true},
+                      {id: "c0d3x1", provider: "codex", dir: "/srv/x", name: "Team", short: "T", show: false}]
+        compare(F.parseAccounts(F.serializeAccounts(list)), list)
+        compare(F.parseAccounts(""), [])
+        compare(F.parseAccounts("not json"), [])
+        compare(F.parseAccounts('{"id": 1}'), [])
+        compare(F.parseAccounts('[{"id": "BAD!", "provider": "claude"}, {"id": "ok1", "provider": "gemini"}]'), [])
+        const many = []
+        for (let i = 0; i < 12; i++) many.push({id: "a" + i, provider: "claude", dir: "~/.c" + i, name: "N", short: "N"})
+        compare(F.parseAccounts(JSON.stringify(many)).length, F.MAX_ACCOUNTS)
+        // missing optional fields get defaults
+        compare(F.parseAccounts('[{"id": "a1", "provider": "codex"}]'),
+                [{id: "a1", provider: "codex", dir: "", name: "", short: "X", show: true}])
+    }
+
+    function test_newAccount_gets_a_free_id_and_defaults() {
+        const a = F.newAccount("claude", [])
+        verify(/^[a-z0-9]{6}$/.test(a.id))
+        compare([a.provider, a.dir, a.name, a.short, a.show], ["claude", "~/.claude-", "Claude 2", "C2", true])
+        const b = F.newAccount("codex", [a])
+        verify(b.id !== a.id)
+        compare([b.dir, b.name, b.short], ["~/.codex-", "Codex 2", "X2"])
+    }
+
+    function test_accountsEnv_and_command_quote_safely() {
+        const list = [{id: "k7f3a2", provider: "claude", dir: "/home/a b/.claude-x", name: "Bü'ro \"2\"", short: "B", show: true},
+                      {id: "hid123", provider: "codex", dir: "/x", name: "H", short: "H", show: false}]
+        const env = F.accountsEnv(list)
+        compare(JSON.parse(env), [{id: "k7f3a2", provider: "claude", dir: "/home/a b/.claude-x", name: "Bü'ro \"2\""}])
+        compare(F.accountsEnv([list[1]]), "")
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], null, env),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude LIMIT_RINGS_ACCOUNTS="
+                + F.shellQuote(env) + " python3 '/p/run.py'")
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], null, ""),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude python3 '/p/run.py'")
+    }
+
+    function test_displayEntries_and_entryData() {
+        const main = [{key: "claude", name: "Claude", short: "C"}]
+        const list = [{id: "k7f3a2", provider: "claude", dir: "~/.c", name: "Arbeit", short: "A", show: true},
+                      {id: "hid123", provider: "codex", dir: "/x", name: "H", short: "H", show: false}]
+        const entries = F.displayEntries(main, list)
+        compare(entries, [{key: "claude", name: "Claude", short: "C"},
+                          {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Arbeit)", short: "A",
+                           dir: "~/.c"}])
+        const stats = {providers: {claude: {limits: [1]}},
+                       accounts: {k7f3a2: {provider: "claude", dir: "~/.c", limits: [2]}}}
+        compare(F.entryData(stats, entries[0]).limits, [1])
+        compare(F.entryData(stats, entries[1]).limits, [2])
+        // settings changed, the output still describes the old directory or provider: no data yet
+        compare(F.entryData(stats, Object.assign({}, entries[1], {dir: "~/.other"})), undefined)
+        compare(F.entryData(stats, Object.assign({}, entries[1], {provider: "codex"})), undefined)
+        compare(F.entryData({providers: {}}, entries[1]), undefined)   // older stats.json without accounts
+        compare(F.entryData(null, entries[0]), undefined)
+    }
+
+    function test_authHint_for_accounts_names_the_directory() {
+        compare(F.authHint({status: "missing"}, {account: true, provider: "claude", dir: "~/.claude-a"}),
+                "No login in ~/.claude-a – start claude with this config directory")
+        compare(F.authHint({status: "expired"}, {account: true, provider: "claude", dir: "~/.claude-a"}),
+                "Login in ~/.claude-a expired – start claude with this config directory")
+        compare(F.authHint({status: "missing"}, {account: true, provider: "codex", dir: "~/.codex-b"}),
+                "No login in ~/.codex-b – start codex with this CODEX_HOME")
+        compare(F.authHint({status: "ok"}, {account: true, provider: "codex", dir: "~/.codex-b"}), "")
+        compare(F.authHint({status: "missing"}), "No login found – run claude in a terminal")   // main account
+        compare(F.errorText([{code: "account_invalid"}]), "Account settings are invalid – check the directory")
+    }
+
+    function test_tooltip_names_additional_accounts() {
+        const stats = {providers: {}, accounts: {k7f3a2: {provider: "claude", dir: "~/.c",
+                                                          limits: [{window_minutes: 300, used_percent: 42, resets_at: null}],
+                                                          limits_updated_at: new Date().toISOString()}}}
+        compare(F.tooltipText(stats, [{key: "k7f3a2", account: true, provider: "claude", dir: "~/.c",
+                                       name: "Claude (Arbeit)"}], Date.now() / 1000),
+                "Claude (Arbeit) · 5 h: 42 %")
+    }
+
     function test_limitName() {
         compare(F.limitName({id: "five_hour", window_minutes: 300}), "5 h")
         compare(F.limitName({id: "seven_day", window_minutes: 10080}), "Week")
