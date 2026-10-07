@@ -197,9 +197,11 @@ function shellQuote(s) {
 // The executable engine shares one source among all widgets that connect the same command and gives each
 // of them the output, so the command carries the applet id: every instance gets only its own pass.
 // notify=false: the collector leaves due notices for another instance instead of using them up.
-function collectorCommand(runPyUrl, instanceId, notify) {
+// providers: keys of the shown providers; the collector neither reads nor queries the others.
+function collectorCommand(runPyUrl, instanceId, notify, providers) {
     const s = String(runPyUrl)
-    return "LIMIT_RINGS_INSTANCE=" + Number(instanceId) + " LIMIT_RINGS_NOTIFY=" + (notify ? "1" : "0")
+    const shown = providers ? " LIMIT_RINGS_PROVIDERS=" + providers.filter(k => /^[a-z]+$/.test(k)).join(",") : ""
+    return "LIMIT_RINGS_INSTANCE=" + Number(instanceId) + " LIMIT_RINGS_NOTIFY=" + (notify ? "1" : "0") + shown
         + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
 }
 

@@ -16,7 +16,7 @@ from collections.abc import Callable
 from datetime import datetime, tzinfo
 from pathlib import Path
 
-from .collect import Paths, local_zone, run_safely
+from .collect import PROVIDERS, Paths, local_zone, run_safely
 
 ENVELOPE = 1
 LOG_BYTES = 256 * 1024
@@ -66,8 +66,15 @@ def _still_the_lock(fd: int, lock_file: Path) -> bool:
     return (locked.st_dev, locked.st_ino) == (current.st_dev, current.st_ino)
 
 
+def shown_providers(value: str | None) -> frozenset:
+    """LIMIT_RINGS_PROVIDERS ("claude,codex", set by the widget) → providers to collect; unset: all."""
+    if value is None:
+        return PROVIDERS
+    return frozenset(name.strip() for name in value.split(",")) & PROVIDERS
+
+
 def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], tz: tzinfo, notify: bool = True,
-                 wait: float = LOCK_WAIT) -> tuple[dict, int]:
+                 wait: float = LOCK_WAIT, providers=PROVIDERS) -> tuple[dict, int]:
     """Run one pass, after the pass of another instance if that one holds the lock; return envelope and exit code.
 
     Every instance gets its own pass: one that gave up on a busy lock would never see a notice while the other
@@ -76,6 +83,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
     `wait` (the very first one over all transcripts) makes the others return the last stats.json.
 
     notify=False (the widget has notifications off) leaves due notices for an instance that shows them.
+    providers: the providers the widget shows; the others are neither read nor queried.
 
     A pass that waited while uninstall.sh deleted the cache holds the deleted lock file: it does nothing (stats
     null, exit 0) and writes nothing, so the deleted directory is not recreated."""
@@ -88,7 +96,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
         elif not _still_the_lock(fd, lock_file):
             stats = None
         else:
-            stats = run_safely(paths, clock(), tz, notices.append if notify else None)
+            stats = run_safely(paths, clock(), tz, notices.append if notify else None, providers=providers)
             if stats is None:
                 code = 1
                 notices.clear()  # state.json was not saved: they come again with the next pass
@@ -118,6 +126,7 @@ def main(home: Path | None = None) -> int:
     else:
         tz = local_zone()
         notify = os.environ.get("LIMIT_RINGS_NOTIFY", "1") != "0"  # set by the widget from its settings
-        envelope, code = collect_once(paths, cache / ".lock", lambda: datetime.now(tz), tz, notify)
+        envelope, code = collect_once(paths, cache / ".lock", lambda: datetime.now(tz), tz, notify,
+                                      providers=shown_providers(os.environ.get("LIMIT_RINGS_PROVIDERS")))
     sys.stdout.write(json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n")
     return code

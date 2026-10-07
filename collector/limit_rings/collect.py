@@ -221,14 +221,21 @@ def _fingerprint(state: dict) -> str:
     return json.dumps(state, sort_keys=True, separators=(",", ":"))
 
 
+PROVIDERS = frozenset({"claude", "codex"})
+
+
 def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
-        notifier=None, codex_fetch=codex_limits.fetch_usage) -> dict:
+        notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS) -> dict:
+    """One pass. A provider missing from providers (hidden in the widget) is neither read nor queried:
+    no logs, no login, no request – its card keeps the last known values."""
     state = load_state(paths.state_file)
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
 
-    claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch)
-    codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch)
+    claude_errors, claude_plan = [], None
+    if "claude" in providers:
+        claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch)
+    codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch) if "codex" in providers else []
     _update_history(state)
     with_forecasts = {
         key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
@@ -249,7 +256,7 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
             "claude": {**_provider(claude, today, tz, now.timestamp(),
                                    claude["limits"]["source"] if claude["limits"] else None,
                                    claude_plan, claude_errors),
-                       "auth": _auth(paths.credentials, now.timestamp(), tz),
+                       "auth": _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers else None,
                        "breakdown": _breakdown(claude, now.timestamp(), tz)},
             "codex": _provider(codex, today, tz, now.timestamp(),
                                codex["limits"].get("source", "session_log") if codex["limits"] else None,
@@ -262,10 +269,10 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
     return stats
 
 
-def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier) -> dict | None:
+def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROVIDERS) -> dict | None:
     """One run that never raises: after an unexpected error, state.json is moved aside so the next run starts fresh."""
     try:
-        return run(paths, now, tz, notifier=notifier)
+        return run(paths, now, tz, notifier=notifier, providers=providers)
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
         try:

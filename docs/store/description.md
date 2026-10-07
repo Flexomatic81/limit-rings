@@ -14,9 +14,12 @@ forecasts and a 30-day history, and a notification when a limit reaches 80 % or 
 - Reads the local logs of Claude Code (`~/.claude/projects`) and Codex (`~/.codex/sessions`).
 - Reads the login tokens of Claude Code (`~/.claude/.credentials.json`) and Codex (`~/.codex/auth.json`)
   and sends them **only** to `api.anthropic.com` and `chatgpt.com` to fetch your limits – at most every
-  5 minutes. They are never stored, logged or refreshed.
-- These are **unofficial, undocumented endpoints**; they may change at any time. Check yourself whether
-  this use complies with the terms of Anthropic and OpenAI. Not affiliated with Anthropic or OpenAI;
+  5 minutes. They are never stored, logged or refreshed, and never used to run models. Untick a provider
+  under "Show:" in the settings and neither its login nor its logs are read.
+- These are **unofficial, undocumented endpoints**; they may change at any time. Anthropic intends its
+  subscription login for its own applications and has not said whether such read-only use is allowed.
+  Check yourself whether this use complies with the terms of Anthropic and OpenAI (details in the
+  README). Not affiliated with Anthropic or OpenAI;
   "Claude" and "Codex" are trademarks of their owners.
 - Asks `api.github.com` once a day whether a new version exists (switch off in the settings).
 - Runs a bundled Python script every 60 s; data and log stay in `~/.cache/limit-rings`
@@ -37,9 +40,13 @@ Prognose und 30-Tage-Verlauf sowie eine Benachrichtigung, wenn ein Limit 80 % od
 - Liest die lokalen Logs von Claude Code (`~/.claude/projects`) und Codex (`~/.codex/sessions`).
 - Liest die Login-Tokens von Claude Code (`~/.claude/.credentials.json`) und Codex (`~/.codex/auth.json`)
   und schickt sie **nur** an `api.anthropic.com` bzw. `chatgpt.com`, um die Limits abzufragen – höchstens
-  alle 5 Minuten. Sie werden nie gespeichert, protokolliert oder erneuert.
-- Das sind **inoffizielle, undokumentierte Schnittstellen**, die sich jederzeit ändern können. Ob diese
-  Nutzung mit den Bedingungen von Anthropic und OpenAI vereinbar ist, bitte selbst prüfen. Kein Bezug zu
+  alle 5 Minuten. Sie werden nie gespeichert, protokolliert oder erneuert und nie für Modellaufrufe
+  genutzt. Wer einen Anbieter in den Einstellungen unter „Anzeigen:“ abwählt, bei dem werden weder Login
+  noch Logs gelesen.
+- Das sind **inoffizielle, undokumentierte Schnittstellen**, die sich jederzeit ändern können. Anthropic
+  sieht den Abo-Login für die eigenen Anwendungen vor und hat sich nicht dazu geäußert, ob solch ein reines
+  Lesen erlaubt ist. Ob diese Nutzung mit den Bedingungen von Anthropic und OpenAI vereinbar ist, bitte
+  selbst prüfen (Details in der README). Kein Bezug zu
   Anthropic oder OpenAI; „Claude“ und „Codex“ sind Marken ihrer Inhaber.
 - Fragt einmal täglich `api.github.com` nach einer neuen Version (in den Einstellungen abschaltbar).
 - Führt alle 60 s ein mitgeliefertes Python-Skript aus; Daten und Log liegen in `~/.cache/limit-rings`

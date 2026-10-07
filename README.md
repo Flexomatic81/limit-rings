@@ -14,21 +14,53 @@ KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code*
   for the transcripts on the current machine, as a share of tokens (not of the limit).
 - Widget and notifications follow the system language (English, German).
 
-## Important: unofficial APIs
+## Important: unofficial APIs and your logins
 
 Limit Rings fetches usage limits from **undocumented endpoints** of Anthropic
-(`api.anthropic.com/api/oauth/usage`) and OpenAI (`chatgpt.com/backend-api/wham/usage`). To do so,
-it reads the login tokens that Claude Code (`~/.claude/.credentials.json`) and Codex
-(`~/.codex/auth.json`) store locally.
+(`api.anthropic.com/api/oauth/usage`) and OpenAI (`chatgpt.com/backend-api/wham/usage`) – the
+numbers Claude Code and Codex show you themselves. To ask for them, it uses the logins that Claude Code
+and Codex store on your machine.
 
-- The tokens are only read — never refreshed, stored or logged — and are only sent to the
-  respective provider; redirects are rejected. The endpoints are queried at most every 5 minutes;
-  if a provider answers "too many requests", Limit Rings waits as long as it asks (at most 6 hours).
-- The endpoints may change or disappear at any time; Limit Rings then falls back to local data
-  (status line or session logs).
-- Please check for yourself whether this use complies with the terms of service of Anthropic and
-  OpenAI. This project is not affiliated with Anthropic or OpenAI; "Claude" and "Codex" are
-  trademarks of their respective companies.
+### What is read and where it goes
+
+| | Claude Code | Codex |
+|---|---|---|
+| File | `~/.claude/.credentials.json` | `~/.codex/auth.json` |
+| Read from it | access token, its expiry, plan name | access token, account ID |
+| Sent to | `api.anthropic.com` only | `chatgpt.com` only |
+| Asked for | the usage numbers of your plan | the usage numbers of your plan |
+| How often | at most every 5 minutes | at most every 5 minutes |
+
+If a provider answers "too many requests", Limit Rings waits as long as it asks (at most 6 hours)
+before the next request.
+
+### What Limit Rings never does
+
+- Run models or send prompts with your login – it only asks for the usage numbers.
+- Refresh, store, copy or log a token. An expired token simply goes unused until Claude Code or Codex
+  renews it.
+- Write to the login files of Claude Code or Codex.
+- Follow redirects – the token could otherwise end up at another host.
+- Touch a provider you have switched off: with Claude or Codex unticked under "Show:" in the
+  settings, its login and logs are not read and its endpoint is not asked.
+
+### The providers' terms
+
+Anthropic's documentation says that the subscription login is
+["intended exclusively for purchasers of Claude Free, Pro, Max, Team, and Enterprise subscription
+plans and is designed to support ordinary use of Claude Code and other native Anthropic
+applications"](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
+Limit Rings is not such an application. It runs no models and keeps no tokens – it reads the usage
+numbers that Claude Code's `/usage` shows, for your own account, on your own machine. Anthropic has not
+said whether such read-only use is allowed, and it reserves the right to enforce its rules without
+prior notice. OpenAI has published no rules for its usage endpoint.
+
+So please check the terms of service of Anthropic and OpenAI yourself and decide whether you are
+comfortable with this. If not, switch the provider off in the widget's settings. Should a provider
+block these requests, Limit Rings falls back to local data (status line or session logs).
+
+This project is not affiliated with Anthropic or OpenAI; "Claude" and "Codex" are trademarks of their
+respective companies.
 
 ## How it works
 
@@ -128,8 +160,10 @@ LIMIT_RINGS_NOTIFY=0 python3 ~/.local/share/plasma/plasmoids/io.github.flexomati
 ## Privacy & network
 
 Limit Rings contacts `api.anthropic.com` and `chatgpt.com` (limits, at most every 5 minutes and paused
-after "too many requests", with the login tokens described above) and `api.github.com` (new version
-check, once a day, no personal data; can be switched off). Nothing else leaves your machine.
+after "too many requests", with the logins described in
+[Important: unofficial APIs and your logins](#important-unofficial-apis-and-your-logins); not for a
+provider you have switched off) and `api.github.com` (new version check, once a day, no personal data;
+can be switched off). Nothing else leaves your machine.
 
 ## Development
 

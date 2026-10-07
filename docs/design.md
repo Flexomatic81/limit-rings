@@ -47,6 +47,9 @@ Decisions:
 - **The widget runs the collector** (since 0.3; before: systemd user timer). The KDE Store installs
   only the widget package, so everything ships in it. A file lock (`~/.cache/limit-rings/.lock`)
   serialises the passes of several widget instances; a notice is shown by the instance whose pass finds it due.
+- **Hidden providers are left alone:** the widget passes the shown providers as
+  `LIMIT_RINGS_PROVIDERS=claude,codex` (unset: both). A pass skips the others completely – no logs, no
+  login, no request – and publishes their last known values unchanged (`auth: null` for Claude).
 - **Claude limits from two sources:** OAuth usage endpoint as the primary source (covers all
   usage, including claude.ai/desktop app), status line cache as the fallback.
 - **Python standard library only** — no venv, no dependencies.

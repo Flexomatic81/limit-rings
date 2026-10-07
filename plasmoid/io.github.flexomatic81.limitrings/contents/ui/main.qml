@@ -29,7 +29,8 @@ PlasmoidItem {
         return list
     }
     readonly property string collectorCommand: Format.collectorCommand(Qt.resolvedUrl("../collector/run.py"), Plasmoid.id,
-                                                                       Plasmoid.configuration.showNotifications)
+                                                                       Plasmoid.configuration.showNotifications,
+                                                                       providers.map(p => p.key))
     readonly property string releaseApi: "https://api.github.com/repos/Flexomatic81/limit-rings/releases/latest"
     readonly property string releasePage: "https://github.com/Flexomatic81/limit-rings/releases/latest"
     readonly property string storeProvider: "api.kde-look.org"   // KNewStuff provider ID of store.kde.org

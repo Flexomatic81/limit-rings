@@ -477,3 +477,39 @@ def test_codex_window_that_vanishes_and_returns_leaves_nothing_behind(tmp_path):
     state = json.loads(p.state_file.read_text())
     assert len(state["history"]["codex:primary"]["points"]) == 1
     assert [n.key for n in notices if n.key.startswith("codex:")] == ["codex:primary"]
+
+
+def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
+    from dataclasses import replace
+    import limit_rings.collect as collect_mod
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
+    claude_before = stats["providers"]["claude"]["limits"]
+    (p.claude_root / "proj").mkdir()
+    (p.claude_root / "proj" / "s.jsonl").write_text(claude_line("m1", "2026-10-03T10:00:00Z") + "\n")
+
+    def forbidden(*a, **k):
+        raise AssertionError("hidden provider must not be touched")
+    for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
+        monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
+    monkeypatch.setattr(collect_mod.claude_logs, "read_events", forbidden)
+
+    later = NOW + timedelta(minutes=10)
+    stats = run(p, later, BERLIN, fetch=forbidden, codex_fetch=codex_api, providers={"codex"})
+    claude = stats["providers"]["claude"]
+    assert claude["limits"] == claude_before          # last known values stay, nothing new is fetched
+    assert claude["tokens"]["today"]["total"] == 0    # the new transcript was not read
+    assert claude["auth"] is None and claude["plan"] is None
+    assert stats["providers"]["codex"]["limits_updated_at"] == later.isoformat(timespec="seconds")
+
+
+def test_no_providers_means_no_requests_at_all(tmp_path):
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+
+    def forbidden(*a, **k):
+        raise AssertionError("must not fetch")
+    stats = run(p, NOW, BERLIN, fetch=forbidden, codex_fetch=forbidden, providers=set())
+    assert stats["providers"]["claude"]["limits"] == [] and stats["providers"]["codex"]["limits"] == []
