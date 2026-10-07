@@ -81,7 +81,8 @@ KCM.SimpleKCM {
                     {value: "number", text: i18nc("panel display style", "Number")}]
             textRole: "text"
             valueRole: "value"
-            currentIndex: indexOfValue(cfg_compactStyle)
+            // not indexOfValue(): evaluated before the model is set, it stays at -1 and leaves the box empty
+            currentIndex: cfg_compactStyle === "number" ? 1 : 0
             onActivated: cfg_compactStyle = currentValue
         }
         QQC2.CheckBox {
