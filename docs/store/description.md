@@ -8,7 +8,7 @@ Category: Plasma 6 Extensions → Plasma Widgets. License: MIT. Source: https://
 one double ring per provider (outer: weekly limit, inner: 5-hour limit), a popup with reset countdowns,
 forecasts and a 30-day history, and a notification when a limit reaches 80 % or 95 %.
 
-**Requires Python 3.10 or newer** (`python3`, preinstalled on most distributions). Nothing else.
+**Requires KDE Plasma 6 and Python 3.10 or newer** (`python3`, preinstalled on most distributions). Nothing else.
 
 **What it reads and where it connects – please read:**
 - Reads the local logs of Claude Code (`~/.claude/projects`) and Codex (`~/.codex/sessions`).
@@ -36,7 +36,7 @@ Bugs and ideas: https://github.com/Flexomatic81/limit-rings/issues
 ein Doppelring pro Anbieter (außen Wochenlimit, innen 5-Stunden-Limit), ein Popup mit Reset-Countdown,
 Prognose und 30-Tage-Verlauf sowie eine Benachrichtigung, wenn ein Limit 80 % oder 95 % erreicht.
 
-**Voraussetzung: Python 3.10 oder neuer** (`python3`, auf den meisten Distributionen vorinstalliert).
+**Voraussetzung: KDE Plasma 6 und Python 3.10 oder neuer** (`python3`, auf den meisten Distributionen vorinstalliert).
 
 **Was gelesen und wohin verbunden wird – bitte lesen:**
 - Liest die lokalen Logs von Claude Code (`~/.claude/projects`) und Codex (`~/.codex/sessions`).
