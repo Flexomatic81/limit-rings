@@ -100,22 +100,23 @@ KCM.SimpleKCM {
             text: i18n("For accounts you use with CLAUDE_CONFIG_DIR or CODEX_HOME in their own directory.")
         }
         Repeater {
-            model: accounts
+            // A number: rows are only recreated when accounts are added or removed, so editing keeps focus.
+            model: accounts.length
             delegate: RowLayout {
                 id: accountRow
-                required property var modelData
                 required property int index
+                readonly property var account: accounts[index] || ({})
                 // Handlers below always use accountRow.index: ComboBox.activated passes its own "index"
                 // (the chosen item) that would otherwise shadow the row index.
                 QQC2.ComboBox {
                     model: ["Claude", "Codex"]
-                    currentIndex: accountRow.modelData.provider === "codex" ? 1 : 0
+                    currentIndex: accountRow.account.provider === "codex" ? 1 : 0
                     onActivated: chosen => updateAccount(accountRow.index, {provider: chosen === 1 ? "codex" : "claude"})
                 }
                 QQC2.TextField {
                     Layout.fillWidth: true
                     placeholderText: i18n("Directory")
-                    text: accountRow.modelData.dir
+                    text: accountRow.account.dir
                     onEditingFinished: updateAccount(accountRow.index, {dir: text})
                 }
                 QQC2.ToolButton {
@@ -126,19 +127,19 @@ KCM.SimpleKCM {
                 }
                 QQC2.TextField {
                     placeholderText: i18n("Name")
-                    text: accountRow.modelData.name
+                    text: accountRow.account.name
                     onEditingFinished: updateAccount(accountRow.index, {name: text})
                 }
                 QQC2.TextField {
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3
                     maximumLength: 2
                     placeholderText: i18nc("short letters for the panel ring", "Short")
-                    text: accountRow.modelData.short
+                    text: accountRow.account.short
                     onEditingFinished: updateAccount(accountRow.index, {short: text})
                 }
                 QQC2.CheckBox {
                     text: i18n("Show")
-                    checked: accountRow.modelData.show
+                    checked: accountRow.account.show
                     onToggled: updateAccount(accountRow.index, {show: checked})
                 }
                 QQC2.ToolButton {
