@@ -58,7 +58,7 @@ ColumnLayout {
 
         PlasmaComponents.Label {
             objectName: "percentLabel"
-            text: bar.reset ? Format.i18nc("limit state", "reset") + " · 0 %" : Math.round(bar.pct) + " %"
+            text: Math.round(bar.pct) + " %"   // a reset window says so below the bar
             font.bold: bar.sev !== "normal"
             color: bar.sev === "normal" ? Kirigami.Theme.textColor : Format.toneFor(bar.sev, Kirigami.Theme)
             Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 3, implicitWidth)
@@ -73,10 +73,12 @@ ColumnLayout {
         }
     }
 
-    // Forecast below the bar, aligned with its left edge
+    // Forecast (or that the window has reset) below the bar, aligned with its left edge
     PlasmaComponents.Label {
-        visible: bar.forecastText !== ""
-        text: bar.forecastText
+        objectName: "forecastLabel"
+        visible: text !== ""
+        text: bar.reset ? Format.i18nc("limit window has reset, shown below the bar", "Reset – starts again from 0 %")
+                        : bar.forecastText
         font: Kirigami.Theme.smallFont
         color: bar.forecastFull ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.textColor
         opacity: bar.forecastFull ? 1 : 0.7

@@ -125,6 +125,20 @@ TestCase {
         obj.destroy()
     }
 
+    // "reset" goes below the bar: the percentage column keeps its width and the bars stay aligned
+    function test_reset_window_keeps_the_columns_aligned() {
+        const original = full.stats
+        const stats = JSON.parse(JSON.stringify(original))
+        const nowSec = full.nowMs / 1000
+        stats.providers.claude.limits = [{id: "five_hour", used_percent: 40, resets_at: nowSec - 60, window_minutes: 300}]
+        full.stats = stats
+        tryVerify(() => { const l = findChild(full, "percentLabel"); return l && l.text === "0 %" })
+        const below = findChild(full, "forecastLabel")
+        verify(below.visible)
+        compare(below.text, "Reset – starts again from 0 %")
+        full.stats = original
+    }
+
     function test_vanished_limit_leaves_no_bar_behind() {
         const bars = () => {
             const found = []

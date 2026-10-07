@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 19:07+0200\n"
+"POT-Creation-Date: 2026-10-07 19:25+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -337,7 +337,8 @@ msgstr "Weitere Konten"
 msgid ""
 "For accounts you use with CLAUDE_CONFIG_DIR or CODEX_HOME in their own "
 "directory."
-msgstr "Für Konten, die du mit CLAUDE_CONFIG_DIR oder CODEX_HOME in einem eigenen "
+msgstr ""
+"Für Konten, die du mit CLAUDE_CONFIG_DIR oder CODEX_HOME in einem eigenen "
 "Verzeichnis nutzt."
 
 #, kde-format
@@ -372,6 +373,11 @@ msgstr "Claude-Konto hinzufügen"
 #, kde-format
 msgid "Add Codex account"
 msgstr "Codex-Konto hinzufügen"
+
+#, kde-format
+msgctxt "limit window has reset, shown below the bar"
+msgid "Reset – starts again from 0 %"
+msgstr "Zurückgesetzt – beginnt wieder bei 0 %"
 
 #, kde-format
 msgid "Update available: %1"
