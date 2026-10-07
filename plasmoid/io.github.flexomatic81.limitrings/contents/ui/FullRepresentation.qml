@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import "../code/format.js" as Format
 
 Item {
     id: full
@@ -66,7 +67,8 @@ Item {
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
                     title: modelData.name
-                    provider: full.stats ? full.stats.providers[modelData.key] : undefined
+                    provider: Format.entryData(full.stats, modelData) || null
+                    entry: modelData
                     nowMs: full.nowMs
                     refreshedAtMs: full.refreshedAtMs
                     warn: full.warn

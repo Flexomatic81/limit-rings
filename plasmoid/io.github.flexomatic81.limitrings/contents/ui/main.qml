@@ -23,18 +23,20 @@ PlasmoidItem {
     readonly property real nowSec: nowMs / 1000
     readonly property int warn: Plasmoid.configuration.warnThreshold
     readonly property int crit: Plasmoid.configuration.criticalThreshold
+    readonly property var accounts: Format.parseAccounts(Plasmoid.configuration.extraAccounts)
     readonly property var providers: {
         const list = []
         if (Plasmoid.configuration.showClaude) list.push({key: "claude", name: "Claude", short: "C"})
         if (Plasmoid.configuration.showCodex) list.push({key: "codex", name: "Codex", short: "X"})
-        return list
+        return Format.displayEntries(list, accounts)
     }
     readonly property string collectorCommand: Format.collectorCommand(Qt.resolvedUrl("../collector/run.py"), Plasmoid.id,
                                                                        Plasmoid.configuration.showNotifications,
-                                                                       providers.map(p => p.key),
+                                                                       providers.filter(p => !p.account).map(p => p.key),
                                                                        {thresholds: [Plasmoid.configuration.notifyFirst,
                                                                                      Plasmoid.configuration.notifySecond],
-                                                                        reset: Plasmoid.configuration.notifyReset})
+                                                                        reset: Plasmoid.configuration.notifyReset},
+                                                                       Format.accountsEnv(accounts))
     readonly property string releaseApi: "https://api.github.com/repos/Flexomatic81/limit-rings/releases/latest"
     readonly property string releasePage: "https://github.com/Flexomatic81/limit-rings/releases/latest"
     readonly property string storeProvider: "api.kde-look.org"   // KNewStuff provider ID of store.kde.org

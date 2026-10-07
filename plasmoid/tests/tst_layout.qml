@@ -97,6 +97,34 @@ TestCase {
         full.stats = original
     }
 
+    function test_additional_accounts_get_their_own_cards() {
+        const comp = Qt.createComponent("../io.github.flexomatic81.limitrings/contents/ui/FullRepresentation.qml")
+        const stats = JSON.parse(JSON.stringify(full.stats))
+        stats.accounts = {k7f3a2: JSON.parse(JSON.stringify(stats.providers.claude))}
+        stats.accounts.k7f3a2.limits[0].used_percent = 77
+        stats.accounts.k7f3a2.provider = "claude"
+        stats.accounts.k7f3a2.dir = "~/.c"
+        const entries = [{key: "claude", name: "Claude", short: "C"},
+                         {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Arbeit)", short: "A", dir: "~/.c"},
+                         {key: "gone12", account: true, provider: "codex", name: "Codex (Alt)", short: "X", dir: "~/.x"}]
+        const obj = comp.createObject(this, {providers: entries, nowMs: full.nowMs, warn: 70, crit: 90, stats: stats,
+                                             width: 684, height: 600})
+        waitForRendering(obj)
+        const titles = [], percents = []
+        const walk = item => {
+            for (let i = 0; i < item.children.length; i++) {
+                const c = item.children[i]
+                if (c.title !== undefined && c.provider !== undefined && c.visible) titles.push(c.title)
+                if (c.objectName === "percentLabel" && c.visible) percents.push(c.text)
+                walk(c)
+            }
+        }
+        walk(obj)
+        compare(titles, ["Claude", "Claude (Arbeit)", "Codex (Alt)"])
+        verify(percents.indexOf("77 %") >= 0)
+        obj.destroy()
+    }
+
     function test_vanished_limit_leaves_no_bar_behind() {
         const bars = () => {
             const found = []

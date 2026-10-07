@@ -8,6 +8,7 @@ ColumnLayout {
     id: card
 
     property string title
+    property var entry: null   // display entry (main account or additional account), for the sign-in hint
     property var provider      // providers.<key> from stats.json or undefined (not "data": that is Item's default property)
     property real nowMs
     property real refreshedAtMs
@@ -33,7 +34,7 @@ ColumnLayout {
     }
 
     PlasmaComponents.Label {
-        readonly property string hint: card.provider ? Format.authHint(card.provider.auth) : ""
+        readonly property string hint: card.provider ? Format.authHint(card.provider.auth, card.entry) : ""
         visible: hint !== ""
         text: hint
         color: Kirigami.Theme.neutralTextColor

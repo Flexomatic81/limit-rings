@@ -112,4 +112,24 @@ TestCase {
             fuzzyCompare(g.width, g.height, 1)
         }
     }
+
+    function test_three_gauges_with_an_account() {
+        const stats = JSON.parse(JSON.stringify(tc.stats))
+        stats.accounts = {k7f3a2: {provider: "claude", dir: "~/.c",
+                                   limits: [{id: "five_hour", used_percent: 60, resets_at: null, window_minutes: 300}],
+                                   limits_updated_at: new Date().toISOString()}}
+        for (const vertical of [false, true]) {
+            const c = createTemporaryObject(compactComponent, tc, {vertical: vertical, stats: stats,
+                providers: tc.providers.concat([{key: "k7f3a2", account: true, provider: "claude", dir: "~/.c",
+                                                 name: "Claude (Arbeit)", short: "A"}])})
+            if (vertical) c.width = 32; else c.height = 32
+            waitForItemPolished(c.children[0])
+            if (vertical) c.height = c.Layout.preferredHeight; else c.width = c.Layout.preferredWidth
+            waitForItemPolished(c.children[0])
+            const list = gauges(c)
+            compare(list.length, 3)
+            compare(list[2].letter, "A")
+            compare(list[2].innerPercent, 60)
+        }
+    }
 }

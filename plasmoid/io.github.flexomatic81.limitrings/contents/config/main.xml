@@ -7,6 +7,7 @@
     <entry name="warnThreshold" type="Int"><default>70</default></entry>
     <entry name="criticalThreshold" type="Int"><default>90</default></entry>
     <entry name="showClaude" type="Bool"><default>true</default></entry>
+    <entry name="extraAccounts" type="String"><default>[]</default></entry>
     <entry name="showCodex" type="Bool"><default>true</default></entry>
     <entry name="compactStyle" type="String"><default>ring</default></entry>
     <entry name="showNotifications" type="Bool"><default>true</default></entry>

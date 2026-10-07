@@ -40,8 +40,8 @@ MouseArea {
             model: compact.providers
             delegate: CompactGauge {
                 required property var modelData
-                readonly property var limits: compact.stats && compact.stats.providers[modelData.key]
-                                              ? compact.stats.providers[modelData.key].limits : null
+                readonly property var entryStats: Format.entryData(compact.stats, modelData)
+                readonly property var limits: entryStats ? entryStats.limits : null
                 readonly property var pct: Format.maxPercent(limits, compact.nowSec)
                 readonly property var rings: Format.ringLimits(limits, compact.nowSec)
                 Layout.fillHeight: !compact.vertical
@@ -58,8 +58,7 @@ MouseArea {
                 innerSeverity: Format.limitSeverity(rings.inner, compact.nowSec, compact.warn, compact.crit)
                 style: compact.style
                 dimmed: compact.hasProblem
-                        || Format.limitsStale(compact.stats ? compact.stats.providers[modelData.key] : null,
-                                              compact.nowSec * 1000)
+                        || Format.limitsStale(entryStats || null, compact.nowSec * 1000)
             }
         }
     }
