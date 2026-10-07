@@ -25,6 +25,8 @@ forecasts and a 30-day history, and a notification when a limit reaches 80 % or 
 - Runs a bundled Python script every 60 s; data and log stay in `~/.cache/limit-rings`
   (remove it after uninstalling: `rm -r ~/.cache/limit-rings`).
 
+Several accounts per provider are possible: list further `CLAUDE_CONFIG_DIR` / `CODEX_HOME` directories under "Additional accounts" in the settings; each gets its own ring and card, and only the listed directories are read.
+
 Optional status line fallback for Claude limits: see the README on GitHub (manual step, needs `jq`).
 Bugs and ideas: https://github.com/Flexomatic81/limit-rings/issues
 
@@ -51,6 +53,8 @@ Prognose und 30-Tage-Verlauf sowie eine Benachrichtigung, wenn ein Limit 80 % od
 - Fragt einmal täglich `api.github.com` nach einer neuen Version (in den Einstellungen abschaltbar).
 - Führt alle 60 s ein mitgeliefertes Python-Skript aus; Daten und Log liegen in `~/.cache/limit-rings`
   (nach dem Deinstallieren entfernen: `rm -r ~/.cache/limit-rings`).
+
+Mehrere Konten pro Anbieter sind möglich: weitere `CLAUDE_CONFIG_DIR`-/`CODEX_HOME`-Verzeichnisse unter „Additional accounts“ in den Einstellungen eintragen; jedes bekommt einen eigenen Ring und eine eigene Karte, gelesen werden nur die eingetragenen Verzeichnisse.
 
 Optionaler Statuszeilen-Fallback für Claude-Limits: siehe README auf GitHub (manuell, braucht `jq`).
 Fehler und Ideen: https://github.com/Flexomatic81/limit-rings/issues

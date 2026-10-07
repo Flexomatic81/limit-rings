@@ -52,6 +52,14 @@ Decisions:
   login, no request – and publishes their last known values unchanged (`auth: null` for Claude).
 - **Claude limits from two sources:** OAuth usage endpoint as the primary source (covers all
   usage, including claude.ai/desktop app), status line cache as the fallback.
+- **Additional accounts are their own passes:** the widget passes the shown ones as
+  `LIMIT_RINGS_ACCOUNTS` (JSON list of `{id, provider, dir, name}`). Each runs like the main account,
+  from its own directory (`<dir>/.credentials.json` and `projects` for Claude, `auth.json` and `sessions`
+  for Codex) and with its own state file `~/.cache/limit-rings/accounts/<provider>-<hash>.json`. The hash
+  covers provider and canonical directory: a changed directory starts afresh, and two widgets that list
+  the same directory share the state. Directories are compared canonically and must differ from the main
+  account's and from each other. Files of accounts that are not shown are removed after 30 days. No status
+  line fallback.
 - **Python standard library only** — no venv, no dependencies.
 
 ## Components
@@ -63,6 +71,7 @@ Decisions:
 | `sources/codex_limits.py` | Queries the Codex usage endpoint (`chatgpt.com/backend-api/wham/usage`) with the ChatGPT login from `~/.codex/auth.json` (no redirects, at most every 5 min). Needed because Codex via the Claude Code plugin uses ephemeral sessions without a session log. On error, the last state (including from the session log) is kept. | HTTP (urllib), file system |
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
 | `sources/backoff.py` | Pause after 429/503 from a usage endpoint: reads `Retry-After` (seconds or HTTP date), otherwise growing pauses; used by both limit sources, pause state in `state.json`. | – |
+| `accounts.py` | Additional accounts: `parse_accounts` (validates `LIMIT_RINGS_ACCOUNTS`, canonical directories, at most 8), `account_paths` (state file and directories of one account), `prune_account_states` (removes state files of accounts not shown after 30 days). | `collect` |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
@@ -160,7 +169,8 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "daily": [],
       "errors": [{"code": "logs_unreadable", "count": 1}]
     }
-  }
+  },
+  "accounts": {}
 }
 ```
 
@@ -217,6 +227,11 @@ Rules:
 - `stats.json` holds no display texts: the plasmoid builds limit names (from `window_minutes` and
   `model`), error messages and the catch-all entry in the system language. `state.json` keeps an
   English `label` per limit only so that an older collector still reads it after a downgrade.
+- `accounts` maps the id of each additional account to the same fields as `providers.claude` /
+  `providers.codex`, plus `provider` (`"claude"` | `"codex"`), `name` and `dir` (as typed in the
+  settings); `{}` without accounts. A Codex account carries `auth: {"status": "ok" | "missing",
+  "expires_at": null}`. Besides the codes above, `errors` can hold `account_invalid` (unusable entry,
+  e.g. a missing or duplicate directory) and `logs_failed`.
 - The widget ignores a `stats.json` with an unknown `schema` version and shows a notice.
 
 ## Presentation
@@ -278,6 +293,8 @@ Rules:
 
 - Warning/critical thresholds (default 70/90).
 - Displayed providers (Claude, Codex; both on by default).
+- Additional accounts (up to 8): provider, directory (folder picker), name, short label for the ring, "Show".
+  Each shown account gets its own ring and card.
 - Panel display: ring or number.
 - Notifications on/off (default on).
 - Daily update check on/off (default on).
@@ -294,12 +311,14 @@ as urgent. Below the first threshold a limit gets an early warning when the fore
 the **5-hour limit** within 30 minutes, the **weekly limit** within 24 hours ("Claude: 5-hour limit
 full in ~25 min", "Now 62 % · Reset in …") — likewise once per window, normal urgency. Optionally (off
 by default) a window that had warned says so when it resets ("Claude: 5-hour limit reset").
-Notifications already sent are recorded in `state.json` under `notified`. The notification thresholds
+Additional accounts notify like the main account, under their label ("Claude (Work): 5-hour limit at
+82 %"). A provider or account that is not shown produces no notifications; its entries of what was
+already notified are kept. Notifications already sent are recorded in `state.json` under `notified`. The notification thresholds
 are independent of the widget's colour thresholds.
 
 The widget passes its settings to the collector: `LIMIT_RINGS_NOTIFY=0|1`,
 `LIMIT_RINGS_THRESHOLDS=80,95` (two rising values from 1 to 100, otherwise the default) and
-`LIMIT_RINGS_RESET_NOTICE=0|1`. With notifications switched off in an instance, its passes leave due
+`LIMIT_RINGS_RESET_NOTICE=0|1`; `LIMIT_RINGS_PROVIDERS` and `LIMIT_RINGS_ACCOUNTS` say what is shown. With notifications switched off in an instance, its passes leave due
 notices untouched (nothing is recorded), so an instance that has them on – or switching them back on –
 still shows them. Several instances share what was already notified; with different thresholds the
 instance that runs first decides.
@@ -326,7 +345,7 @@ instance that runs first decides.
 
 ## Security
 
-- `~/.claude/.credentials.json` is only read. The collector does **not** refresh any tokens and
+- `~/.claude/.credentials.json` (and the login file of each additional account) is only read. The collector does **not** refresh any tokens and
   never writes to this file; an expired token leads to the fallback until Claude Code refreshes
   it itself.
 - The token is sent exclusively to `api.anthropic.com` — never into `stats.json`,

@@ -18,6 +18,7 @@ KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code*
 - Works on horizontal and vertical panels.
 - Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
   for the transcripts on the current machine, as a share of tokens (not of the limit).
+- Several accounts per provider (own `CLAUDE_CONFIG_DIR` / `CODEX_HOME`), each with its own ring and card.
 - Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs and your logins
@@ -31,7 +32,7 @@ and Codex store on your machine.
 
 | | Claude Code | Codex |
 |---|---|---|
-| File | `~/.claude/.credentials.json` | `~/.codex/auth.json` |
+| File | `~/.claude/.credentials.json` (and `<dir>/.credentials.json` of each additional Claude account) | `~/.codex/auth.json` (and `<dir>/auth.json` of each additional Codex account) |
 | Read from it | access token, its expiry, plan name | access token, account ID |
 | Sent to | `api.anthropic.com` only | `chatgpt.com` only |
 | Asked for | the usage numbers of your plan | the usage numbers of your plan |
@@ -47,6 +48,7 @@ before the next request.
   renews it.
 - Write to the login files of Claude Code or Codex.
 - Follow redirects – the token could otherwise end up at another host.
+- Touch a directory you have not listed under "Additional accounts", or an account you have unticked there.
 - Touch a provider you have switched off: with Claude or Codex unticked under "Show:" in the
   settings, its login and logs are not read and its endpoint is not asked.
 
@@ -133,6 +135,25 @@ jq '.providers | map_values({limits_source, errors})' ~/.cache/limit-rings/stats
   required line (`statusline-snippet.sh`) there. Without such a script, this step is skipped.
   Store installs do not touch the status line; add the snippet by hand if you want the fallback.
 
+### Several accounts
+
+If you use more than one login per provider (for example a work and a private Claude account, each with
+its own `CLAUDE_CONFIG_DIR`, or a second `CODEX_HOME`), add them in the widget's settings under
+"Additional accounts" (up to 8): choose Claude or Codex, the account's directory (e.g. `~/.claude-work`),
+a name and a short label for the ring, and leave "Show" ticked. Each shown account gets its own ring and
+card with its own limits, forecast, token statistics, pause after "too many requests" and notifications
+("Claude (Work): 5-hour limit at 82 %").
+
+- Only the directories you list are read: `<dir>/.credentials.json` and `<dir>/projects` for Claude,
+  `<dir>/auth.json` and `<dir>/sessions` for Codex. An account you untick is neither read nor asked.
+  The tokens go only to `api.anthropic.com` / `chatgpt.com`, at most every 5 minutes per account.
+- A directory must differ from the main account's (`~/.claude`, `~/.codex`) and from the other
+  accounts' directories.
+- Additional accounts have no status line fallback: without a valid login, a Claude account shows no
+  limits.
+- The state of an account lives in `~/.cache/limit-rings/accounts/`; the files of accounts that are not
+  shown are removed after 30 days.
+
 ### Upgrading from Agent Stats
 
 Versions up to 0.1 were called *Agent Stats*. `./install.sh` takes an existing installation over:
@@ -168,7 +189,7 @@ LIMIT_RINGS_NOTIFY=0 python3 ~/.local/share/plasma/plasmoids/io.github.flexomati
 Limit Rings contacts `api.anthropic.com` and `chatgpt.com` (limits, at most every 5 minutes and paused
 after "too many requests", with the logins described in
 [Important: unofficial APIs and your logins](#important-unofficial-apis-and-your-logins); not for a
-provider you have switched off) and `api.github.com` (new version check, once a day, no personal data;
+provider or account you have switched off) and `api.github.com` (new version check, once a day, no personal data;
 can be switched off). Nothing else leaves your machine.
 
 ## Development
