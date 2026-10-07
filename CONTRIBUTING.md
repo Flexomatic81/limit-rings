@@ -12,6 +12,9 @@ approach before you spend time on it.
 
 Pull requests are squash-merged, so one commit per pull request ends up in the history.
 
+Please don't change the version or `CHANGELOG.md` – both are updated when a release is made, and
+contributors are credited there.
+
 ## Setting up
 
 You need KDE Plasma 6 and Python ≥ 3.10. To edit translations you also need gettext.
