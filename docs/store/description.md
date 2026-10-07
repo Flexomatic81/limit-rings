@@ -1,6 +1,6 @@
 # KDE Store listing
 
-Category: Plasma 6 Extensions → Plasma Widgets. License: MIT. Source: https://github.com/Flexomatic81/limit-rings
+Category: KDE Plasma Extensions → Plasma 6 Extensions → Plasma 6 Applets. License: MIT. Source: https://github.com/Flexomatic81/limit-rings
 
 ## English
 
