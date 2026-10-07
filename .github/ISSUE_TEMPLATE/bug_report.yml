@@ -1,0 +1,96 @@
+name: Bug report
+description: Something does not work or shows wrong values.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this! Security issues please **not** here – see
+        [SECURITY.md](https://github.com/Flexomatic81/limit-rings/blob/main/SECURITY.md).
+
+        ⚠️ Logs and files may contain personal data. **Never paste a token** or the contents of
+        `~/.claude/.credentials.json` or `~/.codex/auth.json`, and remove anything you do not
+        want to make public (usernames, paths, project names).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you know how to trigger it again.
+      placeholder: |
+        1. …
+        2. …
+  - type: input
+    id: version
+    attributes:
+      label: Limit Rings version
+      description: "`grep '\"Version\"' ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/metadata.json`"
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed from
+      options:
+        - KDE Store ("Get New Widgets…")
+        - GitHub (install.sh)
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Affected provider
+      multiple: true
+      options:
+        - Claude Code
+        - Codex
+        - Not provider-specific
+  - type: input
+    id: plasma
+    attributes:
+      label: Plasma version
+      description: "`plasmashell --version`"
+      placeholder: "plasmashell 6.4.5"
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      placeholder: "e.g. Arch Linux, Fedora 43, Ubuntu 26.04"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: "`python3 --version`"
+      placeholder: "Python 3.13.7"
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Data sources and errors
+      description: "Output of `jq '.providers | map_values({limits_source, errors})' ~/.cache/limit-rings/stats.json`"
+      render: json
+  - type: textarea
+    id: log
+    attributes:
+      label: Collector log
+      description: "Output of `tail -n 50 ~/.cache/limit-rings/collector.log`"
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I have removed tokens and any personal data I do not want to make public.
+          required: true

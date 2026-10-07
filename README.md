@@ -131,6 +131,8 @@ can be switched off). Nothing else leaves your machine.
 
 ## Development
 
+Contributions are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests go against `dev`.
+
 ```bash
 cd collector && uv run --no-project --with pytest pytest -q
 /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
