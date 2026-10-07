@@ -1,5 +1,6 @@
 """Normalizes limit data from the various sources to the stats.json format."""
 
+import math
 import re
 from datetime import datetime
 
@@ -157,3 +158,44 @@ def normalize_codex_usage(resp: dict) -> tuple[list[dict], str | None]:
     if not out:
         raise ValueError("no usable window")
     return out, resp.get("plan_type")
+
+
+def _amount(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0
+
+
+def normalize_extra_usage(resp) -> dict | None:
+    """Claude's paid extra usage (amounts in minor units → currency units); None if off or unusable."""
+    extra = resp.get("extra_usage") if isinstance(resp, dict) else None
+    if not isinstance(extra, dict) or extra.get("is_enabled") is not True or not _amount(extra.get("used_credits")):
+        return None
+    limit = extra.get("monthly_limit")
+    if limit is not None and not _amount(limit):
+        return None
+    percent = extra.get("utilization")
+    if not _amount(percent):
+        percent = min(100.0, extra["used_credits"] / limit * 100) if limit else None
+    currency = extra.get("currency")
+    return {"kind": "extra_usage", "used": extra["used_credits"] / 100,
+            "limit": limit / 100 if limit is not None else None,
+            "percent": float(percent) if percent is not None else None,
+            "currency": currency if isinstance(currency, str) and currency else "USD"}
+
+
+def normalize_codex_credits(resp) -> dict | None:
+    """Codex credit balance; None without a balance (and not unlimited) or if unusable."""
+    credits = resp.get("credits") if isinstance(resp, dict) else None
+    if not isinstance(credits, dict):
+        return None
+    unlimited = credits.get("unlimited") is True
+    try:
+        balance = float(credits.get("balance"))
+    except (TypeError, ValueError):
+        balance = None
+    if not _amount(balance):
+        if not unlimited:
+            return None
+        balance = 0.0
+    if balance <= 0 and not unlimited:
+        return None
+    return {"kind": "credits", "balance": balance, "unlimited": unlimited}

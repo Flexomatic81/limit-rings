@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 16:57+0200\n"
+"POT-Creation-Date: 2026-10-07 17:18+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -164,6 +164,31 @@ msgstr "Woche"
 msgctxt "limit name: 5-hour window"
 msgid "5 h"
 msgstr "5 h"
+
+#, kde-format
+msgctxt "Codex credit balance"
+msgid "Credits"
+msgstr "Credits"
+
+#, kde-format
+msgctxt "Claude's paid usage beyond the plan limits"
+msgid "Extra usage"
+msgstr "Zusatznutzung"
+
+#, kde-format
+msgctxt "Codex credit balance"
+msgid "unlimited"
+msgstr "unbegrenzt"
+
+#, kde-format
+msgctxt "%1 = amount spent; extra usage without a monthly limit"
+msgid "%1 spent"
+msgstr "%1 ausgegeben"
+
+#, kde-format
+msgctxt "%1 = amount spent, %2 = monthly spending limit"
+msgid "%1 of %2"
+msgstr "%1 von %2"
 
 #, kde-format
 msgid "%1 file unreadable – numbers incomplete"

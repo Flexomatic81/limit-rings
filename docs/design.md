@@ -130,6 +130,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "limits_source": "oauth",
       "limits_updated_at": "2026-10-03T19:41:30+02:00",
       "limits_paused_until": null,
+      "extra": {"kind": "extra_usage", "used": 12.34, "limit": 50.0, "percent": 24.68, "currency": "USD"},
       "plan": "pro",
       "tokens": {
         "today": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "total": 0},
@@ -148,6 +149,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "limits_source": "session_log",
       "limits_updated_at": "2026-09-29T21:30:00+02:00",
       "limits_paused_until": null,
+      "extra": null,
       "plan": "plus",
       "tokens": {"today": {}, "week": {}, "month": {}},
       "daily": [],
@@ -166,6 +168,11 @@ Rules:
 - Model-specific weekly limits (`seven_day_opus`, `seven_day_sonnet` and the `limits` list of the
   OAuth response with `kind: "weekly_scoped"`, id `weekly_scoped:<model>`) carry `model`;
   malformed entries are dropped, a model that already has a weekly limit is not listed twice.
+- `extra`: only from the usage endpoints, otherwise `null`. Claude: `extra_usage` (paid usage beyond
+  the plan, only while switched on; the endpoint gives cents, `extra` currency units; `limit` and
+  `percent` are `null` without a monthly limit). Codex: `{"kind": "credits", "balance": 120.0,
+  "unlimited": false}`, only with a balance above 0 or unlimited credits. Unusable fields give `null`,
+  never an error. The card shows a bar (with a monthly limit) or a line of text below the limits.
 - `limits_source`: `"oauth"` | `"statusline"` | `"session_log"` | `null`.
   Codex: `"oauth"` (usage endpoint) or `"session_log"`; Codex token statistics only count
   terminal sessions, because the plugin does not store token counts.

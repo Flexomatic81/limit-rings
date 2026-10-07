@@ -18,7 +18,11 @@ TestCase {
         "limit name: weekly window of one model, %1 = model|Week %1": "Woche %1",
         "breakdown entry for all remaining projects or models|Other": "Andere",
         "%1 = clock time; the provider asked to wait before the next request|paused by the provider until %1":
-            "vom Anbieter pausiert bis %1"
+            "vom Anbieter pausiert bis %1",
+        "Claude's paid usage beyond the plan limits|Extra usage": "Zusatznutzung",
+        "%1 = amount spent, %2 = monthly spending limit|%1 of %2": "%1 von %2",
+        "%1 = amount spent; extra usage without a monthly limit|%1 spent": "%1 ausgegeben",
+        "Codex credit balance|unlimited": "unbegrenzt"
     })
 
     function subst(text, args) {
@@ -39,6 +43,16 @@ TestCase {
     }
 
     function cleanup() { F.init(null) }
+
+    function test_extra_usage_is_german() {
+        compare(F.extraName({kind: "extra_usage"}), "Zusatznutzung")
+        compare(F.extraText({kind: "extra_usage", used: 12.34, limit: 50, percent: 24.68, currency: "USD"}),
+                "12,34\u00a0$ von 50,00\u00a0$")
+        compare(F.extraText({kind: "extra_usage", used: 2.5, limit: null, percent: null, currency: "EUR"}),
+                "2,50\u00a0€ ausgegeben")
+        compare(F.extraText({kind: "credits", balance: 1250.5, unlimited: false}), "1.250,50")
+        compare(F.extraText({kind: "credits", balance: 0, unlimited: true}), "unbegrenzt")
+    }
 
     function test_pause_hint_is_german() {
         const t = Date.parse("2026-10-04T18:00:00+02:00")

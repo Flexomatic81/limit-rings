@@ -74,6 +74,7 @@ def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors) -> 
         "limits_source": limits_source if rec else None,
         "limits_updated_at": _iso(rec["updated_at"], tz) if rec else None,
         "limits_paused_until": _iso(backoff.blocked_until(section["oauth_pause"], now_ts), tz),
+        "extra": rec.get("extra") if rec else None,
         "plan": plan,
         "tokens": aggregate.summarize(section["buckets"], today),
         "daily": aggregate.daily_series(section["buckets"], today),

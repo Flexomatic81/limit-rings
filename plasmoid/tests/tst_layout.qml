@@ -50,6 +50,23 @@ TestCase {
                "minimumHeight " + full.Layout.minimumHeight + " < content " + full.Layout.preferredHeight)
     }
 
+    function test_extra_usage_line_appears_and_takes_space() {
+        waitForRendering(full)
+        const row = findChild(full, "extraUsage")
+        verify(row !== null)
+        verify(!row.visible)
+        const before = full.Layout.preferredHeight
+        const stats = JSON.parse(JSON.stringify(full.stats))
+        stats.providers.claude.extra = {kind: "extra_usage", used: 12.34, limit: 50, percent: 24.68, currency: "USD"}
+        full.stats = stats
+        waitForRendering(full)
+        verify(row.visible)
+        verify(full.Layout.preferredHeight > before, full.Layout.preferredHeight + " <= " + before)
+        verify(full.Layout.minimumHeight >= full.Layout.preferredHeight)
+        stats.providers.claude.extra = null
+        full.stats = stats
+    }
+
     // Plasma creates the popup with width 0 and adopts the first minimum height; after that it
     // never shrinks. If the cards were stacked at that point, empty space would remain at the bottom.
     function test_first_minimum_height_already_uses_two_columns() {

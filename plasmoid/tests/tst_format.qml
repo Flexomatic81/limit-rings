@@ -300,6 +300,23 @@ TestCase {
         compare(F.footerText(undefined, t), "")
     }
 
+    function test_extra_usage_and_credits() {
+        const limited = {kind: "extra_usage", used: 12.34, limit: 50, percent: 24.68, currency: "USD"}
+        compare(F.extraName(limited), "Extra usage")
+        compare(F.extraText(limited), "$12.34 of $50.00")
+        compare(F.extraText({kind: "extra_usage", used: 2.5, limit: null, percent: null, currency: "USD"}),
+                "$2.50 spent")
+        compare(F.extraText({kind: "extra_usage", used: 1, limit: 10, percent: 10, currency: "EUR"}), "€1.00 of €10.00")
+        compare(F.extraText({kind: "extra_usage", used: 1, limit: null, percent: null, currency: "CHF"}), "CHF1.00 spent")
+        const credits = {kind: "credits", balance: 120, unlimited: false}
+        compare(F.extraName(credits), "Credits")
+        compare(F.extraText(credits), "120")
+        compare(F.extraText({kind: "credits", balance: 12.5, unlimited: false}), "12.50")
+        compare(F.extraText({kind: "credits", balance: 0, unlimited: true}), "unlimited")
+        compare(F.extraText(null), "")
+        compare(F.extraText({}), "")
+    }
+
     function test_footerText_names_a_running_pause() {
         const t = Date.parse("2026-10-04T18:00:00+02:00")
         const until = new Date(t + 30 * 60000)

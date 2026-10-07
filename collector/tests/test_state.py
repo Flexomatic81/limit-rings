@@ -70,6 +70,7 @@ def test_load_state_rejects_wrong_shapes(tmp_path):
         _state_with("claude", limits={"updated_at": 1.0}),                               # without limits
         _state_with("claude", oauth_last_attempt="now"),
         _state_with("claude", oauth_pause=None),
+        _state_with("claude", limits={"limits": [], "updated_at": 1.0, "extra": "lots"}),
         _state_with("codex", oauth_pause={"until": "soon", "failures": 1}),
         _state_with("codex", oauth_pause={"until": None, "failures": -1}),
         _state_with("codex", oauth_pause={"until": None}),

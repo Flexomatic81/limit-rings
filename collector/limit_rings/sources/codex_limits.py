@@ -10,7 +10,7 @@ import logging
 import urllib.error
 from pathlib import Path
 
-from ..limits import normalize_codex_usage
+from ..limits import normalize_codex_credits, normalize_codex_usage
 from . import backoff
 from .http import get_json
 
@@ -55,7 +55,11 @@ def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usa
         resp = fetch(token, account, timeout=10.0)
         limits, plan = normalize_codex_usage(resp)
         backoff.record_success(pause)
-        return {"limits": limits, "plan": plan, "updated_at": now, "source": "oauth"}, now
+        rec = {"limits": limits, "plan": plan, "updated_at": now, "source": "oauth"}
+        extra = normalize_codex_credits(resp)
+        if extra:
+            rec["extra"] = extra
+        return rec, now
     except urllib.error.HTTPError as e:
         log.warning("Codex usage request failed: HTTP %s", e.code)
         if backoff.is_rate_limit(e.code):

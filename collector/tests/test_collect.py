@@ -418,3 +418,22 @@ def test_rate_limit_pause_is_kept_between_runs_and_published(tmp_path):
     assert stats["providers"]["claude"]["limits_paused_until"] is None
     assert stats["providers"]["codex"]["limits_paused_until"] is None
     assert stats["providers"]["codex"]["limits_source"] == "oauth"
+
+
+def test_extra_usage_and_credits_are_published(tmp_path):
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+
+    def claude_extra(token, timeout=10.0):
+        return {**ok_fetch(token), "extra_usage": {"is_enabled": True, "monthly_limit": None, "used_credits": 250}}
+
+    def codex_credits(token, account_id, timeout=10.0):
+        return {**codex_api(token, account_id), "credits": {"has_credits": True, "unlimited": False, "balance": "7"}}
+    providers = run(p, NOW, BERLIN, fetch=claude_extra, codex_fetch=codex_credits)["providers"]
+    assert providers["claude"]["extra"] == {"kind": "extra_usage", "used": 2.5, "limit": None, "percent": None,
+                                            "currency": "USD"}
+    assert providers["codex"]["extra"] == {"kind": "credits", "balance": 7.0, "unlimited": False}
+
+    providers = run(make_paths(tmp_path / "plain"), NOW, BERLIN, fetch=ok_fetch)["providers"]
+    assert providers["claude"]["extra"] is None and providers["codex"]["extra"] is None

@@ -268,3 +268,13 @@ def test_rate_limit_pauses_oauth_and_uses_the_status_line_meanwhile(tmp_path):
                         fetch=lambda token, timeout=10.0: ok, pause=pause)
     assert rec["source"] == "oauth"
     assert pause == backoff.new()
+
+
+def test_oauth_record_carries_extra_usage_only_when_enabled(tmp_path):
+    base = json.loads((FIXTURES / "oauth_usage.json").read_text())
+    rec, _, _ = resolve(None, None, NOW, creds(tmp_path), tmp_path / "x", fetch=lambda token, timeout=10.0: base)
+    assert "extra" not in rec
+    on = {**base, "extra_usage": {"is_enabled": True, "monthly_limit": 5000, "used_credits": 1234,
+                                  "utilization": 24.68, "currency": "USD"}}
+    rec, _, _ = resolve(None, None, NOW, creds(tmp_path), tmp_path / "x", fetch=lambda token, timeout=10.0: on)
+    assert rec["extra"] == {"kind": "extra_usage", "used": 12.34, "limit": 50.0, "percent": 24.68, "currency": "USD"}

@@ -354,6 +354,31 @@ function limitName(limit) {
     return _windowText(m) + (limit.model ? " " + limit.model : "")
 }
 
+// Claude's extra usage (amounts in currency units) or Codex credits, see "extra" in the collector output
+const _CURRENCY_SYMBOLS = {USD: "$", EUR: "€", GBP: "£"}
+
+function _money(amount, currency) {
+    return Number(amount).toLocaleCurrencyString(_current().locale, _CURRENCY_SYMBOLS[currency] || currency)
+}
+
+function extraName(extra) {
+    if (extra && extra.kind === "credits") return i18nc("Codex credit balance", "Credits")
+    return i18nc("Claude's paid usage beyond the plan limits", "Extra usage")
+}
+
+function extraText(extra) {
+    if (!extra || !extra.kind) return ""
+    if (extra.kind === "credits") {
+        if (extra.unlimited) return i18nc("Codex credit balance", "unlimited")
+        return _current().locale.toString(extra.balance, "f", extra.balance % 1 ? 2 : 0)
+    }
+    if (extra.limit === null || extra.limit === undefined)
+        return i18nc("%1 = amount spent; extra usage without a monthly limit", "%1 spent",
+                     _money(extra.used, extra.currency))
+    return i18nc("%1 = amount spent, %2 = monthly spending limit", "%1 of %2",
+                 _money(extra.used, extra.currency), _money(extra.limit, extra.currency))
+}
+
 function errorText(errors) {
     if (!errors) return ""
     return errors.map(e => {

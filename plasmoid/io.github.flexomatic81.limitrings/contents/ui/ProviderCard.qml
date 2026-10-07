@@ -62,6 +62,16 @@ ColumnLayout {
         }
     }
 
+    ExtraUsage {
+        objectName: "extraUsage"
+        visible: !!(card.provider && card.provider.extra)
+        Layout.fillWidth: true
+        opacity: card.stale ? 0.5 : 1
+        extra: card.provider && card.provider.extra ? card.provider.extra : ({})
+        warn: card.warn
+        crit: card.crit
+    }
+
     PlasmaComponents.Label {
         visible: !card.provider || card.provider.limits.length === 0
         text: Format.i18n("No limit data")

@@ -9,7 +9,7 @@ import logging
 import urllib.error
 from pathlib import Path
 
-from ..limits import normalize_oauth, normalize_statusline
+from ..limits import normalize_extra_usage, normalize_oauth, normalize_statusline
 from . import backoff
 from .http import get_json
 
@@ -80,7 +80,11 @@ def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Pa
                 resp = fetch(token, timeout=10.0)
                 limits = normalize_oauth(resp)
                 backoff.record_success(pause)
-                return {"limits": limits, "source": "oauth", "updated_at": now}, last_attempt, plan
+                rec = {"limits": limits, "source": "oauth", "updated_at": now}
+                extra = normalize_extra_usage(resp)
+                if extra:
+                    rec["extra"] = extra
+                return rec, last_attempt, plan
             except urllib.error.HTTPError as e:
                 log.warning("OAuth usage request failed: HTTP %s", e.code)
                 if backoff.is_rate_limit(e.code):

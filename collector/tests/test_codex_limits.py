@@ -124,3 +124,12 @@ def test_503_pauses_too_but_other_errors_keep_the_regular_interval(tmp_path):
     pause = backoff.new()
     resolve(None, None, NOW, auth(tmp_path), fetch=_rate_limited(status=401), pause=pause)
     assert pause == backoff.new()
+
+
+def test_record_carries_credits_only_with_a_balance(tmp_path):
+    base = json.loads((FIXTURES / "codex_usage.json").read_text())
+    rec, _ = resolve(None, None, NOW, auth(tmp_path), fetch=lambda token, account_id, timeout=10.0: base)
+    assert "extra" not in rec
+    rich = {**base, "credits": {**base["credits"], "has_credits": True, "balance": "120"}}
+    rec, _ = resolve(None, None, NOW, auth(tmp_path), fetch=lambda token, account_id, timeout=10.0: rich)
+    assert rec["extra"] == {"kind": "credits", "balance": 120.0, "unlimited": False}

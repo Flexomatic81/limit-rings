@@ -38,7 +38,8 @@ def _int(v) -> bool:
 
 def _limits_ok(rec) -> bool:
     return rec is None or (isinstance(rec, dict) and _num(rec.get("updated_at"))
-                           and isinstance(rec.get("limits"), list))
+                           and isinstance(rec.get("limits"), list)
+                           and (rec.get("extra") is None or isinstance(rec["extra"], dict)))
 
 
 def _shape_ok(data: dict) -> bool:

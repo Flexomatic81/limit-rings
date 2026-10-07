@@ -40,3 +40,45 @@ def test_normalize_codex_two_windows():
     rl = {"primary": {"used_percent": 30, "window_minutes": 300, "resets_at": 1},
           "secondary": {"used_percent": 5, "window_minutes": 10080, "resets_at": 2}}
     assert [l["label"] for l in normalize_codex(rl)] == ["5 h", "Week"]
+
+
+def test_extra_usage_with_monthly_limit_in_currency_units():
+    from limit_rings.limits import normalize_extra_usage
+    resp = {"extra_usage": {"is_enabled": True, "monthly_limit": 5000, "used_credits": 1234,
+                            "utilization": 24.68, "currency": "EUR"}}
+    assert normalize_extra_usage(resp) == {"kind": "extra_usage", "used": 12.34, "limit": 50.0,
+                                           "percent": 24.68, "currency": "EUR"}
+
+
+def test_extra_usage_unlimited_computed_percent_and_default_currency():
+    from limit_rings.limits import normalize_extra_usage
+    unlimited = {"extra_usage": {"is_enabled": True, "monthly_limit": None, "used_credits": 250, "utilization": None}}
+    assert normalize_extra_usage(unlimited) == {"kind": "extra_usage", "used": 2.5, "limit": None,
+                                                "percent": None, "currency": "USD"}
+    no_util = {"extra_usage": {"is_enabled": True, "monthly_limit": 2000, "used_credits": 500, "utilization": None}}
+    assert normalize_extra_usage(no_util)["percent"] == 25.0
+
+
+def test_extra_usage_off_missing_or_broken_is_none():
+    from limit_rings.limits import normalize_extra_usage
+    for resp in [None, [], {}, {"extra_usage": None}, {"extra_usage": {"is_enabled": False, "used_credits": 5}},
+                 {"extra_usage": {"is_enabled": True, "used_credits": None}},
+                 {"extra_usage": {"is_enabled": True, "used_credits": "5"}},
+                 {"extra_usage": {"is_enabled": True, "used_credits": True}},
+                 {"extra_usage": {"is_enabled": True, "used_credits": 5, "monthly_limit": "x"}}]:
+        assert normalize_extra_usage(resp) is None, resp
+
+
+def test_codex_credits_only_with_balance_or_unlimited():
+    from limit_rings.limits import normalize_codex_credits
+    def credits(**kw):
+        return {"credits": {"has_credits": False, "unlimited": False, "balance": "0", **kw}}
+    assert normalize_codex_credits(credits(has_credits=True, balance="12.5")) == {
+        "kind": "credits", "balance": 12.5, "unlimited": False}
+    assert normalize_codex_credits(credits(balance="120")) == {"kind": "credits", "balance": 120.0, "unlimited": False}
+    assert normalize_codex_credits(credits(unlimited=True)) == {"kind": "credits", "balance": 0.0, "unlimited": True}
+    assert normalize_codex_credits(credits(unlimited=True, balance=None)) == {
+        "kind": "credits", "balance": 0.0, "unlimited": True}
+    for resp in [credits(), credits(has_credits=True), credits(balance="abc"), credits(balance=None),
+                 credits(balance="nan"), credits(balance="-3"), {"credits": None}, {}, None]:
+        assert normalize_codex_credits(resp) is None, resp
