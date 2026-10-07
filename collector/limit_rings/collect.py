@@ -281,27 +281,76 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     return entries
 
 
+def _empty_entry(provider: str | None, today, errors: list[dict]) -> dict:
+    """Card data for an account without results (invalid entry, failed pass)."""
+    entry = {"limits": [], "limits_source": None, "limits_updated_at": None, "limits_paused_until": None,
+             "limits_next_request_at": None, "extra": None, "plan": None,
+             "tokens": aggregate.summarize({}, today), "daily": aggregate.daily_series({}, today),
+             "errors": errors}
+    if provider == "claude":
+        entry.update(auth=None, breakdown=None)
+    return entry
+
+
+def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, thresholds,
+              reset_notice) -> dict:
+    from . import accounts as accounts_mod   # accounts imports Paths from here
+    out = {}
+    today = now.astimezone(tz).date()
+    for account in accounts:
+        head = {"provider": account.provider, "name": account.name, "dir": account.dir_text}
+        if account.error:
+            out[account.id] = {**_empty_entry(account.provider, today, [{"code": account.error}]), **head}
+            continue
+        paths = accounts_mod.account_paths(account, cache)
+        try:
+            entry = _pass(paths, now, tz, fetch, codex_fetch, notifier, {account.provider}, thresholds,
+                          reset_notice, labels={accounts_mod.PROVIDER_NAMES[account.provider]: account.label})
+            entry = entry[account.provider]
+        except Exception as e:
+            log.error("account %s: run aborted: %s", account.id, type(e).__name__)
+            try:
+                os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
+            except OSError:
+                pass
+            entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)])
+        if account.provider == "codex":
+            token, _ = codex_limits.read_auth(paths.codex_auth)
+            entry["auth"] = {"status": "ok" if token else "missing", "expires_at": None}
+        out[account.id] = {**entry, **head}
+    accounts_mod.prune_account_states(cache, {a.state_key for a in accounts if not a.error}, now.timestamp())
+    return out
+
+
 def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
         notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS,
-        thresholds=notify.THRESHOLDS, reset_notice=False) -> dict:
-    """One pass over the main account (see _pass); writes stats.json."""
+        thresholds=notify.THRESHOLDS, reset_notice=False, accounts=()) -> dict:
+    """One pass over the main account and each additional account (see _pass); writes stats.json."""
     stats = {"schema": SCHEMA, "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
              "providers": _pass(paths, now, tz, fetch, codex_fetch, notifier, providers, thresholds,
-                                reset_notice)}
+                                reset_notice),
+             "accounts": _accounts(accounts, paths.state_file.parent, now, tz, fetch, codex_fetch, notifier,
+                                   thresholds, reset_notice)}
     write_json_atomic(paths.stats_file, stats)
     return stats
 
 
 def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROVIDERS,
-               thresholds=notify.THRESHOLDS, reset_notice=False) -> dict | None:
-    """One run that never raises: after an unexpected error, state.json is moved aside so the next run starts fresh."""
+               thresholds=notify.THRESHOLDS, reset_notice=False, accounts=()) -> dict | None:
+    """One run that never raises: after an unexpected error, state.json and the additional accounts' state
+    files are moved aside so the next run starts fresh (their due notices were not delivered)."""
     try:
         return run(paths, now, tz, notifier=notifier, providers=providers, thresholds=thresholds,
-                   reset_notice=reset_notice)
+                   reset_notice=reset_notice, accounts=accounts)
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
-        try:
-            os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
-        except OSError:
-            pass
+        from . import accounts as accounts_mod
+        cache = paths.state_file.parent
+        files = [paths.state_file] + [accounts_mod.account_paths(a, cache).state_file for a in accounts
+                                      if not a.error]
+        for f in files:
+            try:
+                os.replace(f, f.with_name(f.name + ".corrupt"))
+            except OSError:
+                pass
         return None

@@ -279,9 +279,21 @@ def test_notice_settings_from_the_environment():
 def test_main_passes_the_notice_settings(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(widget, "run_safely",
-                        lambda p, now, tz, notifier, providers=None, thresholds=None, reset_notice=None:
+                        lambda p, now, tz, notifier, providers=None, thresholds=None, reset_notice=None, accounts=():
                         seen.append((thresholds, reset_notice)) or {"schema": 2})
     monkeypatch.setenv("LIMIT_RINGS_THRESHOLDS", "60,85")
     monkeypatch.setenv("LIMIT_RINGS_RESET_NOTICE", "1")
     widget.main(home=tmp_path)
     assert seen == [((60, 85), True)]
+
+
+def test_main_reads_the_additional_accounts(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier, **kw: seen.append(kw["accounts"])
+                        or {"schema": 2})
+    monkeypatch.setenv("LIMIT_RINGS_ACCOUNTS", '[{"id":"k7f3a2","provider":"codex","dir":"~/.codex-b","name":"B"}]')
+    widget.main(home=tmp_path)
+    assert [(a.id, a.dir) for a in seen[0]] == [("k7f3a2", (tmp_path / ".codex-b").resolve())]
+    monkeypatch.delenv("LIMIT_RINGS_ACCOUNTS")
+    widget.main(home=tmp_path)
+    assert seen[1] == []
