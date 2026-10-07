@@ -14,19 +14,27 @@ MouseArea {
     property int crit
     property string style: "ring"
     property bool hasProblem: false
+    property bool vertical: false   // vertical panel: the gauges stack, the panel width is the size
+
 
     property bool wasExpanded: false
 
-    Layout.minimumWidth: row.implicitWidth
-    Layout.preferredWidth: row.implicitWidth
+    Layout.minimumWidth: vertical ? -1 : row.implicitWidth
+    Layout.preferredWidth: vertical ? -1 : row.implicitWidth
+    Layout.minimumHeight: vertical ? row.implicitHeight : -1
+    Layout.preferredHeight: vertical ? row.implicitHeight : -1
     hoverEnabled: true
     onPressed: wasExpanded = plasmoidItem.expanded
     onClicked: plasmoidItem.expanded = !wasExpanded
 
-    RowLayout {
+    GridLayout {
         id: row
         anchors.fill: parent
-        spacing: Kirigami.Units.smallSpacing
+        flow: compact.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+        rows: compact.vertical ? Math.max(1, compact.providers.length) : 1
+        columns: compact.vertical ? 1 : Math.max(1, compact.providers.length)
+        rowSpacing: Kirigami.Units.smallSpacing
+        columnSpacing: Kirigami.Units.smallSpacing
 
         Repeater {
             model: compact.providers
@@ -36,7 +44,9 @@ MouseArea {
                                               ? compact.stats.providers[modelData.key].limits : null
                 readonly property var pct: Format.maxPercent(limits, compact.nowSec)
                 readonly property var rings: Format.ringLimits(limits, compact.nowSec)
-                Layout.fillHeight: true
+                Layout.fillHeight: !compact.vertical
+                Layout.fillWidth: compact.vertical
+                vertical: compact.vertical
                 letter: modelData.short
                 percent: pct
                 severity: Format.worstSeverity(limits, compact.nowSec, compact.warn, compact.crit)

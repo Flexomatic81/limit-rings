@@ -228,12 +228,26 @@ function limitsStale(provider, nowMs) {
     return !isNaN(t) && nowMs - t > LIMITS_STALE_MS
 }
 
-function footerText(provider, nowMs) {
+const REFRESH_HINT_MS = 60000  // how long the hint stays after "Refresh now"
+
+// After "Refresh now": when the limits will be asked for again (the collector keeps its 5-minute interval
+// and any pause); empty when no refresh happened lately or the limits were just asked for.
+function refreshHint(provider, nowMs, refreshedAtMs) {
+    if (!provider || !refreshedAtMs || nowMs - refreshedAtMs > REFRESH_HINT_MS) return ""
+    const next = provider.limits_next_request_at ? Date.parse(provider.limits_next_request_at) : NaN
+    if (!(next > nowMs)) return ""
+    return i18nc("%1 = clock time; shown after a manual refresh", "limits again from %1",
+                 _clock(next / 1000, nowMs / 1000))
+}
+
+function footerText(provider, nowMs, refreshedAtMs) {
     if (!provider) return ""
+    const hint = refreshHint(provider, nowMs, refreshedAtMs)
     return i18nc("%1 = age such as '5 min ago', %2 = data source", "Updated %1 · %2",
                  ageText(provider.limits_updated_at, nowMs), sourceText(provider.limits_source))
         + (limitsStale(provider, nowMs) ? " · " + i18nc("limit data is outdated", "stale") : "")
         + _pauseText(provider.limits_paused_until, nowMs)
+        + (hint ? " · " + hint : "")
 }
 
 // After a rate limit (HTTP 429) the collector stops asking until the provider allows it again.
@@ -469,7 +483,7 @@ function authHint(auth) {
     return i18n("No login found – run claude in a terminal")
 }
 
-function tooltipText(stats, providers, nowSec) {
+function tooltipText(stats, providers, nowSec, refreshedAtMs) {
     if (!stats) return i18n("No data")
     const lines = []
     for (let i = 0; i < providers.length; i++) {
@@ -483,6 +497,8 @@ function tooltipText(stats, providers, nowSec) {
         }
         const hint = p ? authHint(p.auth) : ""
         if (hint) lines.push(providers[i].name + ": " + hint)
+        const again = refreshHint(p, nowSec * 1000, refreshedAtMs)
+        if (again) lines.push(providers[i].name + ": " + again)
     }
     return lines.join("\n")
 }

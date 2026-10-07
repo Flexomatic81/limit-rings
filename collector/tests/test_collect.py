@@ -525,3 +525,26 @@ def test_notice_settings_reach_the_notifications(tmp_path):
         return fetch
     run(p, NOW, BERLIN, fetch=at(55.0), notifier=notices.append, thresholds=(50, 75))
     assert [(n.key, n.level) for n in notices] == [("claude:five_hour", 50)]
+
+
+def test_next_limit_request_is_published(tmp_path):
+    import io
+    import urllib.error
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
+    in_5 = (NOW + timedelta(minutes=5)).isoformat(timespec="seconds")
+    assert stats["providers"]["claude"]["limits_next_request_at"] == in_5
+    assert stats["providers"]["codex"]["limits_next_request_at"] == in_5
+
+    def limited(*a, **k):
+        raise urllib.error.HTTPError("https://example.invalid", 429, "Too Many Requests",
+                                     {"Retry-After": "1800"}, io.BytesIO(b""))
+    later = NOW + timedelta(minutes=6)
+    stats = run(p, later, BERLIN, fetch=limited, codex_fetch=codex_api)
+    assert stats["providers"]["claude"]["limits_next_request_at"] == (later + timedelta(minutes=30)).isoformat(
+        timespec="seconds")
+
+    fresh = run(make_paths(tmp_path / "fresh"), NOW, BERLIN, fetch=ok_fetch, providers=set())
+    assert fresh["providers"]["claude"]["limits_next_request_at"] is None

@@ -10,6 +10,7 @@ ColumnLayout {
     property string title
     property var provider      // providers.<key> from stats.json or undefined (not "data": that is Item's default property)
     property real nowMs
+    property real refreshedAtMs
     property int warn
     property int crit
     readonly property real nowSec: nowMs / 1000
@@ -149,7 +150,7 @@ ColumnLayout {
     }
 
     PlasmaComponents.Label {
-        text: Format.footerText(card.provider, card.nowMs)
+        text: Format.footerText(card.provider, card.nowMs, card.refreshedAtMs)
         font: Kirigami.Theme.smallFont
         color: card.stale ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.textColor
         opacity: card.stale ? 1 : 0.6

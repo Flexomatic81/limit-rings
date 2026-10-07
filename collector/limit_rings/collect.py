@@ -67,13 +67,23 @@ def _iso(epoch: float | None, tz: tzinfo) -> str | None:
     return datetime.fromtimestamp(epoch, tz).isoformat(timespec="seconds")
 
 
-def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors) -> dict:
+def _next_request(section: dict, interval: float, now_ts: float) -> float | None:
+    """When the usage endpoint will be asked next: after the regular interval and any running pause."""
+    last = section["oauth_last_attempt"]
+    if last is None:
+        return None
+    candidates = [last + interval, backoff.blocked_until(section["oauth_pause"], now_ts) or 0]
+    return max(candidates)
+
+
+def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors, interval) -> dict:
     rec = section["limits"]
     return {
         "limits": rec["limits"] if rec else [],
         "limits_source": limits_source if rec else None,
         "limits_updated_at": _iso(rec["updated_at"], tz) if rec else None,
         "limits_paused_until": _iso(backoff.blocked_until(section["oauth_pause"], now_ts), tz),
+        "limits_next_request_at": _iso(_next_request(section, interval, now_ts), tz),
         "extra": rec.get("extra") if rec else None,
         "plan": plan,
         "tokens": aggregate.summarize(section["buckets"], today),
@@ -256,12 +266,13 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
         "providers": {
             "claude": {**_provider(claude, today, tz, now.timestamp(),
                                    claude["limits"]["source"] if claude["limits"] else None,
-                                   claude_plan, claude_errors),
+                                   claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
                        "auth": _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers else None,
                        "breakdown": _breakdown(claude, now.timestamp(), tz)},
             "codex": _provider(codex, today, tz, now.timestamp(),
                                codex["limits"].get("source", "session_log") if codex["limits"] else None,
-                               codex["limits"]["plan"] if codex["limits"] else None, codex_errors),
+                               codex["limits"]["plan"] if codex["limits"] else None, codex_errors,
+                               codex_limits.MIN_INTERVAL),
         },
     }
     for key, limits in with_forecasts.items():

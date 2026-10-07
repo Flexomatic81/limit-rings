@@ -133,6 +133,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "limits_source": "oauth",
       "limits_updated_at": "2026-10-03T19:41:30+02:00",
       "limits_paused_until": null,
+      "limits_next_request_at": "2026-10-03T19:46:30+02:00",
       "extra": {"kind": "extra_usage", "used": 12.34, "limit": 50.0, "percent": 24.68, "currency": "USD"},
       "plan": "pro",
       "tokens": {
@@ -152,6 +153,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "limits_source": "session_log",
       "limits_updated_at": "2026-09-29T21:30:00+02:00",
       "limits_paused_until": null,
+      "limits_next_request_at": "2026-10-03T19:46:30+02:00",
       "extra": null,
       "plan": "plus",
       "tokens": {"today": {}, "week": {}, "month": {}},
@@ -236,7 +238,13 @@ Rules:
   that has passed, `1 − (resets_at − now) / window` (`Format.elapsedShare`); none without a reset
   time or window length, or after the reset. Usage ahead of the mark runs faster than an even spread.
   Mark and pace colour belong to the limit shown on the ring (`Format.ringLimits`).
+- On a vertical panel the gauges stack; the panel width sets their size ("Number": letter and value
+  on two lines, shrunk to the width).
 - Tooltip: all limits with countdown, e.g. "5 h: 42 % · Reset in 2 h 13 min".
+- Context menu "Refresh now": one collector pass right away. The logs are read anew; the limits only
+  when due (5-minute interval, pause after a rate limit). For a minute the footer and tooltip then say
+  when they come next ("limits again from 14:20", from `limits_next_request_at` – last request plus
+  the interval, or the end of a pause; `null` before the first request).
 - Clicking opens the full view as a popup.
 
 ### Desktop / popup (full)

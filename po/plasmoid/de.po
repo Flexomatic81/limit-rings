@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 17:57+0200\n"
+"POT-Creation-Date: 2026-10-07 18:21+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -66,6 +66,11 @@ msgstr "dd.MM."
 msgctxt "daily chart tooltip: %1 date, %2 token count"
 msgid "%1: %2 tokens"
 msgstr "%1: %2 Tokens"
+
+#, kde-format
+msgctxt "%1 = clock time; shown after a manual refresh"
+msgid "limits again from %1"
+msgstr "Limits wieder ab %1"
 
 #, kde-format
 msgctxt "%1 = age such as '5 min ago', %2 = data source"
@@ -307,6 +312,10 @@ msgstr "Täglich nach neuer Version suchen (fragt GitHub)"
 #, kde-format
 msgid "Update available: %1"
 msgstr "Update verfügbar: %1"
+
+#, kde-format
+msgid "Refresh now"
+msgstr "Jetzt aktualisieren"
 
 #, kde-format
 msgid "No limit data"

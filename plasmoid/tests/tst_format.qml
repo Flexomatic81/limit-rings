@@ -335,6 +335,25 @@ TestCase {
         compare(F.extraText({}), "")
     }
 
+    function test_refreshHint_after_a_manual_refresh() {
+        const t = Date.parse("2026-10-04T18:00:00+02:00")
+        const next = new Date(t + 4 * 60000)
+        const clock = (next.getHours() < 10 ? "0" : "") + next.getHours() + ":"
+            + (next.getMinutes() < 10 ? "0" : "") + next.getMinutes()
+        const p = {limits_updated_at: "2026-10-04T17:59:00+02:00", limits_source: "oauth", limits: [],
+                   limits_next_request_at: next.toISOString()}
+        compare(F.refreshHint(p, t, t - 5000), "limits again from " + clock)
+        compare(F.refreshHint(p, t, t - 61000), "")                    // refreshed too long ago
+        compare(F.refreshHint(p, t, 0), "")                            // never refreshed by hand
+        compare(F.refreshHint(Object.assign({}, p, {limits_next_request_at: "2026-10-04T17:59:00+02:00"}), t, t), "")
+        compare(F.refreshHint(Object.assign({}, p, {limits_next_request_at: null}), t, t), "")
+        compare(F.footerText(p, t, t - 5000), "Updated 1 min ago · OAuth · limits again from " + clock)
+        const stats = {providers: {claude: Object.assign({}, p, {limits: [{window_minutes: 300, used_percent: 5,
+                                                                           resets_at: null}]})}}
+        compare(F.tooltipText(stats, [{key: "claude", name: "Claude"}], t / 1000, t - 5000),
+                "Claude · 5 h: 5 %\nClaude: limits again from " + clock)
+    }
+
     function test_footerText_names_a_running_pause() {
         const t = Date.parse("2026-10-04T18:00:00+02:00")
         const until = new Date(t + 30 * 60000)

@@ -8,6 +8,7 @@ Item {
     property var stats
     property var providers: []
     property real nowMs
+    property real refreshedAtMs
     property int warn
     property int crit
     property string message: ""
@@ -67,6 +68,7 @@ Item {
                     title: modelData.name
                     provider: full.stats ? full.stats.providers[modelData.key] : undefined
                     nowMs: full.nowMs
+                    refreshedAtMs: full.refreshedAtMs
                     warn: full.warn
                     crit: full.crit
                     layoutWidth: cards.columns === 2 ? (cards.availableWidth - cards.columnSpacing) / 2

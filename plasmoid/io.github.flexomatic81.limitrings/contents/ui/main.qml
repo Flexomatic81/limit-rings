@@ -19,6 +19,7 @@ PlasmoidItem {
     property string pythonVersion: ""
     property string osRelease: ""
     property real nowMs: Date.now()
+    property real refreshedAtMs: 0   // last "Refresh now", for the hint when the limits are asked for again
     readonly property real nowSec: nowMs / 1000
     readonly property int warn: Plasmoid.configuration.warnThreshold
     readonly property int crit: Plasmoid.configuration.criticalThreshold
@@ -52,7 +53,7 @@ PlasmoidItem {
 
     toolTipMainText: "Limit Rings"
     toolTipSubText: translationHandle
-        ? Format.tooltipText(stats, providers, nowSec)
+        ? Format.tooltipText(stats, providers, nowSec, refreshedAtMs)
           + (updateVersion ? "\n" + Format.i18n("Update available: %1", updateVersion) : "")
         : ""
 
@@ -65,12 +66,14 @@ PlasmoidItem {
         crit: root.crit
         style: Plasmoid.configuration.compactStyle
         hasProblem: root.statusMessage !== ""
+        vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
     }
 
     fullRepresentation: FullRepresentation {
         stats: root.stats
         providers: root.providers
         nowMs: root.nowMs
+        refreshedAtMs: root.refreshedAtMs
         warn: root.warn
         crit: root.crit
         message: root.statusMessage
@@ -105,6 +108,22 @@ PlasmoidItem {
     }
 
     // At most once a day; a failed request is not retried before the next day either.
+    // Runs a collector pass right away: the logs are read anew, the limits only when due (5-minute interval,
+    // pauses after a rate limit) – the footer says when they come next.
+    function refreshNow() {
+        refreshedAtMs = Date.now()
+        nowMs = refreshedAtMs
+        executable.connectSource(root.collectorCommand)
+    }
+
+    Plasmoid.contextualActions: [
+        PlasmaCore.Action {
+            text: i18n("Refresh now")
+            icon.name: "view-refresh"
+            onTriggered: root.refreshNow()
+        }
+    ]
+
     function checkForUpdate() {
         if (!Plasmoid.configuration.checkUpdates || Build.installSource === "dev") return
         const now = Date.now() / 1000

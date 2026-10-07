@@ -16,6 +16,7 @@ Item {
     property string outerSeverity: "normal"
     property string innerSeverity: "normal"
     property string style: "ring"
+    property bool vertical: false     // vertical panel: the width is given, the height follows
     property bool dimmed: false
 
     function toneFor(sev) {
@@ -29,12 +30,14 @@ Item {
                                                 Kirigami.Theme.textColor.b, 0.2)
     readonly property bool hasInner: innerPercent !== null
 
-    implicitWidth: style === "ring" ? height : label.implicitWidth
-    implicitHeight: Kirigami.Units.iconSizes.medium
+    // Horizontal panel: the height is given; vertical panel: the width. The ring stays square.
+    implicitWidth: vertical ? Kirigami.Units.iconSizes.small : (style === "ring" ? height : label.implicitWidth)
+    implicitHeight: vertical ? (style === "ring" ? width : label.implicitHeight) : Kirigami.Units.iconSizes.medium
     opacity: dimmed ? 0.5 : 1
 
     Canvas {
         id: ring
+        objectName: "ringCanvas"
         visible: gauge.style === "ring"
         anchors.fill: parent
 
@@ -92,9 +95,14 @@ Item {
     PlasmaComponents.Label {
         id: label
         anchors.centerIn: parent
+        // On a vertical panel letter and number go on two lines and shrink to the panel width
+        width: gauge.vertical && gauge.style !== "ring" ? gauge.width : implicitWidth
+        horizontalAlignment: Text.AlignHCenter
+        fontSizeMode: gauge.vertical && gauge.style !== "ring" ? Text.HorizontalFit : Text.FixedSize
+        minimumPixelSize: 6
         text: gauge.style === "ring"
               ? gauge.letter
-              : gauge.letter + " " + (gauge.percent === null ? "–" : Math.round(gauge.percent) + "%")
+              : gauge.letter + (gauge.vertical ? "\n" : " ") + (gauge.percent === null ? "–" : Math.round(gauge.percent) + "%")
         font.pixelSize: gauge.style === "ring" ? parent.height * (gauge.hasInner ? 0.3 : 0.4)
                                                : Kirigami.Theme.smallFont.pixelSize * 1.1
         color: gauge.style === "ring" ? Kirigami.Theme.textColor : gauge.tone
