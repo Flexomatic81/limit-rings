@@ -389,6 +389,59 @@ TestCase {
                 {outer: 15, inner: null})
     }
 
+    function test_elapsedShare() {
+        const now = 100000
+        const five = (resetsIn, minutes) => ({used_percent: 10, resets_at: resetsIn === null ? null : now + resetsIn,
+                                              window_minutes: minutes === undefined ? 300 : minutes})
+        compare(F.elapsedShare(five(3600), now), 0.8)          // 4 of 5 hours gone
+        compare(F.elapsedShare(five(5 * 3600), now), 0)        // window just started
+        compare(F.elapsedShare(five(6 * 3600), now), 0)        // reset further away than the window: clamp
+        compare(F.elapsedShare(five(-10), now), null)          // reset has passed
+        compare(F.elapsedShare(five(null), now), null)
+        compare(F.elapsedShare(five(3600, null), now), null)
+        compare(F.elapsedShare(null, now), null)
+    }
+
+    function test_limitSeverity_adds_the_pace_to_the_thresholds() {
+        const now = 100000
+        const lim = (pct, status) => ({used_percent: pct, resets_at: now + 3600, window_minutes: 300,
+                                       forecast: status ? {status: status, eta: now + 600} : undefined})
+        compare(F.limitSeverity(lim(45), now, 70, 90), "normal")
+        compare(F.limitSeverity(lim(45, "full"), now, 70, 90), "warning")     // full before the reset
+        compare(F.limitSeverity(lim(45, "enough"), now, 70, 90), "normal")
+        compare(F.limitSeverity(lim(75, "enough"), now, 70, 90), "warning")
+        compare(F.limitSeverity(lim(95, "full"), now, 70, 90), "critical")
+        const reset = {used_percent: 99, resets_at: now - 1, window_minutes: 300, forecast: {status: "full", eta: now}}
+        compare(F.limitSeverity(reset, now, 70, 90), "normal")
+        compare(F.limitSeverity(null, now, 70, 90), "normal")
+    }
+
+    function test_worstSeverity_for_the_number_style() {
+        const now = 100000
+        const lim = (pct, status) => ({used_percent: pct, resets_at: now + 3600, window_minutes: 300,
+                                       forecast: status ? {status: status, eta: now + 600} : undefined})
+        compare(F.worstSeverity([lim(20), lim(40, "full")], now, 70, 90), "warning")
+        compare(F.worstSeverity([lim(95), lim(40, "full")], now, 70, 90), "critical")
+        compare(F.worstSeverity([lim(20)], now, 70, 90), "normal")
+        compare(F.worstSeverity(null, now, 70, 90), "normal")
+    }
+
+    function test_ringLimits_picks_the_limits_behind_the_rings() {
+        const now = 1000
+        const five = {id: "five_hour", used_percent: 8, resets_at: null, window_minutes: 300}
+        const week = {id: "seven_day", used_percent: 36, resets_at: null, window_minutes: 10080}
+        const fable = {id: "weekly_scoped:fable", used_percent: 50, resets_at: null, window_minutes: 10080, model: "Fable"}
+        let r = F.ringLimits([five, week, fable], now)
+        compare(r.outer.id, "weekly_scoped:fable")
+        compare(r.inner.id, "five_hour")
+        r = F.ringLimits([week], now)
+        compare(r.outer.id, "seven_day")
+        compare(r.inner, null)
+        const twoDays = {id: "x", used_percent: 15, resets_at: null, window_minutes: 2880}
+        compare(F.ringLimits([twoDays], now).outer.id, "x")
+        compare(F.ringLimits([], now), {outer: null, inner: null})
+    }
+
     function test_limitName() {
         compare(F.limitName({id: "five_hour", window_minutes: 300}), "5 h")
         compare(F.limitName({id: "seven_day", window_minutes: 10080}), "Week")

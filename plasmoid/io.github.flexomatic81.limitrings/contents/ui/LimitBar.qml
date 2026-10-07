@@ -14,7 +14,8 @@ ColumnLayout {
 
     readonly property bool reset: Format.isReset(limit, nowSec)
     readonly property real pct: Format.effectivePercent(limit, nowSec)
-    readonly property string sev: Format.severity(pct, warn, crit)
+    readonly property string sev: Format.limitSeverity(limit, nowSec, warn, crit)
+    readonly property var elapsed: Format.elapsedShare(limit, nowSec)
     readonly property string forecastText: Format.forecastText(limit, nowSec)
     readonly property bool forecastFull: !!(limit.forecast && limit.forecast.status === "full")
 
@@ -43,6 +44,17 @@ ColumnLayout {
                 color: bar.sev === "critical" ? Kirigami.Theme.negativeTextColor
                      : bar.sev === "warning" ? Kirigami.Theme.neutralTextColor
                      : Kirigami.Theme.highlightColor
+            }
+
+            // Where the window stands in time: usage ahead of this mark runs fast
+            Rectangle {
+                objectName: "elapsedMark"
+                visible: bar.elapsed !== null
+                width: 2
+                height: parent.height + Kirigami.Units.smallSpacing
+                anchors.verticalCenter: parent.verticalCenter
+                x: Math.round(parent.width * (bar.elapsed || 0) - width / 2)
+                color: Kirigami.Theme.textColor
             }
         }
 

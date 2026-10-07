@@ -67,6 +67,22 @@ TestCase {
         full.stats = stats
     }
 
+    function test_bars_mark_the_elapsed_time() {
+        const original = full.stats
+        const stats = JSON.parse(JSON.stringify(original))
+        const nowSec = full.nowMs / 1000
+        stats.providers.claude.limits = [{id: "five_hour", used_percent: 6, resets_at: nowSec + 3600, window_minutes: 300}]
+        full.stats = stats
+        waitForRendering(full)
+        const mark = findChild(full, "elapsedMark")
+        verify(mark !== null && mark.visible)
+        fuzzyCompare(mark.x + mark.width / 2, mark.parent.width * 0.8, 1.5)
+        stats.providers.claude.limits[0].resets_at = null
+        full.stats = JSON.parse(JSON.stringify(stats))
+        tryVerify(() => !findChild(full, "elapsedMark").visible)
+        full.stats = original
+    }
+
     function test_vanished_limit_leaves_no_bar_behind() {
         const bars = () => {
             const found = []

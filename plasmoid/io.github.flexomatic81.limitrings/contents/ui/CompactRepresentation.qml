@@ -35,15 +35,17 @@ MouseArea {
                 readonly property var limits: compact.stats && compact.stats.providers[modelData.key]
                                               ? compact.stats.providers[modelData.key].limits : null
                 readonly property var pct: Format.maxPercent(limits, compact.nowSec)
-                readonly property var rings: Format.ringValues(limits, compact.nowSec)
+                readonly property var rings: Format.ringLimits(limits, compact.nowSec)
                 Layout.fillHeight: true
                 letter: modelData.short
                 percent: pct
-                severity: pct === null ? "normal" : Format.severity(pct, compact.warn, compact.crit)
-                outerPercent: rings.outer
-                innerPercent: rings.inner
-                outerSeverity: rings.outer === null ? "normal" : Format.severity(rings.outer, compact.warn, compact.crit)
-                innerSeverity: rings.inner === null ? "normal" : Format.severity(rings.inner, compact.warn, compact.crit)
+                severity: Format.worstSeverity(limits, compact.nowSec, compact.warn, compact.crit)
+                outerPercent: rings.outer ? Format.effectivePercent(rings.outer, compact.nowSec) : null
+                innerPercent: rings.inner ? Format.effectivePercent(rings.inner, compact.nowSec) : null
+                outerElapsed: Format.elapsedShare(rings.outer, compact.nowSec)
+                innerElapsed: Format.elapsedShare(rings.inner, compact.nowSec)
+                outerSeverity: Format.limitSeverity(rings.outer, compact.nowSec, compact.warn, compact.crit)
+                innerSeverity: Format.limitSeverity(rings.inner, compact.nowSec, compact.warn, compact.crit)
                 style: compact.style
                 dimmed: compact.hasProblem
                         || Format.limitsStale(compact.stats ? compact.stats.providers[modelData.key] : null,

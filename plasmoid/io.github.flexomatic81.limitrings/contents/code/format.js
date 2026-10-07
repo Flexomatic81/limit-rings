@@ -92,16 +92,51 @@ function maxPercent(limits, nowSec) {
     return best
 }
 
-// Values for the panel ring: outer is the highest weekly limit, inner the 5 h limit
-function ringValues(limits, nowSec) {
-    let outer = null, inner = null
+// Severity of one limit: the fixed thresholds, and at least "warning" while the forecast sees it full
+// before the reset at the current pace (the same forecast the popup shows)
+function limitSeverity(limit, nowSec, warn, crit) {
+    if (!limit) return "normal"
+    const sev = severity(effectivePercent(limit, nowSec), warn, crit)
+    const full = !isReset(limit, nowSec) && !!limit.forecast && limit.forecast.status === "full"
+    return sev === "normal" && full ? "warning" : sev
+}
+
+// Most severe of several limits (the "Number" panel style shows one value for all of them)
+function worstSeverity(limits, nowSec, warn, crit) {
+    const order = ["normal", "warning", "critical"]
+    let worst = 0
+    for (let i = 0; i < (limits ? limits.length : 0); i++)
+        worst = Math.max(worst, order.indexOf(limitSeverity(limits[i], nowSec, warn, crit)))
+    return order[worst]
+}
+
+// Share of the window that has passed (0–1), for the time mark on rings and bars; null if unknown
+function elapsedShare(limit, nowSec) {
+    if (!limit || !limit.window_minutes || limit.resets_at === null || limit.resets_at === undefined) return null
+    const left = limit.resets_at - nowSec
+    if (left <= 0) return null
+    return Math.min(1, Math.max(0, 1 - left / (limit.window_minutes * 60)))
+}
+
+// The limits behind the panel ring: outer is the highest weekly limit, inner the 5 h limit; with
+// neither, the highest limit of any other length goes on the outer ring
+function ringLimits(limits, nowSec) {
+    let outer = null, inner = null, any = null
+    const higher = (a, b) => a === null || effectivePercent(b, nowSec) > effectivePercent(a, nowSec) ? b : a
     for (let i = 0; i < (limits ? limits.length : 0); i++) {
-        const l = limits[i], pct = effectivePercent(l, nowSec)
-        if (l.window_minutes === 300) inner = inner === null ? pct : Math.max(inner, pct)
-        else if (l.window_minutes === 10080) outer = outer === null ? pct : Math.max(outer, pct)
+        const l = limits[i]
+        if (l.window_minutes === 300) inner = higher(inner, l)
+        else if (l.window_minutes === 10080) outer = higher(outer, l)
+        any = higher(any, l)
     }
-    if (outer === null && inner === null) outer = maxPercent(limits, nowSec)
-    return {outer: outer, inner: inner}
+    return {outer: outer === null && inner === null ? any : outer, inner: inner}
+}
+
+// Values for the panel ring (percent per ring, null = no ring)
+function ringValues(limits, nowSec) {
+    const r = ringLimits(limits, nowSec)
+    return {outer: r.outer ? effectivePercent(r.outer, nowSec) : null,
+            inner: r.inner ? effectivePercent(r.inner, nowSec) : null}
 }
 
 function _parts(resetsAt, nowSec) {

@@ -226,7 +226,13 @@ Rules:
   5-hour window only the outer ring, without either kind of window the highest value. "Number"
   display: the highest value.
 - Colour by threshold (default): below 70 % neutral, from 70 % warning, from 90 % critical —
-  Plasma theme colours (`Kirigami.Theme.neutralTextColor` / `negativeTextColor`).
+  Plasma theme colours (`Kirigami.Theme.neutralTextColor` / `negativeTextColor`). On top of that a
+  ring (and a bar in the popup) is at least "warning" while its forecast says full before the reset
+  (`Format.limitSeverity`); critical stays with the threshold.
+- Time mark: a short stroke across each ring (a vertical one on each bar) at the share of the window
+  that has passed, `1 − (resets_at − now) / window` (`Format.elapsedShare`); none without a reset
+  time or window length, or after the reset. Usage ahead of the mark runs faster than an even spread.
+  Mark and pace colour belong to the limit shown on the ring (`Format.ringLimits`).
 - Tooltip: all limits with countdown, e.g. "5 h: 42 % · Reset in 2 h 13 min".
 - Clicking opens the full view as a popup.
 

@@ -9,6 +9,8 @@ Item {
     property var percent: null        // highest value, for the "Number" style (null = no data)
     property var outerPercent: null   // outer ring: weekly limit
     property var innerPercent: null   // inner ring: 5 h limit (null = no inner ring)
+    property var outerElapsed: null   // share of the window that has passed (0–1), drawn as a mark; null = none
+    property var innerElapsed: null
     property string severity: "normal"
     property string outerSeverity: "normal"
     property string innerSeverity: "normal"
@@ -37,6 +39,19 @@ Item {
         visible: gauge.style === "ring"
         anchors.fill: parent
 
+        // Short stroke across the ring where the window stands in time: usage ahead of it runs fast
+        function mark(ctx, r, lineWidth, share) {
+            if (share === null) return
+            const a = -Math.PI / 2 + 2 * Math.PI * share
+            const cx = ring.width / 2, cy = ring.height / 2, half = lineWidth / 2 + 1
+            ctx.lineWidth = 1.5
+            ctx.strokeStyle = Kirigami.Theme.textColor
+            ctx.beginPath()
+            ctx.moveTo(cx + (r - half) * Math.cos(a), cy + (r - half) * Math.sin(a))
+            ctx.lineTo(cx + (r + half) * Math.cos(a), cy + (r + half) * Math.sin(a))
+            ctx.stroke()
+        }
+
         function arc(ctx, r, lineWidth, pct, color) {
             ctx.lineWidth = lineWidth
             ctx.strokeStyle = gauge.trackColor
@@ -56,8 +71,11 @@ Item {
             ctx.reset()
             const r = Math.min(width, height) / 2 - 2
             arc(ctx, r, 3, gauge.outerPercent, gauge.outerTone)
-            if (gauge.hasInner)
+            mark(ctx, r, 3, gauge.outerElapsed)
+            if (gauge.hasInner) {
                 arc(ctx, r - 5, 2.5, gauge.innerPercent, gauge.innerTone)
+                mark(ctx, r - 5, 2.5, gauge.innerElapsed)
+            }
         }
 
         Connections {
@@ -67,6 +85,8 @@ Item {
             function onOuterToneChanged() { ring.requestPaint() }
             function onInnerToneChanged() { ring.requestPaint() }
             function onTrackColorChanged() { ring.requestPaint() }
+            function onOuterElapsedChanged() { ring.requestPaint() }
+            function onInnerElapsedChanged() { ring.requestPaint() }
         }
     }
 
