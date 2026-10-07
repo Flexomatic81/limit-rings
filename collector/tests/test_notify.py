@@ -185,3 +185,16 @@ def test_window_length_change_without_reset_times_notifies_again():
 def test_entries_from_before_window_lengths_were_recorded_still_count():
     notified = {"claude:five_hour": {"level": 80, "resets_at": int(NOW) + 4380}}
     assert update_notices({"Claude": [limit(pct=85.0)]}, notified, NOW) == []
+
+
+def test_labels_name_the_account_but_keep_the_key():
+    notified = {}
+    notices = update_notices({"Claude": [limit()]}, notified, NOW, labels={"Claude": "Claude (Arbeit)"})
+    assert notices[0].summary == "Claude (Arbeit): 5-hour limit at 82 %"
+    assert list(notified) == ["claude:five_hour"]
+
+
+def test_entries_of_providers_not_given_are_kept():
+    notified = {"codex:primary": {"level": 80, "resets_at": None, "minutes": 10080}}
+    update_notices({"Claude": [limit(pct=10.0)]}, notified, NOW)
+    assert "codex:primary" in notified

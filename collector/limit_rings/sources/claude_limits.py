@@ -53,7 +53,9 @@ def fetch_oauth_usage(token: str, timeout: float = 10.0, url: str = OAUTH_URL) -
     return get_json(url, {"Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"}, timeout)
 
 
-def _read_statusline(path: Path) -> dict | None:
+def _read_statusline(path: Path | None) -> dict | None:
+    if path is None:  # additional accounts have no status line copy
+        return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         limits = normalize_statusline(data["rate_limits"])
@@ -65,7 +67,7 @@ def _read_statusline(path: Path) -> dict | None:
     return {"limits": limits, "source": "statusline", "updated_at": written_at}
 
 
-def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Path,
+def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Path | None,
             fetch=fetch_oauth_usage, pause: dict | None = None):
     """pause: back-off state (backoff.new()), updated in place after 429/503 and after a success."""
     pause = backoff.new() if pause is None else pause

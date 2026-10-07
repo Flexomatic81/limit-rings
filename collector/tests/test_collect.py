@@ -548,3 +548,27 @@ def test_next_limit_request_is_published(tmp_path):
 
     fresh = run(make_paths(tmp_path / "fresh"), NOW, BERLIN, fetch=ok_fetch, providers=set())
     assert fresh["providers"]["claude"]["limits_next_request_at"] is None
+
+
+def test_hidden_provider_does_not_notify_and_keeps_its_notified_entries(tmp_path):
+    p = make_paths(tmp_path)
+    hot85 = lambda token, timeout=10.0: {"five_hour": {"utilization": 85.0, "resets_at": None}}
+    run(p, NOW, BERLIN, fetch=hot85)  # notifications off in this instance: nothing recorded
+    notices = []
+    run(p, NOW + timedelta(minutes=1), BERLIN, fetch=hot85, notifier=notices.append, providers={"codex"})
+    assert notices == []                                   # hidden: no warning from cached limits
+    run(p, NOW + timedelta(minutes=2), BERLIN, fetch=hot85, notifier=notices.append)
+    assert [n.key for n in notices] == ["claude:five_hour"]  # shown again: the due warning comes once
+    notices.clear()
+    run(p, NOW + timedelta(minutes=3), BERLIN, fetch=hot85, notifier=notices.append, providers={"codex"})
+    run(p, NOW + timedelta(minutes=10), BERLIN, fetch=hot85, notifier=notices.append)
+    assert notices == []                                   # entry survived the hidden pass: no repeat
+
+
+def test_pass_returns_the_provider_entries_without_writing_stats(tmp_path):
+    p = make_paths(tmp_path)
+    out = collect._pass(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api, notifier=None,
+                        providers={"claude", "codex"}, thresholds=(80, 95), reset_notice=False)
+    assert set(out) == {"claude", "codex"}
+    assert out["claude"]["limits_source"] == "oauth"
+    assert not p.stats_file.exists() and p.state_file.exists()

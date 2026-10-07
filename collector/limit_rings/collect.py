@@ -25,7 +25,7 @@ class Paths:
     claude_root: Path
     codex_root: Path
     credentials: Path
-    statusline_cache: Path
+    statusline_cache: Path | None
     state_file: Path
     stats_file: Path
     codex_auth: Path | None = None
@@ -97,10 +97,12 @@ def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
     return {"status": status, "expires_at": _iso(expires_at, tz)}
 
 
-def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice) -> None:
+def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice,
+            labels=None) -> None:
     if notifier is None:  # notifications off: leave them due, another widget instance may show them
         return
-    for notice in notify.update_notices(providers, state["notified"], now_ts, thresholds, reset_notice):
+    for notice in notify.update_notices(providers, state["notified"], now_ts, thresholds, reset_notice,
+                                       labels):
         try:
             notifier(notice)
         except Exception as e:  # a notification must never abort the run
@@ -234,11 +236,13 @@ def _fingerprint(state: dict) -> str:
 PROVIDERS = frozenset({"claude", "codex"})
 
 
-def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
-        notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS,
-        thresholds=notify.THRESHOLDS, reset_notice=False) -> dict:
-    """One pass. A provider missing from providers (hidden in the widget) is neither read nor queried:
-    no logs, no login, no request – its card keeps the last known values."""
+def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, providers, thresholds,
+          reset_notice, labels=None) -> dict:
+    """Collect one account from its paths and state file; return its provider entries for stats.json.
+
+    A provider missing from providers (hidden in the widget) is neither read nor queried: no logs,
+    no login, no request, no notification – its card keeps the last known values.
+    Saves the state, not stats.json."""
     state = load_state(paths.state_file)
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
@@ -251,8 +255,9 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
     with_forecasts = {
         key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
         for name, key in (("Claude", "claude"), ("Codex", "codex"))}
-    _notify(state, {"Claude": with_forecasts["claude"], "Codex": with_forecasts["codex"]},
-            now.timestamp(), notifier, thresholds, reset_notice)
+    shown = {name: with_forecasts[key] for name, key in (("Claude", "claude"), ("Codex", "codex"))
+             if key in providers}
+    _notify(state, shown, now.timestamp(), notifier, thresholds, reset_notice, labels)
 
     prune_state(state, today)
     if _fingerprint(state) != before:  # state.json is large: only write it if something changed
@@ -260,23 +265,29 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
 
     claude = state["claude"]
     codex = state["codex"]
-    stats = {
-        "schema": SCHEMA,
-        "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
-        "providers": {
-            "claude": {**_provider(claude, today, tz, now.timestamp(),
-                                   claude["limits"]["source"] if claude["limits"] else None,
-                                   claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
-                       "auth": _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers else None,
-                       "breakdown": _breakdown(claude, now.timestamp(), tz)},
-            "codex": _provider(codex, today, tz, now.timestamp(),
-                               codex["limits"].get("source", "session_log") if codex["limits"] else None,
-                               codex["limits"]["plan"] if codex["limits"] else None, codex_errors,
-                               codex_limits.MIN_INTERVAL),
-        },
+    entries = {
+        "claude": {**_provider(claude, today, tz, now.timestamp(),
+                               claude["limits"]["source"] if claude["limits"] else None,
+                               claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
+                   "auth": _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers else None,
+                   "breakdown": _breakdown(claude, now.timestamp(), tz)},
+        "codex": _provider(codex, today, tz, now.timestamp(),
+                           codex["limits"].get("source", "session_log") if codex["limits"] else None,
+                           codex["limits"]["plan"] if codex["limits"] else None, codex_errors,
+                           codex_limits.MIN_INTERVAL),
     }
     for key, limits in with_forecasts.items():
-        stats["providers"][key]["limits"] = limits
+        entries[key]["limits"] = limits
+    return entries
+
+
+def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
+        notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS,
+        thresholds=notify.THRESHOLDS, reset_notice=False) -> dict:
+    """One pass over the main account (see _pass); writes stats.json."""
+    stats = {"schema": SCHEMA, "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
+             "providers": _pass(paths, now, tz, fetch, codex_fetch, notifier, providers, thresholds,
+                                reset_notice)}
     write_json_atomic(paths.stats_file, stats)
     return stats
 

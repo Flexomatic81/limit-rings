@@ -78,7 +78,8 @@ def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> N
 
 
 def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
-                   thresholds: tuple[int, int] = THRESHOLDS, reset_notice: bool = False) -> list[Notice]:
+                   thresholds: tuple[int, int] = THRESHOLDS, reset_notice: bool = False,
+                   labels: dict[str, str] | None = None) -> list[Notice]:
     """Determine due notifications and record them in notified (key → level + window).
 
     providers maps the display name to its limits in stats.json format (with forecast, if any).
@@ -86,10 +87,13 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
     warning if the forecast sees it full soon (5 h: within 30 minutes, week: within 24 hours).
     Entries for vanished or expired windows are dropped so that the next window notifies again;
     with reset_notice, a window that had warned says so when it resets.
+    labels maps the provider name to the name shown (an additional account: "Claude (Work)");
+    the keys in notified keep the provider name.
     """
     notices = []
     current = set()
     for name, limits in providers.items():
+        shown = (labels or {}).get(name, name)
         for limit in limits:
             key = f"{name.lower()}:{limit['id']}"
             resets_at = limit.get("resets_at")
@@ -100,11 +104,11 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
             entry = notified.get(key)
             if entry is not None and not same_limit_window(entry, limit):
                 if reset_notice:
-                    notices.append(_reset_notice(key, name, limit))
+                    notices.append(_reset_notice(key, shown, limit))
                 entry = None  # new window
             if expired:
                 if entry is not None and reset_notice:
-                    notices.append(_reset_notice(key, name, limit))
+                    notices.append(_reset_notice(key, shown, limit))
                 notified.pop(key, None)
                 continue
             current.add(key)
@@ -113,7 +117,7 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
                     entry.update(resets_at=resets_at, minutes=minutes)
                 elif _early_warning_due(limit, now):
                     notified[key] = {"level": EARLY_LEVEL, "resets_at": resets_at, "minutes": minutes}
-                    notices.append(_early_notice(key, name, limit, pct, now))
+                    notices.append(_early_notice(key, shown, limit, pct, now))
                 else:
                     current.discard(key)
                 continue
@@ -122,9 +126,11 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
                 continue
             notified[key] = {"level": level, "resets_at": resets_at, "minutes": minutes}
             summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
-                "provider": name, "limit": _limit_name(limit), "percent": round(pct)}
+                "provider": shown, "limit": _limit_name(limit), "percent": round(pct)}
             notices.append(Notice(key=key, level=level, summary=summary,
                                   body=_countdown(resets_at, now), urgent=level >= thresholds[-1]))
+    given = {name.lower() for name in providers}
     for gone in set(notified) - current:
-        del notified[gone]
+        if gone.split(":", 1)[0] in given:  # a provider not given (hidden) keeps its entries
+            del notified[gone]
     return notices

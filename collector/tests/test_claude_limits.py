@@ -290,3 +290,8 @@ def test_single_windows_and_a_model_limit_without_a_general_weekly_limit():
     limits = normalize_oauth({"five_hour": five, "seven_day": None, "limits": [scoped]})
     assert [(l["id"], l.get("model"), l["window_minutes"]) for l in limits] == [
         ("five_hour", None, 300), ("weekly_scoped:fable", "Fable", 10080)]
+
+
+def test_no_status_line_cache_for_additional_accounts(tmp_path):
+    rec, _, _ = resolve(None, None, NOW, tmp_path / "missing", None)
+    assert rec is None
