@@ -64,17 +64,22 @@ def _shape_ok(data: dict) -> bool:
     notified = data["notified"]
     if not isinstance(notified, dict) or not all(
             isinstance(v, dict) and _int(v.get("level")) and (v.get("resets_at") is None or _int(v["resets_at"]))
-            for v in notified.values()):
+            and _minutes_ok(v) for v in notified.values()):
         return False
     history = data["history"]
     if not isinstance(history, dict) or not all(
-            isinstance(v, dict) and (v.get("resets_at") is None or _int(v["resets_at"]))
+            isinstance(v, dict) and (v.get("resets_at") is None or _int(v["resets_at"])) and _minutes_ok(v)
             and isinstance(v.get("points"), list)
             and all(isinstance(pt, list) and len(pt) == 2 and _num(pt[0]) and _num(pt[1]) for pt in v["points"])
             for v in history.values()):
         return False
     return all((s["oauth_last_attempt"] is None or _num(s["oauth_last_attempt"])) and _pause_ok(s["oauth_pause"])
                for s in (claude, codex))
+
+
+def _minutes_ok(entry: dict) -> bool:
+    """Window length of a history/notified entry: missing in older states, otherwise int or None."""
+    return entry.get("minutes") is None or _int(entry["minutes"])
 
 
 def _pause_ok(pause) -> bool:

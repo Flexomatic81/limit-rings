@@ -437,3 +437,43 @@ def test_extra_usage_and_credits_are_published(tmp_path):
 
     providers = run(make_paths(tmp_path / "plain"), NOW, BERLIN, fetch=ok_fetch)["providers"]
     assert providers["claude"]["extra"] is None and providers["codex"]["extra"] is None
+
+
+def test_codex_window_that_vanishes_and_returns_leaves_nothing_behind(tmp_path):
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+    reset = int(NOW.timestamp())
+    five = {"used_percent": 85, "limit_window_seconds": 18000, "reset_at": reset + 3600}
+    week = {"used_percent": 20, "limit_window_seconds": 604800, "reset_at": reset + 5 * 86400}
+
+    def answer(primary, secondary):
+        def fetch(token, account_id, timeout=10.0):
+            return {"plan_type": "plus", "rate_limit": {"primary_window": primary, "secondary_window": secondary}}
+        return fetch
+
+    def windows(stats):
+        return [(l["id"], l["window_minutes"]) for l in stats["providers"]["codex"]["limits"]]
+
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=answer(five, week), notifier=lambda n: True)
+    assert windows(stats) == [("primary", 300), ("secondary", 10080)]
+    state = json.loads(p.state_file.read_text())
+    assert state["notified"]["codex:primary"]["minutes"] == 300
+
+    # 5-hour window gone, the weekly one moves into "primary"
+    later = NOW + timedelta(minutes=10)
+    stats = run(p, later, BERLIN, fetch=ok_fetch, codex_fetch=answer(week, None), notifier=lambda n: True)
+    assert windows(stats) == [("primary", 10080)]
+    state = json.loads(p.state_file.read_text())
+    assert sorted(k for k in state["history"] if k.startswith("codex:")) == ["codex:primary"]
+    assert state["history"]["codex:primary"]["minutes"] == 10080
+    assert "codex:primary" not in state["notified"] and "codex:secondary" not in state["notified"]
+
+    # and back again: the 5-hour window starts fresh and notifies again
+    notices = []
+    stats = run(p, later + timedelta(minutes=10), BERLIN, fetch=ok_fetch, codex_fetch=answer(five, week),
+                notifier=lambda n: notices.append(n) or True)
+    assert windows(stats) == [("primary", 300), ("secondary", 10080)]
+    state = json.loads(p.state_file.read_text())
+    assert len(state["history"]["codex:primary"]["points"]) == 1
+    assert [n.key for n in notices if n.key.startswith("codex:")] == ["codex:primary"]

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from .i18n import _
-from .limits import public_limit, same_window, window_text
+from .limits import public_limit, same_limit_window, window_text
 
 THRESHOLDS = (80, 95)
 URGENT_LEVEL = 95
@@ -83,11 +83,12 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
         for limit in limits:
             key = f"{name.lower()}:{limit['id']}"
             resets_at = limit.get("resets_at")
+            minutes = limit.get("window_minutes")
             expired = resets_at is not None and resets_at <= now
             pct = 0.0 if expired else limit["used_percent"]
             level = max((t for t in THRESHOLDS if pct >= t), default=None)
             entry = notified.get(key)
-            if entry is not None and not same_window(entry["resets_at"], resets_at):
+            if entry is not None and not same_limit_window(entry, limit):
                 entry = None  # new window
             if expired:
                 notified.pop(key, None)
@@ -95,17 +96,17 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
             current.add(key)
             if level is None:
                 if entry is not None:
-                    entry["resets_at"] = resets_at
+                    entry.update(resets_at=resets_at, minutes=minutes)
                 elif _early_warning_due(limit, now):
-                    notified[key] = {"level": EARLY_LEVEL, "resets_at": resets_at}
+                    notified[key] = {"level": EARLY_LEVEL, "resets_at": resets_at, "minutes": minutes}
                     notices.append(_early_notice(key, name, limit, pct, now))
                 else:
                     current.discard(key)
                 continue
             if entry is not None and entry["level"] >= level:
-                entry["resets_at"] = resets_at
+                entry.update(resets_at=resets_at, minutes=minutes)
                 continue
-            notified[key] = {"level": level, "resets_at": resets_at}
+            notified[key] = {"level": level, "resets_at": resets_at, "minutes": minutes}
             summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
                 "provider": name, "limit": _limit_name(limit), "percent": round(pct)}
             notices.append(Notice(key=key, level=level, summary=summary,

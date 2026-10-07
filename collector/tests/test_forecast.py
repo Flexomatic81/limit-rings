@@ -70,7 +70,7 @@ def test_new_window_restarts_history_and_old_points_are_dropped():
     h = {}
     feed(h, [(0, 50.0), (600, 60.0)])
     update_history(h, {"Claude": ([five_h(1.0, resets_at=RESET + 5 * 3600)], T0 + 700)})
-    assert h["claude:five_hour"] == {"resets_at": RESET + 5 * 3600, "points": [[T0 + 700, 1.0]]}
+    assert h["claude:five_hour"] == {"resets_at": RESET + 5 * 3600, "minutes": 300, "points": [[T0 + 700, 1.0]]}
     feed(h, [(700 + 3700, 2.0)], limit_factory=lambda p: five_h(p, resets_at=RESET + 5 * 3600))
     assert [p[0] for p in h["claude:five_hour"]["points"]] == [T0 + 4400]  # older than 60 min is dropped
 
@@ -85,7 +85,7 @@ def test_five_hour_and_week_windows_are_tracked_and_vanished_ones_removed():
 def test_missing_updated_at_adds_no_point():
     h = {}
     update_history(h, {"Claude": ([five_h(5.0)], None)})
-    assert h == {"claude:five_hour": {"resets_at": RESET, "points": []}}
+    assert h == {"claude:five_hour": {"resets_at": RESET, "minutes": 300, "points": []}}
     assert forecast(h["claude:five_hour"], RESET, T0) is None
 
 
@@ -129,3 +129,18 @@ def test_week_points_are_thinned_to_ten_minutes():
     h = {}
     feed(h, [(0, 10.0), (300, 10.0), (599, 10.0), (600, 11.0)], limit_factory=week_at)
     assert [p[0] - T0 for p in h["claude:seven_day"]["points"]] == [0, 600]
+
+
+def test_window_length_change_without_reset_times_restarts_history():
+    """Codex can move its weekly window into "primary" when the 5-hour window goes away."""
+    h = {}
+    feed(h, [(0, 40.0), (600, 50.0)], name="Codex", limit_factory=lambda p: five_h(p, resets_at=None, id="primary"))
+    as_week = {"id": "primary", "used_percent": 7.0, "resets_at": None, "window_minutes": 10080}
+    update_history(h, {"Codex": ([as_week], T0 + 1200)})
+    assert h["codex:primary"]["points"] == [[T0 + 1200, 7.0]]
+
+
+def test_history_from_before_window_lengths_were_recorded_keeps_its_points():
+    h = {"claude:five_hour": {"resets_at": RESET, "points": [[T0, 5.0]]}}
+    update_history(h, {"Claude": ([five_h(6.0)], T0 + 600)})
+    assert h["claude:five_hour"]["points"] == [[T0, 5.0], [T0 + 600, 6.0]]

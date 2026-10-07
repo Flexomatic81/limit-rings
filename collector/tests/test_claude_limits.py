@@ -278,3 +278,15 @@ def test_oauth_record_carries_extra_usage_only_when_enabled(tmp_path):
                                   "utilization": 24.68, "currency": "USD"}}
     rec, _, _ = resolve(None, None, NOW, creds(tmp_path), tmp_path / "x", fetch=lambda token, timeout=10.0: on)
     assert rec["extra"] == {"kind": "extra_usage", "used": 12.34, "limit": 50.0, "percent": 24.68, "currency": "USD"}
+
+
+def test_single_windows_and_a_model_limit_without_a_general_weekly_limit():
+    five = {"utilization": 12.0, "resets_at": "2026-10-04T14:00:00+00:00"}
+    week = {"utilization": 30.0, "resets_at": "2026-10-06T04:00:00+00:00"}
+    assert [l["id"] for l in normalize_oauth({"five_hour": None, "seven_day": week})] == ["seven_day"]
+    assert [l["id"] for l in normalize_oauth({"five_hour": five, "seven_day": None})] == ["five_hour"]
+    scoped = {"kind": "weekly_scoped", "percent": 9, "resets_at": "2026-10-06T04:00:00+00:00",
+              "scope": {"model": {"display_name": "Fable"}}}
+    limits = normalize_oauth({"five_hour": five, "seven_day": None, "limits": [scoped]})
+    assert [(l["id"], l.get("model"), l["window_minutes"]) for l in limits] == [
+        ("five_hour", None, 300), ("weekly_scoped:fable", "Fable", 10080)]

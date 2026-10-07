@@ -104,13 +104,15 @@ def test_notified_section_defaults_and_validation(tmp_path):
     p.write_text(json.dumps(old))
     assert load_state(p)["notified"] == {}
     for bad in [None, [], {"claude:five_hour": None}, {"claude:five_hour": {"level": "80", "resets_at": None}},
-                {"claude:five_hour": {"level": 80, "resets_at": "tomorrow"}}]:
+                {"claude:five_hour": {"level": 80, "resets_at": "tomorrow"}},
+                {"claude:five_hour": {"level": 80, "resets_at": None, "minutes": "5 h"}}]:
         s = new_state()
         s["notified"] = bad
         p.write_text(json.dumps(s))
         assert load_state(p) == new_state()
     good = new_state()
-    good["notified"] = {"claude:five_hour": {"level": 95, "resets_at": 1791122400}}
+    good["notified"] = {"claude:five_hour": {"level": 95, "resets_at": 1791122400},
+                        "codex:primary": {"level": 80, "resets_at": None, "minutes": 10080}}
     p.write_text(json.dumps(good))
     assert load_state(p) == good
 
@@ -123,13 +125,15 @@ def test_history_section_defaults_and_validation(tmp_path):
     assert load_state(p)["history"] == {}
     for bad in [None, {"claude:five_hour": None}, {"claude:five_hour": {"resets_at": None, "points": None}},
                 {"claude:five_hour": {"resets_at": None, "points": [[1, "x"]]}},
-                {"claude:five_hour": {"resets_at": None, "points": [[1]]}}]:
+                {"claude:five_hour": {"resets_at": None, "points": [[1]]}},
+                {"claude:five_hour": {"resets_at": None, "minutes": 3.5, "points": []}}]:
         s = new_state()
         s["history"] = bad
         p.write_text(json.dumps(s))
         assert load_state(p) == new_state()
     good = new_state()
-    good["history"] = {"claude:five_hour": {"resets_at": 1791122400, "points": [[1791100000.5, 10.0]]}}
+    good["history"] = {"claude:five_hour": {"resets_at": 1791122400, "points": [[1791100000.5, 10.0]]},
+                       "codex:primary": {"resets_at": None, "minutes": 300, "points": []}}
     p.write_text(json.dumps(good))
     assert load_state(p) == good
 

@@ -371,6 +371,8 @@ TestCase {
         compare(F.ringValues([week(7)], now), {outer: 7, inner: null})          // Codex: week only
         compare(F.ringValues([five(40)], now), {outer: null, inner: 40})
         compare(F.ringValues([five(90, 999), week(20), week(60, "Fable")], now), {outer: 60, inner: 0})  // reset has passed
+        compare(F.ringValues([week(12, "Fable")], now), {outer: 12, inner: null})  // only a model's weekly limit
+        compare(F.ringValues([week(7), five(40)], now), {outer: 7, inner: 40})     // Codex: week moved to "primary"
         compare(F.ringValues([], now), {outer: null, inner: null})
         compare(F.ringValues(null, now), {outer: null, inner: null})
         // only a window of another length: highest value on the outer ring, as before

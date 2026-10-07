@@ -14,7 +14,7 @@ def test_first_crossing_of_80_sends_one_normal_notice():
     notices = update_notices({"Claude": [limit()]}, notified, NOW)
     assert notices == [Notice(key="claude:five_hour", level=80, summary="Claude: 5-hour limit at 82 %",
                               body="Reset in 1 h 13 min", urgent=False)]
-    assert notified == {"claude:five_hour": {"level": 80, "resets_at": int(NOW) + 4380}}
+    assert notified == {"claude:five_hour": {"level": 80, "resets_at": int(NOW) + 4380, "minutes": 300}}
 
 
 def test_same_window_does_not_notify_twice():
@@ -132,3 +132,15 @@ def test_texts_go_through_the_translation(monkeypatch):
 def test_model_is_named_for_other_windows_too():
     scoped = limit(id="x", pct=81.0, resets_at=None, window_minutes=2880, model="Opus")
     assert update_notices({"Claude": [scoped]}, {}, NOW)[0].summary == "Claude: 2 d Opus limit at 81 %"
+
+
+def test_window_length_change_without_reset_times_notifies_again():
+    notified = {}
+    update_notices({"Codex": [limit(id="primary", resets_at=None)]}, notified, NOW)
+    notices = update_notices({"Codex": [limit(id="primary", resets_at=None, window_minutes=10080)]}, notified, NOW + 60)
+    assert [n.level for n in notices] == [80]
+
+
+def test_entries_from_before_window_lengths_were_recorded_still_count():
+    notified = {"claude:five_hour": {"level": 80, "resets_at": int(NOW) + 4380}}
+    assert update_notices({"Claude": [limit(pct=85.0)]}, notified, NOW) == []

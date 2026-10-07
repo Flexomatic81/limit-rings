@@ -67,6 +67,34 @@ TestCase {
         full.stats = stats
     }
 
+    function test_vanished_limit_leaves_no_bar_behind() {
+        const bars = () => {
+            const found = []
+            const walk = item => {
+                for (let i = 0; i < item.children.length; i++) {
+                    const c = item.children[i]
+                    if (c.limit !== undefined && c.nowSec !== undefined && c.visible) found.push(c)
+                    walk(c)
+                }
+            }
+            walk(full)
+            return found
+        }
+        const original = full.stats
+        const stats = JSON.parse(JSON.stringify(original))
+        stats.providers.claude.limits = [{id: "five_hour", used_percent: 6, resets_at: null, window_minutes: 300},
+                                         {id: "seven_day", used_percent: 30, resets_at: null, window_minutes: 10080}]
+        full.stats = stats
+        waitForRendering(full)
+        compare(bars().length, 2)
+        const fewer = JSON.parse(JSON.stringify(stats))
+        fewer.providers.claude.limits = [{id: "seven_day", used_percent: 31, resets_at: null, window_minutes: 10080}]
+        full.stats = fewer
+        waitForRendering(full)
+        compare(bars().map(b => b.limit.id), ["seven_day"])
+        full.stats = original
+    }
+
     // Plasma creates the popup with width 0 and adopts the first minimum height; after that it
     // never shrinks. If the cards were stacked at that point, empty space would remain at the bottom.
     function test_first_minimum_height_already_uses_two_columns() {

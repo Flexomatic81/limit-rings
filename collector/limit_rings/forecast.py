@@ -7,7 +7,7 @@ Because the values only come in whole percent, the data points need a minimum di
 
 from dataclasses import dataclass
 
-from .limits import same_window
+from .limits import same_limit_window
 
 
 @dataclass(frozen=True)
@@ -41,9 +41,10 @@ def update_history(history: dict, providers: dict[str, tuple[list[dict], float |
             key = f"{name.lower()}:{limit['id']}"
             current.add(key)
             entry = history.get(key)
-            if entry is None or not same_window(entry["resets_at"], limit.get("resets_at")):
+            if entry is None or not same_limit_window(entry, limit):
                 entry = history[key] = {"resets_at": limit.get("resets_at"), "points": []}
             entry["resets_at"] = limit.get("resets_at")
+            entry["minutes"] = limit.get("window_minutes")
             points = entry["points"]
             newer = updated_at is not None and (
                 not points or (updated_at > points[-1][0] and updated_at - points[-1][0] >= profile.min_gap))

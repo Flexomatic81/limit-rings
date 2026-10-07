@@ -133,3 +133,12 @@ def test_record_carries_credits_only_with_a_balance(tmp_path):
     rich = {**base, "credits": {**base["credits"], "has_credits": True, "balance": "120"}}
     rec, _ = resolve(None, None, NOW, auth(tmp_path), fetch=lambda token, account_id, timeout=10.0: rich)
     assert rec["extra"] == {"kind": "credits", "balance": 120.0, "unlimited": False}
+
+
+def test_usage_with_only_a_secondary_or_swapped_windows():
+    week = {"used_percent": 7, "limit_window_seconds": 604800, "reset_at": 2}
+    five = {"used_percent": 30, "limit_window_seconds": 18000, "reset_at": 1}
+    only_secondary, _ = normalize_codex_usage({"rate_limit": {"primary_window": None, "secondary_window": week}})
+    assert [(l["id"], l["window_minutes"]) for l in only_secondary] == [("secondary", 10080)]
+    swapped, _ = normalize_codex_usage({"rate_limit": {"primary_window": week, "secondary_window": five}})
+    assert [(l["id"], l["window_minutes"]) for l in swapped] == [("primary", 10080), ("secondary", 300)]

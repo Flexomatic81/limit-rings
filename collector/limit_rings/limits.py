@@ -15,6 +15,18 @@ def same_window(resets_a, resets_b) -> bool:
     return abs(resets_a - resets_b) <= RESET_TOLERANCE
 
 
+def same_limit_window(entry: dict, limit: dict) -> bool:
+    """Does a stored entry (history, notified) still describe the window of this limit?
+
+    Besides the reset time the window length counts: Codex can move another window into "primary".
+    Entries from before the length was recorded have no "minutes" and match on the reset alone.
+    """
+    minutes = entry.get("minutes")
+    if minutes is not None and minutes != limit.get("window_minutes"):
+        return False
+    return same_window(entry["resets_at"], limit.get("resets_at"))
+
+
 def window_text(minutes: int) -> str:
     """Language-neutral window length ("5 h", "7 d", "45 min"); the plasmoid names the windows."""
     if minutes % 1440 == 0:

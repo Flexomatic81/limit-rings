@@ -190,6 +190,9 @@ Rules:
   | Most recent point at most | 30 min old | 6 h old |
   | Points kept / minimum spacing | 60 min / – | 24 h / 10 min |
 
+  A new window – different `resets_at` or a different window length under the same id (Codex can
+  move its weekly window into `primary`) – restarts the history; entries keep the length as `minutes`.
+
   Card: line below the bar ("Full in ~1 h 20 min at current pace (13:40)", with the weekday
   "(Sat 14:00)" once a day or more away, or "Lasts until reset at current pace"); tooltip: short form.
 - `breakdown` exists only for Claude: token totals since the start of the Claude weekly window
@@ -264,7 +267,7 @@ Rules:
 The collector decides, the widget shows: due notices come in the envelope and are sent as
 KNotification (`componentName: plasma_workspace`, hint `x-kde-display-appname`) as soon as a
 Claude or Codex limit reaches **80 %** or **95 %** — once per limit and level per window.
-A new window (different `resets_at`) or a drop below 80 % re-arms the notification; a window whose
+A new window (different `resets_at` or window length) or a drop below 80 % re-arms the notification; a window whose
 reset has passed counts as 0 %. If a limit jumps straight past 95 %, only the 95 % notification is
 sent; it is marked as urgent. In addition, the **5-hour limit** gets an early warning when the forecast
 sees it full within 30 minutes and 80 % has not yet been reached ("Claude: 5-hour limit full in ~25 min",
