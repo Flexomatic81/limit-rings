@@ -17,6 +17,7 @@ from datetime import datetime, tzinfo
 from pathlib import Path
 
 from .collect import PROVIDERS, Paths, local_zone, run_safely
+from .notify import THRESHOLDS
 
 ENVELOPE = 1
 LOG_BYTES = 256 * 1024
@@ -73,8 +74,23 @@ def shown_providers(value: str | None) -> frozenset:
     return frozenset(name.strip() for name in value.split(",")) & PROVIDERS
 
 
+def notice_thresholds(value: str | None) -> tuple[int, int]:
+    """LIMIT_RINGS_THRESHOLDS ("80,95", set by the widget) → two rising percentages; anything else: default."""
+    try:
+        first, second = (int(part) for part in (value or "").split(","))
+    except ValueError:
+        return THRESHOLDS
+    return (first, second) if 1 <= first < second <= 100 else THRESHOLDS
+
+
+def reset_notice(value: str | None) -> bool:
+    """LIMIT_RINGS_RESET_NOTICE ("1"): tell when a window that had warned has reset."""
+    return value == "1"
+
+
 def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], tz: tzinfo, notify: bool = True,
-                 wait: float = LOCK_WAIT, providers=PROVIDERS) -> tuple[dict, int]:
+                 wait: float = LOCK_WAIT, providers=PROVIDERS, thresholds=THRESHOLDS,
+                 reset_notice: bool = False) -> tuple[dict, int]:
     """Run one pass, after the pass of another instance if that one holds the lock; return envelope and exit code.
 
     Every instance gets its own pass: one that gave up on a busy lock would never see a notice while the other
@@ -84,6 +100,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
 
     notify=False (the widget has notifications off) leaves due notices for an instance that shows them.
     providers: the providers the widget shows; the others are neither read nor queried.
+    thresholds, reset_notice: the widget's notification settings.
 
     A pass that waited while uninstall.sh deleted the cache holds the deleted lock file: it does nothing (stats
     null, exit 0) and writes nothing, so the deleted directory is not recreated."""
@@ -96,7 +113,8 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
         elif not _still_the_lock(fd, lock_file):
             stats = None
         else:
-            stats = run_safely(paths, clock(), tz, notices.append if notify else None, providers=providers)
+            stats = run_safely(paths, clock(), tz, notices.append if notify else None, providers=providers,
+                               thresholds=thresholds, reset_notice=reset_notice)
             if stats is None:
                 code = 1
                 notices.clear()  # state.json was not saved: they come again with the next pass
@@ -127,6 +145,8 @@ def main(home: Path | None = None) -> int:
         tz = local_zone()
         notify = os.environ.get("LIMIT_RINGS_NOTIFY", "1") != "0"  # set by the widget from its settings
         envelope, code = collect_once(paths, cache / ".lock", lambda: datetime.now(tz), tz, notify,
-                                      providers=shown_providers(os.environ.get("LIMIT_RINGS_PROVIDERS")))
+                                      providers=shown_providers(os.environ.get("LIMIT_RINGS_PROVIDERS")),
+                                      thresholds=notice_thresholds(os.environ.get("LIMIT_RINGS_THRESHOLDS")),
+                                      reset_notice=reset_notice(os.environ.get("LIMIT_RINGS_RESET_NOTICE")))
     sys.stdout.write(json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n")
     return code

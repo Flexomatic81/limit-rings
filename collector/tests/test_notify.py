@@ -91,11 +91,52 @@ def test_early_warning_when_five_hour_limit_is_full_within_30_minutes():
                                             notified, NOW + 120)] == [80]
 
 
-def test_no_early_warning_when_far_away_or_for_weekly_limits():
+def test_no_early_warning_when_far_away():
     later = with_forecast(limit(pct=62.0), int(NOW) + 31 * 60)
-    weekly = with_forecast(limit(id="seven_day", pct=62.0, window_minutes=10080),
-                           int(NOW) + 10 * 60)
+    weekly = with_forecast(limit(id="seven_day", pct=62.0, window_minutes=10080, resets_at=int(NOW) + 5 * 86400),
+                           int(NOW) + 25 * 3600)
     assert update_notices({"Claude": [later, weekly]}, {}, NOW) == []
+
+
+def test_early_warning_for_the_weekly_limit_within_a_day():
+    notified = {}
+    weekly = with_forecast(limit(id="seven_day", pct=62.0, window_minutes=10080, resets_at=int(NOW) + 2 * 86400),
+                           int(NOW) + 18 * 3600)
+    notices = update_notices({"Claude": [weekly]}, notified, NOW)
+    assert notices == [Notice(key="claude:seven_day", level=0, summary="Claude: weekly limit full in ~18 h 0 min",
+                              body="Now 62 % · Reset in 2 d 0 h", urgent=False)]
+    assert update_notices({"Claude": [weekly]}, notified, NOW + 600) == []
+
+
+def test_custom_thresholds_and_urgency_at_the_second_one():
+    notified = {}
+    at = lambda pct: update_notices({"Claude": [limit(pct=pct)]}, notified, NOW, thresholds=(50, 75))
+    assert [(n.level, n.urgent) for n in at(55.0)] == [(50, False)]
+    assert at(60.0) == []
+    assert [(n.level, n.urgent) for n in at(76.0)] == [(75, True)]
+
+
+def test_reset_notice_only_after_a_warning_and_only_when_wanted():
+    def run(notified, pct, resets_at, now, wanted=True):
+        return update_notices({"Claude": [limit(pct=pct, resets_at=resets_at)]}, notified, now, reset_notice=wanted)
+    # warned window whose reset time passes
+    notified = {}
+    run(notified, 85.0, int(NOW) + 600, NOW)
+    notices = run(notified, 85.0, int(NOW) + 600, NOW + 700)
+    assert [(n.key, n.level, n.summary, n.body, n.urgent) for n in notices] == [
+        ("claude:five_hour", -1, "Claude: 5-hour limit reset", "", False)]
+    assert run(notified, 0.0, int(NOW) + 18600, NOW + 800) == []          # the new window says nothing more
+    # warned window replaced by a new one before its reset time was seen to pass
+    notified = {}
+    run(notified, 85.0, int(NOW) + 600, NOW)
+    assert [n.level for n in run(notified, 3.0, int(NOW) + 18600, NOW + 60)] == [-1]
+    # never warned: no reset notice; switched off: none either
+    notified = {}
+    run(notified, 20.0, int(NOW) + 600, NOW)
+    assert run(notified, 20.0, int(NOW) + 600, NOW + 700) == []
+    notified = {}
+    run(notified, 85.0, int(NOW) + 600, NOW, wanted=False)
+    assert run(notified, 85.0, int(NOW) + 600, NOW + 700, wanted=False) == []
 
 
 def test_early_warning_with_eta_already_reached():

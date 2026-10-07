@@ -513,3 +513,15 @@ def test_no_providers_means_no_requests_at_all(tmp_path):
         raise AssertionError("must not fetch")
     stats = run(p, NOW, BERLIN, fetch=forbidden, codex_fetch=forbidden, providers=set())
     assert stats["providers"]["claude"]["limits"] == [] and stats["providers"]["codex"]["limits"] == []
+
+
+def test_notice_settings_reach_the_notifications(tmp_path):
+    p = make_paths(tmp_path)
+    notices = []
+
+    def at(pct):
+        def fetch(token, timeout=10.0):
+            return {"five_hour": {"utilization": pct, "resets_at": None}}
+        return fetch
+    run(p, NOW, BERLIN, fetch=at(55.0), notifier=notices.append, thresholds=(50, 75))
+    assert [(n.key, n.level) for n in notices] == [("claude:five_hour", 50)]

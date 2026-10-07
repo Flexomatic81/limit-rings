@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 17:18+0200\n"
+"POT-Creation-Date: 2026-10-07 17:57+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -267,8 +267,20 @@ msgid "Notifications:"
 msgstr "Benachrichtigungen:"
 
 #, kde-format
-msgid "Warn when a limit reaches 80 % or 95 %"
-msgstr "Warnen, wenn ein Limit 80 % oder 95 % erreicht"
+msgid "Warn when a limit reaches %1 % or %2 %"
+msgstr "Warnen, wenn ein Limit %1 % oder %2 % erreicht"
+
+#, kde-format
+msgid "Notify at (%):"
+msgstr "Benachrichtigen ab (%):"
+
+#, kde-format
+msgid "Urgent at (%):"
+msgstr "Dringend ab (%):"
+
+#, kde-format
+msgid "Tell me when a limit has reset after a warning"
+msgstr "Melden, wenn ein Limit nach einer Warnung zurückgesetzt wurde"
 
 #, kde-format
 msgid "Panel:"

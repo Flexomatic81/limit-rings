@@ -278,16 +278,23 @@ Rules:
 
 The collector decides, the widget shows: due notices come in the envelope and are sent as
 KNotification (`componentName: plasma_workspace`, hint `x-kde-display-appname`) as soon as a
-Claude or Codex limit reaches **80 %** or **95 %** — once per limit and level per window.
-A new window (different `resets_at` or window length) or a drop below 80 % re-arms the notification; a window whose
-reset has passed counts as 0 %. If a limit jumps straight past 95 %, only the 95 % notification is
-sent; it is marked as urgent. In addition, the **5-hour limit** gets an early warning when the forecast
-sees it full within 30 minutes and 80 % has not yet been reached ("Claude: 5-hour limit full in ~25 min",
-"Now 62 % · Reset in …") — likewise once per window, normal urgency; weekly limits
-get no early warning. Notifications already sent are recorded in `state.json` under
-`notified`. The thresholds are fixed and independent of the widget's colour thresholds. With
-notifications switched off in an instance, its passes leave due notices untouched (nothing is
-recorded), so an instance that has them on – or switching them back on – still shows them.
+Claude or Codex limit reaches the **first** or **second** threshold (default 80 % and 95 %, set in the
+widget) — once per limit and level per window. A new window (different `resets_at` or window length)
+or a drop below the first threshold re-arms the notification; a window whose reset has passed counts as
+0 %. If a limit jumps straight past the second threshold, only that notification is sent; it is marked
+as urgent. Below the first threshold a limit gets an early warning when the forecast sees it full soon:
+the **5-hour limit** within 30 minutes, the **weekly limit** within 24 hours ("Claude: 5-hour limit
+full in ~25 min", "Now 62 % · Reset in …") — likewise once per window, normal urgency. Optionally (off
+by default) a window that had warned says so when it resets ("Claude: 5-hour limit reset").
+Notifications already sent are recorded in `state.json` under `notified`. The notification thresholds
+are independent of the widget's colour thresholds.
+
+The widget passes its settings to the collector: `LIMIT_RINGS_NOTIFY=0|1`,
+`LIMIT_RINGS_THRESHOLDS=80,95` (two rising values from 1 to 100, otherwise the default) and
+`LIMIT_RINGS_RESET_NOTICE=0|1`. With notifications switched off in an instance, its passes leave due
+notices untouched (nothing is recorded), so an instance that has them on – or switching them back on –
+still shows them. Several instances share what was already notified; with different thresholds the
+instance that runs first decides.
 
 ## Error handling
 

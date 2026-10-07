@@ -57,7 +57,7 @@ def lock_of(paths: Paths) -> Path:
 
 
 def test_envelope_carries_stats_and_notices(paths, monkeypatch):
-    def fake(p, now, tz, notifier, providers=None):
+    def fake(p, now, tz, notifier, **kw):
         notifier(NOTICE)
         return {"schema": 2}
     monkeypatch.setattr(widget, "run_safely", fake)
@@ -69,7 +69,7 @@ def test_envelope_carries_stats_and_notices(paths, monkeypatch):
 def test_muted_instance_does_not_evaluate_notices(paths, monkeypatch):
     seen = []
 
-    def fake(p, now, tz, notifier, providers=None):
+    def fake(p, now, tz, notifier, **kw):
         seen.append(notifier)
         return {"schema": 2}
     monkeypatch.setattr(widget, "run_safely", fake)
@@ -79,7 +79,7 @@ def test_muted_instance_does_not_evaluate_notices(paths, monkeypatch):
 
 def test_main_reads_the_notification_setting_from_the_environment(tmp_path, monkeypatch, capsys):
     seen = []
-    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier, providers=None: seen.append(notifier) or {"schema": 2})
+    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier, **kw: seen.append(notifier) or {"schema": 2})
     monkeypatch.setenv("LIMIT_RINGS_NOTIFY", "0")
     widget.main(home=tmp_path)
     assert seen == [None]
@@ -88,7 +88,7 @@ def test_main_reads_the_notification_setting_from_the_environment(tmp_path, monk
 def test_lock_is_held_during_the_run(paths, monkeypatch):
     lock = lock_of(paths)
 
-    def fake(p, now, tz, notifier, providers=None):
+    def fake(p, now, tz, notifier, **kw):
         fd = os.open(lock, os.O_RDWR)
         try:
             with pytest.raises(BlockingIOError):
@@ -106,7 +106,7 @@ def test_waits_for_a_busy_lock_and_then_runs_its_own_pass(paths, monkeypatch):
     fcntl.flock(fd, fcntl.LOCK_EX)
     threading.Timer(0.3, os.close, [fd]).start()   # the other instance finishes its pass
 
-    def fake(p, now, tz, notifier, providers=None):
+    def fake(p, now, tz, notifier, **kw):
         notifier(NOTICE)
         return {"schema": 2}
     monkeypatch.setattr(widget, "run_safely", fake)
@@ -149,7 +149,7 @@ def test_main_leaves_no_cache_behind_when_it_was_purged_during_the_wait(tmp_path
 
 def test_clock_is_read_after_waiting_for_the_lock(paths, monkeypatch):
     seen = []
-    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier, providers=None: seen.append(now) or {"schema": 2})
+    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier, **kw: seen.append(now) or {"schema": 2})
     widget.collect_once(paths, lock_of(paths), lambda: NOW, TZ)
     assert seen == [NOW]
 
@@ -186,7 +186,7 @@ def test_failed_run_returns_last_stats_exit_1_and_no_notices(paths, monkeypatch)
     lock = lock_of(paths)
     paths.stats_file.write_text('{"schema": 2}')
 
-    def fake(p, now, tz, notifier, providers=None):
+    def fake(p, now, tz, notifier, **kw):
         notifier(NOTICE)   # recorded before the crash, but state.json was not saved: must not be shown
         return None
     monkeypatch.setattr(widget, "run_safely", fake)
@@ -196,7 +196,7 @@ def test_failed_run_returns_last_stats_exit_1_and_no_notices(paths, monkeypatch)
 
 
 def test_main_prints_one_json_line_and_logs_to_a_file(tmp_path, monkeypatch, capsys):
-    def fake(p, now, tz, notifier, providers=None):
+    def fake(p, now, tz, notifier, **kw):
         logging.getLogger("limit_rings").warning("something odd")
         return {"schema": 2, "note": "5-Stunden-Limit für Ä"}
     monkeypatch.setattr(widget, "run_safely", fake)
@@ -255,7 +255,7 @@ def test_legacy_timer_stops_collection_and_is_reported(tmp_path, monkeypatch, ca
 def test_main_reads_the_shown_providers_from_the_environment(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(widget, "run_safely",
-                        lambda p, now, tz, notifier, providers: seen.append(providers) or {"schema": 2})
+                        lambda p, now, tz, notifier, providers, **kw: seen.append(providers) or {"schema": 2})
     for value, expected in ((None, {"claude", "codex"}), ("codex", {"codex"}), ("claude,codex", {"claude", "codex"}),
                             ("", set()), ("codex,gemini, claude", {"claude", "codex"})):
         if value is None:
@@ -264,3 +264,24 @@ def test_main_reads_the_shown_providers_from_the_environment(tmp_path, monkeypat
             monkeypatch.setenv("LIMIT_RINGS_PROVIDERS", value)
         widget.main(home=tmp_path)
         assert seen[-1] == expected, value
+
+
+def test_notice_settings_from_the_environment():
+    assert widget.notice_thresholds(None) == (80, 95)
+    assert widget.notice_thresholds("50,75") == (50, 75)
+    assert widget.notice_thresholds(" 60 , 90 ") == (60, 90)
+    for bad in ("", "80", "95,80", "80,80", "0,50", "50,101", "a,b", "50,75,90"):
+        assert widget.notice_thresholds(bad) == (80, 95), bad
+    assert widget.reset_notice(None) is False
+    assert widget.reset_notice("1") is True and widget.reset_notice("0") is False
+
+
+def test_main_passes_the_notice_settings(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(widget, "run_safely",
+                        lambda p, now, tz, notifier, providers=None, thresholds=None, reset_notice=None:
+                        seen.append((thresholds, reset_notice)) or {"schema": 2})
+    monkeypatch.setenv("LIMIT_RINGS_THRESHOLDS", "60,85")
+    monkeypatch.setenv("LIMIT_RINGS_RESET_NOTICE", "1")
+    widget.main(home=tmp_path)
+    assert seen == [((60, 85), True)]

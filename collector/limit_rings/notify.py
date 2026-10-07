@@ -1,15 +1,17 @@
-"""When to warn about a limit (80 % or 95 %, once per window) – the widget shows the notifications."""
+"""When to warn about a limit (two thresholds, 80 % and 95 % by default, once per window).
+
+The widget shows the notifications."""
 
 from dataclasses import dataclass
 
 from .i18n import _
 from .limits import public_limit, same_limit_window, window_text
 
-THRESHOLDS = (80, 95)
-URGENT_LEVEL = 95
+THRESHOLDS = (80, 95)  # default; the second one is urgent
 EARLY_LEVEL = 0  # level of the forecast-based early warning (below all thresholds)
-EARLY_WARNING_SPAN = 30 * 60
-EARLY_WARNING_WINDOW_MINUTES = 300
+RESET_LEVEL = -1  # level of the notice that a warned window has reset
+# Early warning when the forecast sees a limit full within this span (window length → seconds)
+EARLY_WARNING_SPANS = {300: 30 * 60, 10080: 24 * 3600}
 
 
 @dataclass(frozen=True)
@@ -55,8 +57,14 @@ def _countdown(resets_at, now: float) -> str:
 
 def _early_warning_due(limit: dict, now: float) -> bool:
     fc = limit.get("forecast")
-    return (limit.get("window_minutes") == EARLY_WARNING_WINDOW_MINUTES and isinstance(fc, dict)
-            and fc.get("status") == "full" and fc["eta"] - now <= EARLY_WARNING_SPAN)
+    span = EARLY_WARNING_SPANS.get(limit.get("window_minutes"))
+    return (span is not None and isinstance(fc, dict)
+            and fc.get("status") == "full" and fc["eta"] - now <= span)
+
+
+def _reset_notice(key: str, name: str, limit: dict) -> Notice:
+    summary = _("%(provider)s: %(limit)s reset") % {"provider": name, "limit": _limit_name(limit)}
+    return Notice(key=key, level=RESET_LEVEL, summary=summary, body="", urgent=False)
 
 
 def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> Notice:
@@ -69,13 +77,15 @@ def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> N
     return Notice(key=key, level=EARLY_LEVEL, summary=summary, body=body, urgent=False)
 
 
-def update_notices(providers: dict[str, list[dict]], notified: dict, now: float) -> list[Notice]:
+def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
+                   thresholds: tuple[int, int] = THRESHOLDS, reset_notice: bool = False) -> list[Notice]:
     """Determine due notifications and record them in notified (key → level + window).
 
     providers maps the display name to its limits in stats.json format (with forecast, if any).
-    A window whose reset has passed counts as 0 %. Below 80 %, the 5-hour limit gets an early
-    warning if the forecast sees it full within 30 minutes at most. Entries for vanished or
-    expired windows are dropped so that the next window notifies again.
+    A window whose reset has passed counts as 0 %. Below the first threshold, a limit gets an early
+    warning if the forecast sees it full soon (5 h: within 30 minutes, week: within 24 hours).
+    Entries for vanished or expired windows are dropped so that the next window notifies again;
+    with reset_notice, a window that had warned says so when it resets.
     """
     notices = []
     current = set()
@@ -86,11 +96,15 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
             minutes = limit.get("window_minutes")
             expired = resets_at is not None and resets_at <= now
             pct = 0.0 if expired else limit["used_percent"]
-            level = max((t for t in THRESHOLDS if pct >= t), default=None)
+            level = max((t for t in thresholds if pct >= t), default=None)
             entry = notified.get(key)
             if entry is not None and not same_limit_window(entry, limit):
+                if reset_notice:
+                    notices.append(_reset_notice(key, name, limit))
                 entry = None  # new window
             if expired:
+                if entry is not None and reset_notice:
+                    notices.append(_reset_notice(key, name, limit))
                 notified.pop(key, None)
                 continue
             current.add(key)
@@ -110,7 +124,7 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float)
             summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
                 "provider": name, "limit": _limit_name(limit), "percent": round(pct)}
             notices.append(Notice(key=key, level=level, summary=summary,
-                                  body=_countdown(resets_at, now), urgent=level >= URGENT_LEVEL))
+                                  body=_countdown(resets_at, now), urgent=level >= thresholds[-1]))
     for gone in set(notified) - current:
         del notified[gone]
     return notices

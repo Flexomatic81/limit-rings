@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-04 15:41+0200\n"
+"POT-Creation-Date: 2026-10-07 17:56+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -27,6 +27,10 @@ msgstr "Limit %(window)s"
 #, python-format
 msgid "Reset in %(duration)s"
 msgstr "Reset in %(duration)s"
+
+#, python-format
+msgid "%(provider)s: %(limit)s reset"
+msgstr "%(provider)s: %(limit)s zurückgesetzt"
 
 #, python-format
 msgid "%(provider)s: %(limit)s full in ~%(duration)s"

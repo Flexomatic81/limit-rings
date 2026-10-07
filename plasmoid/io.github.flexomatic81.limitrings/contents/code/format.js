@@ -258,11 +258,14 @@ function shellQuote(s) {
 // of them the output, so the command carries the applet id: every instance gets only its own pass.
 // notify=false: the collector leaves due notices for another instance instead of using them up.
 // providers: keys of the shown providers; the collector neither reads nor queries the others.
-function collectorCommand(runPyUrl, instanceId, notify, providers) {
+// notice: {thresholds: [first, second], reset: bool} – when to notify, and whether to tell about resets.
+function collectorCommand(runPyUrl, instanceId, notify, providers, notice) {
     const s = String(runPyUrl)
     const shown = providers ? " LIMIT_RINGS_PROVIDERS=" + providers.filter(k => /^[a-z]+$/.test(k)).join(",") : ""
+    const settings = notice ? " LIMIT_RINGS_THRESHOLDS=" + notice.thresholds.map(n => Math.round(Number(n))).join(",")
+                              + " LIMIT_RINGS_RESET_NOTICE=" + (notice.reset ? "1" : "0") : ""
     return "LIMIT_RINGS_INSTANCE=" + Number(instanceId) + " LIMIT_RINGS_NOTIFY=" + (notify ? "1" : "0") + shown
-        + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
+        + settings + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
 }
 
 // One collector pass as the widget sees it: exit code and stdout of run.py.

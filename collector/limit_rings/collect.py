@@ -87,10 +87,10 @@ def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
     return {"status": status, "expires_at": _iso(expires_at, tz)}
 
 
-def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier) -> None:
+def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice) -> None:
     if notifier is None:  # notifications off: leave them due, another widget instance may show them
         return
-    for notice in notify.update_notices(providers, state["notified"], now_ts):
+    for notice in notify.update_notices(providers, state["notified"], now_ts, thresholds, reset_notice):
         try:
             notifier(notice)
         except Exception as e:  # a notification must never abort the run
@@ -225,7 +225,8 @@ PROVIDERS = frozenset({"claude", "codex"})
 
 
 def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
-        notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS) -> dict:
+        notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS,
+        thresholds=notify.THRESHOLDS, reset_notice=False) -> dict:
     """One pass. A provider missing from providers (hidden in the widget) is neither read nor queried:
     no logs, no login, no request – its card keeps the last known values."""
     state = load_state(paths.state_file)
@@ -241,7 +242,7 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
         key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
         for name, key in (("Claude", "claude"), ("Codex", "codex"))}
     _notify(state, {"Claude": with_forecasts["claude"], "Codex": with_forecasts["codex"]},
-            now.timestamp(), notifier)
+            now.timestamp(), notifier, thresholds, reset_notice)
 
     prune_state(state, today)
     if _fingerprint(state) != before:  # state.json is large: only write it if something changed
@@ -269,10 +270,12 @@ def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth
     return stats
 
 
-def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROVIDERS) -> dict | None:
+def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROVIDERS,
+               thresholds=notify.THRESHOLDS, reset_notice=False) -> dict | None:
     """One run that never raises: after an unexpected error, state.json is moved aside so the next run starts fresh."""
     try:
-        return run(paths, now, tz, notifier=notifier, providers=providers)
+        return run(paths, now, tz, notifier=notifier, providers=providers, thresholds=thresholds,
+                   reset_notice=reset_notice)
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
         try:

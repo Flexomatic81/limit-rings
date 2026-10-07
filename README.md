@@ -9,8 +9,9 @@ KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code*
 - Desktop/popup: limits with a reset countdown, tokens for today/week/month, 30-day history.
 - Claude extra usage (amount spent and monthly limit) and Codex credits, when your account has them.
 - Forecast of when a limit will be reached at the current pace (5 h: last 30 min, week: last 24 h).
-- Desktop notification when a limit reaches 80 % or 95 %, plus an early warning when the forecast
-  says the 5-hour limit will be full within 30 minutes (each at most once per window).
+- Desktop notification when a limit reaches 80 % or 95 % (adjustable), plus an early warning when the
+  forecast says the 5-hour limit will be full within 30 minutes or the weekly limit within 24 hours
+  (each at most once per window); optionally a notice when a limit that had warned has reset.
 - Hint in the card and tooltip when the Claude login has expired.
 - Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
   for the transcripts on the current machine, as a share of tokens (not of the limit).

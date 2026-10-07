@@ -9,6 +9,9 @@ KCM.SimpleKCM {
     property alias cfg_showClaude: claudeBox.checked
     property alias cfg_showCodex: codexBox.checked
     property alias cfg_showNotifications: notificationsBox.checked
+    property alias cfg_notifyFirst: firstSpin.value
+    property alias cfg_notifySecond: secondSpin.value
+    property alias cfg_notifyReset: resetBox.checked
     property alias cfg_checkUpdates: updatesBox.checked
     property string cfg_compactStyle
 
@@ -35,7 +38,24 @@ KCM.SimpleKCM {
         QQC2.CheckBox {
             id: notificationsBox
             Kirigami.FormData.label: i18n("Notifications:")
-            text: i18n("Warn when a limit reaches 80 % or 95 %")
+            text: i18n("Warn when a limit reaches %1 % or %2 %", firstSpin.value, secondSpin.value)
+        }
+        QQC2.SpinBox {
+            id: firstSpin
+            Kirigami.FormData.label: i18n("Notify at (%):")
+            enabled: notificationsBox.checked
+            from: 1; to: secondSpin.value - 1
+        }
+        QQC2.SpinBox {
+            id: secondSpin
+            Kirigami.FormData.label: i18n("Urgent at (%):")
+            enabled: notificationsBox.checked
+            from: firstSpin.value + 1; to: 100
+        }
+        QQC2.CheckBox {
+            id: resetBox
+            enabled: notificationsBox.checked
+            text: i18n("Tell me when a limit has reset after a warning")
         }
         QQC2.ComboBox {
             Kirigami.FormData.label: i18n("Panel:")

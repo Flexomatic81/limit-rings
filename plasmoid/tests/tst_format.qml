@@ -166,6 +166,15 @@ TestCase {
                 "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS= python3 '/p/run.py'")
     }
 
+    function test_collectorCommand_passes_the_notice_settings() {
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], {thresholds: [60, 85], reset: true}),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude"
+                + " LIMIT_RINGS_THRESHOLDS=60,85 LIMIT_RINGS_RESET_NOTICE=1 python3 '/p/run.py'")
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], {thresholds: [80, 95], reset: false}),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude"
+                + " LIMIT_RINGS_THRESHOLDS=80,95 LIMIT_RINGS_RESET_NOTICE=0 python3 '/p/run.py'")
+    }
+
     // The executable engine shares a source between all widgets that connect the same command and hands
     // every one of them the output – each instance needs its own command, or notifications come twice.
     function test_collectorCommand_differs_per_instance() {
