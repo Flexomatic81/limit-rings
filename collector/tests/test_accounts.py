@@ -97,3 +97,14 @@ def test_prune_keeps_shown_and_recently_hidden_account_states(tmp_path):
     prune_account_states(tmp_path, {"shown"}, NOW)
     assert sorted(p.name for p in folder.iterdir()) == ["hidden.json", "other.txt", "shown.json"]
     prune_account_states(tmp_path / "missing", set(), NOW)  # no folder: nothing to do
+
+
+def test_malformed_values_never_raise(tmp_path):
+    bad = [entry(id="a1", dir="/srv/a\u0000b"), entry(id="a2", provider=[]), entry(id="a3", provider={}),
+           entry(id="a4", name=5), entry(id="a5", dir=5), entry(id="a6", dir=None, name=None)]
+    accounts = parse_accounts(json.dumps(bad), tmp_path)
+    assert [(a.id, a.error) for a in accounts] == [
+        ("a1", "account_invalid"), ("a2", "account_invalid"), ("a3", "account_invalid"),
+        ("a4", None), ("a5", "account_invalid"), ("a6", "account_invalid")]
+    assert accounts[1].provider is None and accounts[2].provider is None
+    assert accounts[3].name == "Claude 2"

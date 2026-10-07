@@ -47,11 +47,11 @@ def _resolve(text: str, home: Path) -> Path | None:
     """Absolute, canonical directory (".." and symlinks resolved) or None."""
     if text == "~" or text.startswith("~/"):
         text = str(home) + text[1:]
-    if not text or not Path(text).is_absolute():
-        return None
     try:
+        if not text or not Path(text).is_absolute():
+            return None
         return Path(text).resolve()
-    except (OSError, RuntimeError):  # e.g. a symlink loop
+    except (OSError, RuntimeError, ValueError):  # e.g. a symlink loop or a NUL character
         return None
 
 
@@ -75,7 +75,8 @@ def parse_accounts(text: str | None, home: Path) -> list[Account]:
                 or item["id"] in ids:
             continue
         ids.add(item["id"])
-        provider = item.get("provider") if item.get("provider") in PROVIDER_NAMES else None
+        provider = item["provider"] if isinstance(item.get("provider"), str) and item["provider"] in PROVIDER_NAMES \
+            else None
         dir_text = item.get("dir") if isinstance(item.get("dir"), str) else ""
         name = item.get("name").strip() if isinstance(item.get("name"), str) else ""
         if not name:
