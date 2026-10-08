@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 22:02+0200\n"
+"POT-Creation-Date: 2026-10-08 22:05+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -177,6 +177,54 @@ msgid "stale"
 msgstr "veraltet"
 
 #, kde-format
+msgid "Install it with: %1"
+msgstr "Installieren mit: %1"
+
+#, kde-format
+msgid "Download it from %1"
+msgstr "Download unter %1"
+
+#, kde-format
+msgid "Python 3 not found – Limit Rings needs Python 3.10 or newer."
+msgstr "Python 3 nicht gefunden – Limit Rings braucht Python 3.10 oder neuer."
+
+#, kde-format
+msgid "Python %1 is too old – Limit Rings needs 3.10 or newer."
+msgstr "Python %1 ist zu alt – Limit Rings braucht 3.10 oder neuer."
+
+#, kde-format
+msgid ""
+"Limit Rings was updated – restart Plasma or log out and back in to load the "
+"new version."
+msgstr ""
+"Limit Rings wurde aktualisiert – Plasma neu starten oder ab- und wieder "
+"anmelden, um die neue Version zu laden."
+
+#, kde-format
+msgid "The collector output is not readable. Log: %1"
+msgstr "Die Ausgabe des Collectors ist nicht lesbar. Log: %1"
+
+#, kde-format
+msgid "The last collector run failed. Log: %1"
+msgstr "Der letzte Collector-Lauf ist fehlgeschlagen. Log: %1"
+
+#, kde-format
+msgid "No data yet – the first collector run is still in progress."
+msgstr "Noch keine Daten – der erste Collector-Lauf läuft noch."
+
+#, kde-format
+msgid ""
+"An older Limit Rings installation still collects in the background. Remove "
+"it with: %1"
+msgstr ""
+"Eine ältere Limit-Rings-Installation sammelt noch im Hintergrund. Entfernen "
+"mit: %1"
+
+#, kde-format
+msgid "Data from %1 – the collector has not run since. Log: %2"
+msgstr "Daten von %1 – der Collector ist seitdem nicht gelaufen. Log: %2"
+
+#, kde-format
 msgid ""
 "Input: %1\n"
 "Output: %2\n"
@@ -227,50 +275,6 @@ msgstr "MMMM yyyy"
 msgctxt "monthly chart tooltip: %1 month, %2 token count"
 msgid "%1: %2 tokens"
 msgstr "%1: %2 Tokens"
-
-#, kde-format
-msgid "Install it with: %1"
-msgstr "Installieren mit: %1"
-
-#, kde-format
-msgid "Python 3 not found – Limit Rings needs Python 3.10 or newer."
-msgstr "Python 3 nicht gefunden – Limit Rings braucht Python 3.10 oder neuer."
-
-#, kde-format
-msgid "Python %1 is too old – Limit Rings needs 3.10 or newer."
-msgstr "Python %1 ist zu alt – Limit Rings braucht 3.10 oder neuer."
-
-#, kde-format
-msgid ""
-"Limit Rings was updated – restart Plasma or log out and back in to load the "
-"new version."
-msgstr ""
-"Limit Rings wurde aktualisiert – Plasma neu starten oder ab- und wieder "
-"anmelden, um die neue Version zu laden."
-
-#, kde-format
-msgid "The collector output is not readable. Log: %1"
-msgstr "Die Ausgabe des Collectors ist nicht lesbar. Log: %1"
-
-#, kde-format
-msgid "The last collector run failed. Log: %1"
-msgstr "Der letzte Collector-Lauf ist fehlgeschlagen. Log: %1"
-
-#, kde-format
-msgid "No data yet – the first collector run is still in progress."
-msgstr "Noch keine Daten – der erste Collector-Lauf läuft noch."
-
-#, kde-format
-msgid ""
-"An older Limit Rings installation still collects in the background. Remove "
-"it with: %1"
-msgstr ""
-"Eine ältere Limit-Rings-Installation sammelt noch im Hintergrund. Entfernen "
-"mit: %1"
-
-#, kde-format
-msgid "Data from %1 – the collector has not run since. Log: %2"
-msgstr "Daten von %1 – der Collector ist seitdem nicht gelaufen. Log: %2"
 
 #, kde-format
 msgctxt ""

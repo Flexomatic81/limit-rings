@@ -100,3 +100,21 @@ test("auth and login hints", () => {
   assert.equal(C.authHint({status: "ok"}, null, T), "")
   assert.match(C.loginHint({login: false, limits: []}, {key: "claude"}, T), /status line/)
 })
+
+test("collector output", () => {
+  assert.equal(C.readCollectorOutput(127, "").error, "nopython")
+  assert.equal(C.readCollectorOutput(0, "Traceback (most recent call last):").error, "parse")
+  const old = C.readCollectorOutput(3, JSON.stringify({envelope: 1, error: "python-too-old", version: "3.9.6"}))
+  assert.deepEqual([old.error, old.pythonVersion], ["oldpython", "3.9.6"])
+  const ok = C.readCollectorOutput(0, JSON.stringify({envelope: 1, stats: {schema: 2}, notices: []}))
+  assert.equal(ok.error, "")
+  assert.deepEqual(ok.stats, {schema: 2})
+})
+
+test("status message with a download link", () => {
+  const msg = C.statusMessage("oldpython", null, NOW * 1000,
+                              {pythonVersion: "3.9.6", installUrl: "https://www.python.org/downloads/macos/"}, T)
+  assert.equal(msg, "Python 3.9.6 is too old – Limit Rings needs 3.10 or newer. " +
+                    "Download it from https://www.python.org/downloads/macos/")
+  assert.equal(C.statusMessage("", {generated_at: new Date(NOW * 1000).toISOString()}, NOW * 1000, {}, T), "")
+})

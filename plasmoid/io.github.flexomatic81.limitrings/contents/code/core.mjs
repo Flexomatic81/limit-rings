@@ -305,3 +305,70 @@ export function footerText(provider, nowMs, refreshedAtMs, tr) {
         + _pauseText(provider.limits_paused_until, nowMs, tr)
         + (hint ? " · " + hint : "")
 }
+
+// ---- Collector output and status messages ----
+
+export const ENVELOPE = 1   // version of the collector output this widget understands (collector/limit_rings/widget.py)
+export const LOG_PATH = "~/.cache/limit-rings/collector.log"
+// stop waits for a running pass of the service; only then may the unit files (the collector's guard) go.
+export const LEGACY_COMMAND = "systemctl --user stop limit-rings.timer limit-rings.service && systemctl --user disable limit-rings.timer && rm ~/.config/systemd/user/limit-rings.timer ~/.config/systemd/user/limit-rings.service"
+
+// One collector pass as the widget sees it: exit code and stdout of run.py.
+export function readCollectorOutput(exitCode, stdout) {
+    const out = {stats: null, notices: [], error: "", pythonVersion: ""}
+    if (exitCode === 127) {
+        out.error = "nopython"
+        return out
+    }
+    let env
+    try {
+        env = JSON.parse(stdout)
+    } catch (e) {
+        env = null
+    }
+    if (!env || typeof env !== "object" || typeof env.envelope !== "number") {
+        out.error = "parse"
+        return out
+    }
+    if (env.error === "python-too-old") {
+        out.error = "oldpython"
+        out.pythonVersion = String(env.version || "")
+        return out
+    }
+    // A newer collector than this QML: the package was updated, Plasma still runs the old widget code.
+    if (env.envelope > ENVELOPE || (env.stats && env.stats.schema !== 2)) {
+        out.error = "restart"
+        return out
+    }
+    out.stats = env.stats && typeof env.stats === "object" ? env.stats : null
+    out.notices = Array.isArray(env.notices)
+        ? env.notices.filter(n => n && typeof n === "object" && typeof n.summary === "string") : []
+    if (env.error === "legacy-timer") out.error = "legacy"
+    else if (exitCode !== 0) out.error = "failed"
+    else if (!out.stats) out.error = "nodata"
+    return out
+}
+
+export function statusMessage(loadError, stats, nowMs, info, tr) {
+    const install = info && info.installCommand ? " " + tr.i18n("Install it with: %1", info.installCommand)
+                  : info && info.installUrl ? " " + tr.i18n("Download it from %1", info.installUrl) : ""
+    switch (loadError) {
+    case "nopython":
+        return tr.i18n("Python 3 not found – Limit Rings needs Python 3.10 or newer.") + install
+    case "oldpython":
+        return tr.i18n("Python %1 is too old – Limit Rings needs 3.10 or newer.", info ? info.pythonVersion : "") + install
+    case "restart":
+        return tr.i18n("Limit Rings was updated – restart Plasma or log out and back in to load the new version.")
+    case "parse":
+        return tr.i18n("The collector output is not readable. Log: %1", LOG_PATH)
+    case "failed":
+        return tr.i18n("The last collector run failed. Log: %1", LOG_PATH)
+    case "nodata":
+        return tr.i18n("No data yet – the first collector run is still in progress.")
+    case "legacy":
+        return tr.i18n("An older Limit Rings installation still collects in the background. Remove it with: %1", LEGACY_COMMAND)
+    }
+    if (stats && nowMs - Date.parse(stats.generated_at) > STALE_MS)
+        return tr.i18n("Data from %1 – the collector has not run since. Log: %2", ageText(stats.generated_at, nowMs, tr), LOG_PATH)
+    return ""
+}
