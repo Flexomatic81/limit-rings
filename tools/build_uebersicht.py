@@ -3,7 +3,7 @@ and the German texts as JSON.
 
 Usage:
     python3 tools/build_uebersicht.py --out dist      zip of the widget folder, named by version
-    python3 tools/build_uebersicht.py --dir DIR       the unpacked widget folder, in DIR
+    python3 tools/build_uebersicht.py --dir DIR       the unpacked widget folder, as DIR/limit-rings.widget
 
 Standard library only.
 """
@@ -82,10 +82,11 @@ def build_archive(dest: Path, root: Path = ROOT) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build the Limit Rings widget for Übersicht (macOS).")
     parser.add_argument("--out", default="dist", help="directory for the zip")
-    parser.add_argument("--dir", help="write the unpacked widget folder here instead")
+    parser.add_argument("--dir", help="build the unpacked widget folder as DIR/limit-rings.widget instead")
     args = parser.parse_args(argv)
     if args.dir:
-        print(build_tree(Path(args.dir)))
+        Path(args.dir).mkdir(parents=True, exist_ok=True)
+        print(build_tree(Path(args.dir) / WIDGET))
     else:
         print(build_archive(Path(args.out) / f"limit-rings-macos-{version()}.zip"))
     return 0

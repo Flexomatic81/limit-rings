@@ -427,7 +427,7 @@ because Übersicht treats every `.js`, `.jsx` and `.coffee` file outside it as a
   Certificates.command" is run. The collector then trusts the system bundle `/etc/ssl/cert.pem` itself
   (`sources/http.py`), so users need not do anything.
 - **Build:** `python3 tools/build_uebersicht.py --out dist` writes `dist/limit-rings-macos-<version>.zip`
-  (`--dir DIR` leaves an unpacked folder). Besides the source it adds `lib/core.mjs`, `lib/de.json`
+  (`--dir DIR` leaves the unpacked folder as `DIR/limit-rings.widget`). Besides the source it adds `lib/core.mjs`, `lib/de.json`
   (from `po/plasmoid/de.po`) and `collector/`. The release workflow attaches the zip and its `.sha256` to
   the draft release.
 

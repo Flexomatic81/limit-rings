@@ -62,3 +62,10 @@ def test_archive_has_the_folder_at_the_root_and_is_reproducible(tmp_path):
 def test_cli_names_the_zip_by_version(tmp_path):
     assert bu.main(["--out", str(tmp_path)]) == 0
     assert (tmp_path / f"limit-rings-macos-{bu.version()}.zip").is_file()
+
+
+def test_cli_dir_builds_the_widget_folder_inside_it(tmp_path, capsys):
+    assert bu.main(["--dir", str(tmp_path / "new" / "widgets")]) == 0
+    folder = tmp_path / "new" / "widgets" / bu.WIDGET
+    assert capsys.readouterr().out.strip() == str(folder)
+    assert (folder / "index.jsx").is_file()
