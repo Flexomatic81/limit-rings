@@ -47,15 +47,28 @@ def test_without_a_suitable_one_runs_the_first_so_run_py_reports_it(tmp_path):
 
 
 def test_skips_the_apple_stub_without_developer_tools(tmp_path):
-    # /usr/bin/python3 without the Command Line Tools opens an install dialog instead of running.
+    # /usr/bin/python3 without the Command Line Tools opens an install dialog on ANY call, even the probe.
     log = tmp_path / "log"
-    apple = fake_python(tmp_path / "apple", (3, 9), log)
+    calls = tmp_path / "calls"
+    apple = tmp_path / "apple"
+    apple.write_text(f"#!/bin/sh\necho \"$0 $*\" >> {calls}\nexit 1\n")
+    apple.chmod(0o755)
     new = fake_python(tmp_path / "py312", (3, 12), log)
     res = run([apple, new], tmp_path, LIMIT_RINGS_APPLE_PYTHON=str(apple),
               LIMIT_RINGS_XCODE_SELECT=shutil.which("false"))
-    assert res.returncode == 0 and str(apple) not in log.read_text()
-    run([apple], tmp_path, LIMIT_RINGS_APPLE_PYTHON=str(apple), LIMIT_RINGS_XCODE_SELECT=shutil.which("true"))
-    assert log.read_text().splitlines()[-1].startswith(f"{apple} ")   # with the tools it is a real Python
+    assert res.returncode == 0 and not calls.exists()   # the stub is not even probed
+    assert log.read_text().startswith(f"{new} ")
+    # With the tools it is a real Python and gets used.
+    real = fake_python(apple, (3, 13), log)
+    run([real], tmp_path, LIMIT_RINGS_APPLE_PYTHON=str(real), LIMIT_RINGS_XCODE_SELECT=shutil.which("true"))
+    assert log.read_text().splitlines()[-1].startswith(f"{real} ")
+
+
+def test_the_apple_stub_alone_without_developer_tools_is_127(tmp_path):
+    apple = fake_python(tmp_path / "apple", (3, 13), tmp_path / "log")
+    res = run([apple], tmp_path, LIMIT_RINGS_APPLE_PYTHON=str(apple),
+              LIMIT_RINGS_XCODE_SELECT=shutil.which("false"))
+    assert res.returncode == 127 and res.stdout == "" and not (tmp_path / "log").exists()
 
 
 def test_a_hung_pass_is_killed_at_the_deadline(tmp_path):
