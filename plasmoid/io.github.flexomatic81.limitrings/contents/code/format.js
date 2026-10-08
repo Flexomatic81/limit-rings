@@ -510,6 +510,16 @@ function _windowText(minutes) {
     return minutes + " min"
 }
 
+// Plan as the providers spell it in their login or usage data → product name (not translated);
+// an unknown plan is shown as it comes, so a new one never disappears
+const _PLAN_NAMES = {free: "Free", plus: "Plus", pro: "Pro", prolite: "Pro Lite", max: "Max", team: "Team",
+                     business: "Business", enterprise: "Enterprise", edu: "Edu"}
+
+function planName(plan) {
+    if (!plan) return ""
+    return _PLAN_NAMES[String(plan).toLowerCase()] || String(plan)
+}
+
 // Display name of a limit (stats.json carries only window and model)
 function limitName(limit) {
     const m = limit.window_minutes

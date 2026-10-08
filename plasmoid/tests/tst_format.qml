@@ -671,4 +671,15 @@ TestCase {
         compare(F.barTooltip(Object.assign({}, enough, {resets_at: now - 1}), now), "")
         compare(F.barTooltip({window_minutes: 300, used_percent: 1, resets_at: null}, now), "")
     }
+
+    function test_planName_is_readable_and_keeps_unknown_plans() {
+        compare(F.planName("prolite"), "Pro Lite")
+        compare(F.planName("max"), "Max")
+        compare(F.planName("PLUS"), "Plus")
+        compare(F.planName("enterprise"), "Enterprise")
+        compare(F.planName("ultra_x"), "ultra_x")   // a new plan shows up as the provider names it
+        compare(F.planName(""), "")
+        compare(F.planName(null), "")
+        compare(F.planName(undefined), "")
+    }
 }
