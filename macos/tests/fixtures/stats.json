@@ -1,0 +1,16 @@
+{"schema": 2, "generated_at": "2026-10-08T12:00:00+02:00",
+ "providers": {
+  "claude": {"limits": [
+     {"id": "five_hour", "window_minutes": 300, "used_percent": 42.0, "resets_at": 1791461610},
+     {"id": "seven_day", "window_minutes": 10080, "used_percent": 18.0, "resets_at": 1791820800,
+      "forecast": {"status": "enough"}}],
+   "limits_source": "oauth", "limits_updated_at": "2026-10-08T11:59:00+02:00", "limits_paused_until": null,
+   "limits_next_request_at": null, "plan": "max", "login": true, "auth": {"status": "ok", "expires_at": null},
+   "tokens": {"today": {"total": 1250000}, "week": {"total": 9000000}, "month": {"total": 31000000}},
+   "daily": [{"date": "2026-10-07", "total": 500}, {"date": "2026-10-08", "total": 1000}],
+   "errors": [], "extra": null, "changes": []},
+  "codex": {"limits": [], "limits_source": null, "limits_updated_at": null, "limits_paused_until": null,
+   "limits_next_request_at": null, "plan": null, "login": false,
+   "tokens": {"today": {"total": 0}, "week": {"total": 0}, "month": {"total": 0}},
+   "daily": [], "errors": [], "extra": null, "changes": []}},
+ "accounts": {}}
