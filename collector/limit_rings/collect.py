@@ -213,9 +213,16 @@ def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[li
     return errors, plan
 
 
-def _process_codex(state, paths, now_ts, tz, fetch) -> list[dict]:
-    errors = _process_codex_logs(state, paths, tz)
+def _process_codex(state, paths, now_ts, tz, fetch, use_login=True) -> list[dict]:
     section = state["codex"]
+    if not use_login:
+        # Without login only the session logs count; a record from the endpoint goes, before the logs are read,
+        # so that a new log line of this pass can take its place.
+        if section["limits"] and section["limits"].get("source") == "oauth":
+            section["limits"] = None
+        return _process_codex_logs(state, paths, tz)
+    errors = _process_codex_logs(state, paths, tz)
+    section = state["codex"]   # _process_codex_logs may have restored a snapshot
     try:
         # The Claude Code plugin writes no session logs: also query the limits directly.
         section["limits"], section["oauth_last_attempt"] = codex_limits.resolve(
@@ -269,7 +276,7 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     claude_errors, claude_plan = [], None
     if "claude" in providers:
         claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
-    codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch) if "codex" in providers else []
+    codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch, "codex" in login) if "codex" in providers else []
     _update_history(state)
     _update_changes(state, providers, now.timestamp())
     with_forecasts = {
@@ -342,8 +349,11 @@ def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fet
             entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)],
                                  login=account.provider in login)
         if account.provider == "codex":
-            token, _ = codex_limits.read_auth(paths.codex_auth)
-            entry["auth"] = {"status": "ok" if token else "missing", "expires_at": None}
+            if account.provider in login:
+                token, _ = codex_limits.read_auth(paths.codex_auth)
+                entry["auth"] = {"status": "ok" if token else "missing", "expires_at": None}
+            else:
+                entry["auth"] = None
         out[account.id] = {**entry, **head}
     accounts_mod.prune_account_states(cache, {a.state_key for a in accounts if not a.error}, now.timestamp())
     return out

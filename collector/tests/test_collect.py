@@ -795,3 +795,39 @@ def test_claude_account_without_login_reads_no_credentials(tmp_path, monkeypatch
     stats = run(p, NOW, BERLIN, fetch=forbidden, accounts=[work], login={"codex"})
     acc = stats["accounts"]["k7f3a2"]
     assert acc["login"] is False and acc["limits"] == [] and acc["auth"] is None
+
+
+def test_codex_without_login_drops_endpoint_data_and_uses_new_session_logs(tmp_path, monkeypatch):
+    from dataclasses import replace
+    import limit_rings.collect as collect_mod
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
+    assert stats["providers"]["codex"]["limits_source"] == "oauth"
+
+    def forbidden(*a, **k):
+        raise AssertionError("the Codex login must not be touched")
+    monkeypatch.setattr(collect_mod.codex_limits, "read_auth", forbidden)
+    later = NOW + timedelta(minutes=10)
+    stats = run(p, later, BERLIN, fetch=ok_fetch, codex_fetch=forbidden, login={"claude"})
+    x = stats["providers"]["codex"]
+    assert x["login"] is False and x["limits"] == [] and x["extra"] is None   # nothing from the endpoint stays
+    (p.codex_root / "rollout-b.jsonl").write_text(codex_line("2026-10-03T17:50:00Z", 500) + "\n")
+    stats = run(p, later + timedelta(minutes=1), BERLIN, fetch=ok_fetch, codex_fetch=forbidden, login={"claude"})
+    x = stats["providers"]["codex"]
+    assert x["limits_source"] == "session_log" and [l["used_percent"] for l in x["limits"]] == [8.0]
+
+
+def test_codex_account_without_login_reads_no_auth(tmp_path, monkeypatch):
+    import limit_rings.collect as collect_mod
+    p = make_paths(tmp_path)
+    cx, cx_dir = make_account(tmp_path, "codex", "c0d3x1", "Team")
+    (cx_dir / "sessions" / "rollout-a.jsonl").write_text(codex_line("2026-10-03T17:00:00Z", 300) + "\n")
+
+    def forbidden(*a, **k):
+        raise AssertionError("the Codex login must not be touched")
+    monkeypatch.setattr(collect_mod.codex_limits, "read_auth", forbidden)
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=forbidden, accounts=[cx], login={"claude"})
+    acc = stats["accounts"]["c0d3x1"]
+    assert acc["login"] is False and acc["auth"] is None
+    assert acc["limits_source"] == "session_log" and acc["tokens"]["today"]["total"] == 300
