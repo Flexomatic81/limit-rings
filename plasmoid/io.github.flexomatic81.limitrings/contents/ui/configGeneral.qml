@@ -66,6 +66,8 @@ KCM.SimpleKCM {
         }
         QQC2.Label {
             Layout.fillWidth: true
+            // a wrapping label asks for its whole text on one line: keep it about as wide as the longest row
+            Layout.maximumWidth: Kirigami.Units.gridUnit * 24
             wrapMode: Text.WordWrap
             font: Kirigami.Theme.smallFont
             text: i18n("Without login, limits come only from Claude's status line or Codex's session logs – no limits per model, no extra usage or credits. Applies to this widget and to the provider's additional accounts.")
