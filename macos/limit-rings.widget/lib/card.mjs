@@ -15,6 +15,20 @@ function _thresholds(value) {
     return ok ? value : DEFAULTS.thresholds
 }
 
+const KNOWN = Object.keys(NAMES)
+const _known = list => [...new Set(list.filter(k => KNOWN.includes(k)))]
+const _pixels = v => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : 40)
+
+// Clean settings from hand-edited JSON: nothing malformed reaches the shell command or the CSS.
+// A broken "login" means no login at all, never all of them.
+export function settingsFrom(raw) {
+    const r = raw && typeof raw === "object" ? raw : {}
+    return {providers: Array.isArray(r.providers) ? _known(r.providers) : DEFAULTS.providers,
+            login: Array.isArray(r.login) ? _known(r.login) : [],
+            remaining: r.remaining === true, thresholds: _thresholds(r.thresholds),
+            top: _pixels(r.top), left: _pixels(r.left)}
+}
+
 function _ring(limit, nowSec, s) {
     if (!limit) return null
     return {percent: C.shownPercent(limit, nowSec, s.remaining),

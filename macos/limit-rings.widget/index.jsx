@@ -1,13 +1,13 @@
 // Limit Rings for Übersicht: the usage limits of Claude Code and Codex on the macOS desktop.
 // The cards are built by card.mjs from the collector's output; this file only draws them.
 
-import { view, DEFAULTS } from "./lib/card.mjs"
+import { view, settingsFrom } from "./lib/card.mjs"
 import { makeTranslator } from "./lib/i18n.mjs"
 import catalog from "./lib/de.json"
 import settings from "./settings.json"
 
 // ---- Settings: edit settings.json next to this file (kept when the installer updates the widget) ---------
-const SETTINGS = { ...DEFAULTS, top: 40, left: 40, ...settings }
+const SETTINGS = settingsFrom(settings)
 // providers: cards to show; login: live limits via login (without it only status line / session logs);
 // remaining: show what is left instead of what is used; thresholds: warning and critical in percent used;
 // top/left: position on the desktop in pixels

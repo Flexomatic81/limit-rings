@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { view, DEFAULTS } from "../limit-rings.widget/lib/card.mjs"
+import { view, DEFAULTS, settingsFrom } from "../limit-rings.widget/lib/card.mjs"
 import { ENGLISH as T } from "../../plasmoid/io.github.flexomatic81.limitrings/contents/code/core.mjs"
 
 const STATS = readFileSync(new URL("./fixtures/stats.json", import.meta.url), "utf8")
@@ -77,4 +77,19 @@ test("invalid thresholds fall back to the defaults like the collector", () => {
   const ref = sev([70, 90])
   for (const bad of [[80], [90, 70], [0, 50], [50, 101], "x", null]) assert.equal(sev(bad), ref)
   assert.equal(sev([30, 50]), "warning")
+})
+
+test("settingsFrom keeps the defaults file and cleans hand-edited values", () => {
+    const file = JSON.parse(readFileSync(new URL("../limit-rings.widget/settings.json", import.meta.url), "utf8"))
+    assert.deepEqual(settingsFrom(file), {...DEFAULTS, top: 40, left: 40})
+    assert.deepEqual(settingsFrom({providers: "claude"}).providers, DEFAULTS.providers)
+    assert.deepEqual(settingsFrom({login: "claude"}).login, [])
+    assert.deepEqual(settingsFrom({login: null}).login, [])
+    assert.deepEqual(settingsFrom({login: []}).login, [])
+    assert.deepEqual(settingsFrom({login: ["claude", "evil;rm", "claude"]}).login, ["claude"])
+    assert.deepEqual(settingsFrom({thresholds: "x"}).thresholds, [70, 90])
+    const pos = settingsFrom({top: "0; background:red", left: 12.6})
+    assert.equal(pos.top, 40); assert.equal(pos.left, 13)
+    assert.equal(settingsFrom({remaining: "yes"}).remaining, false)
+    assert.deepEqual(settingsFrom(null).providers, DEFAULTS.providers)
 })
