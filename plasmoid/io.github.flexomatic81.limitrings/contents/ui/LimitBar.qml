@@ -16,7 +16,6 @@ ColumnLayout {
     readonly property real pct: Format.effectivePercent(limit, nowSec)
     readonly property string sev: Format.limitSeverity(limit, nowSec, warn, crit)
     readonly property var elapsed: Format.elapsedShare(limit, nowSec)
-    readonly property string forecastText: Format.forecastText(limit, nowSec)
     readonly property bool forecastFull: !!(limit.forecast && limit.forecast.status === "full")
 
     spacing: 0
@@ -24,6 +23,13 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: Kirigami.Units.smallSpacing
+
+        HoverHandler { id: hover }
+        PlasmaComponents.ToolTip {
+            readonly property string tip: Format.barTooltip(bar.limit, bar.nowSec)
+            visible: hover.hovered && tip !== ""
+            text: tip
+        }
 
         PlasmaComponents.Label {
             text: Format.limitName(bar.limit)
@@ -73,12 +79,11 @@ ColumnLayout {
         }
     }
 
-    // Forecast (or that the window has reset) below the bar, aligned with its left edge
+    // A warning forecast (or that the window has reset) below the bar, aligned with its left edge
     PlasmaComponents.Label {
         objectName: "forecastLabel"
         visible: text !== ""
-        text: bar.reset ? Format.i18nc("limit window has reset, shown below the bar", "Reset – starts again from 0 %")
-                        : bar.forecastText
+        text: Format.barNote(bar.limit, bar.nowSec)
         font: Kirigami.Theme.smallFont
         color: bar.forecastFull ? Kirigami.Theme.neutralTextColor : Kirigami.Theme.textColor
         opacity: bar.forecastFull ? 1 : 0.7

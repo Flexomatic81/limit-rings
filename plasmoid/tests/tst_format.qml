@@ -649,4 +649,26 @@ TestCase {
         compare(F.loginHint({login: false, limits: []}, team),
                 "No limits without login – they come from the session logs once you use codex in a terminal")
     }
+
+    // Below the bar only what needs attention; the rest is in the bar's tooltip
+    function test_barNote_shows_only_warnings_and_resets() {
+        const now = 1000
+        const base = {window_minutes: 300, used_percent: 40, resets_at: now + 4 * 3600}
+        compare(F.barNote(base, now), "")
+        compare(F.barNote(Object.assign({}, base, {forecast: {status: "enough"}}), now), "")
+        const note = F.barNote(Object.assign({}, base, {forecast: {status: "full", eta: now + 80 * 60}}), now)
+        verify(note.indexOf("Full in ~1 h 20 min at current pace (") === 0, note)
+        compare(F.barNote(Object.assign({}, base, {resets_at: now - 1}), now), "Reset – starts again from 0 %")
+    }
+
+    function test_barTooltip_names_forecast_and_reset_time() {
+        const now = Date.parse("2026-10-01T08:00:00Z") / 1000
+        const enough = {window_minutes: 300, used_percent: 40, resets_at: now + 4 * 3600, forecast: {status: "enough"}}
+        const tip = F.barTooltip(enough, now)
+        verify(/^Lasts until reset at current pace\nResets at \d\d:\d\d$/.test(tip), tip)
+        const week = {window_minutes: 10080, used_percent: 9, resets_at: now + 3 * 86400}
+        verify(/^Resets at Sun \d\d:\d\d$/.test(F.barTooltip(week, now)), F.barTooltip(week, now))
+        compare(F.barTooltip(Object.assign({}, enough, {resets_at: now - 1}), now), "")
+        compare(F.barTooltip({window_minutes: 300, used_percent: 1, resets_at: null}, now), "")
+    }
 }

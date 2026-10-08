@@ -159,6 +159,24 @@ TestCase {
         full.stats = original
     }
 
+    // "lasts until reset" is the normal case: it goes to the tooltip, a warning stays below the bar
+    function test_only_a_warning_forecast_shows_below_the_bar() {
+        const original = full.stats
+        const nowSec = full.nowMs / 1000
+        const stats = JSON.parse(JSON.stringify(original))
+        stats.providers.claude.limits = [{id: "five_hour", used_percent: 40, resets_at: nowSec + 3600,
+                                          window_minutes: 300, forecast: {status: "enough"}}]
+        full.stats = stats
+        tryVerify(() => { const l = findChild(full, "percentLabel"); return l && l.text === "40 %" })
+        verify(!findChild(full, "forecastLabel").visible)
+        const warning = JSON.parse(JSON.stringify(stats))
+        warning.providers.claude.limits[0].forecast = {status: "full", eta: nowSec + 600}
+        full.stats = warning
+        tryVerify(() => findChild(full, "forecastLabel").visible)
+        verify(findChild(full, "forecastLabel").text.indexOf("Full in ~10 min") === 0)
+        full.stats = original
+    }
+
     function test_vanished_limit_leaves_no_bar_behind() {
         const bars = () => {
             const found = []

@@ -212,8 +212,10 @@ Rules:
   A new window – different `resets_at` or a different window length under the same id (Codex can
   move its weekly window into `primary`) – restarts the history; entries keep the length as `minutes`.
 
-  Card: line below the bar ("Full in ~1 h 20 min at current pace (13:40)", with the weekday
-  "(Sat 14:00)" once a day or more away, or "Lasts until reset at current pace"); tooltip: short form.
+  Card: a line below the bar only when the limit would run out before the reset ("Full in ~1 h 20 min
+  at current pace (13:40)", with the weekday "(Sat 14:00)" once a day or more away); "Lasts until reset
+  at current pace" and the reset time ("Resets at Wed 06:00") are in the bar's tooltip. Widget tooltip:
+  short form.
 - `changes` lists changes to the limit structure of the last 3 days, oldest first: `kind` is `"new"`
   (a window not seen before), `"back"` (a window that had vanished), `"gone"` (missing from fresh data
   for at least an hour; `at` is when it was first missing), `"length"` (same id, other window length;

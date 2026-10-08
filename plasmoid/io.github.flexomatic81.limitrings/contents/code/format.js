@@ -477,6 +477,26 @@ function forecastText(limit, nowSec) {
     return i18n("Full in ~%1 at current pace (%2)", f.rest, _clock(f.eta, nowSec))
 }
 
+// Line below a bar: only what needs attention – a limit that runs out before its reset, or a window that has reset
+function barNote(limit, nowSec) {
+    if (isReset(limit, nowSec))
+        return i18nc("limit window has reset, shown below the bar", "Reset – starts again from 0 %")
+    const f = _forecastParts(limit, nowSec)
+    return f && f.full ? forecastText(limit, nowSec) : ""
+}
+
+// Tooltip of a bar: the forecast and when the window resets
+function barTooltip(limit, nowSec) {
+    if (isReset(limit, nowSec)) return ""
+    const lines = []
+    const fc = forecastText(limit, nowSec)
+    if (fc) lines.push(fc)
+    if (limit.resets_at)
+        lines.push(i18nc("%1 = clock time of the reset, with the weekday once it is a day or more away", "Resets at %1",
+                         _clock(limit.resets_at, nowSec)))
+    return lines.join("\n")
+}
+
 function forecastShort(limit, nowSec) {
     const f = _forecastParts(limit, nowSec)
     if (!f) return ""

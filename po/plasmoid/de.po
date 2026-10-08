@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 11:00+0200\n"
+"POT-Creation-Date: 2026-10-08 11:21+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -144,6 +144,17 @@ msgid "Full in ~%1 at current pace (%2)"
 msgstr "Bei aktuellem Tempo voll in ~%1 (%2)"
 
 #, kde-format
+msgctxt "limit window has reset, shown below the bar"
+msgid "Reset – starts again from 0 %"
+msgstr "Zurückgesetzt – beginnt wieder bei 0 %"
+
+#, kde-format
+msgctxt ""
+"%1 = clock time of the reset, with the weekday once it is a day or more away"
+msgid "Resets at %1"
+msgstr "Reset um %1"
+
+#, kde-format
 msgid "lasts until reset"
 msgstr "reicht bis Reset"
 
@@ -250,7 +261,9 @@ msgstr "Keine Anmeldung gefunden – claude im Terminal starten"
 msgid ""
 "No limits without login – they come from the session logs once you use codex "
 "in a terminal"
-msgstr "Ohne Login keine Limits – sie kommen aus den Sitzungslogs, sobald du codex im Terminal nutzt"
+msgstr ""
+"Ohne Login keine Limits – sie kommen aus den Sitzungslogs, sobald du codex "
+"im Terminal nutzt"
 
 #, kde-format
 msgid "No limits without login for additional accounts"
@@ -260,7 +273,9 @@ msgstr "Ohne Login keine Limits für weitere Konten"
 msgid ""
 "No limits without login – they come from the status line while claude runs "
 "in a terminal"
-msgstr "Ohne Login keine Limits – sie kommen aus der Statuszeile, solange claude im Terminal läuft"
+msgstr ""
+"Ohne Login keine Limits – sie kommen aus der Statuszeile, solange claude im "
+"Terminal läuft"
 
 #, kde-format
 msgctxt "limit structure change: %1 limit name, %2 date"
@@ -429,11 +444,6 @@ msgstr "Claude-Konto hinzufügen"
 #, kde-format
 msgid "Add Codex account"
 msgstr "Codex-Konto hinzufügen"
-
-#, kde-format
-msgctxt "limit window has reset, shown below the bar"
-msgid "Reset – starts again from 0 %"
-msgstr "Zurückgesetzt – beginnt wieder bei 0 %"
 
 #, kde-format
 msgid "Update available: %1"
