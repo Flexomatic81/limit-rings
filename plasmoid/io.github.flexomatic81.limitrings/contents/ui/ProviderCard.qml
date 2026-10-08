@@ -14,6 +14,7 @@ ColumnLayout {
     property real refreshedAtMs
     property int warn
     property int crit
+    property bool remaining: false
     readonly property real nowSec: nowMs / 1000
     // Width the card gets; set by the parent layout because width is 0 before the first layout
     property real layoutWidth: width
@@ -72,6 +73,7 @@ ColumnLayout {
             nowSec: card.nowSec
             warn: card.warn
             crit: card.crit
+            remaining: card.remaining
         }
     }
 

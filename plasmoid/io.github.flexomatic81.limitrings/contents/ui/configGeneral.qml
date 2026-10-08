@@ -18,6 +18,7 @@ KCM.SimpleKCM {
     property alias cfg_notifyReset: resetBox.checked
     property alias cfg_checkUpdates: updatesBox.checked
     property string cfg_compactStyle
+    property bool cfg_showRemaining
     property string cfg_extraAccounts
     property var accounts: Format.parseAccounts(cfg_extraAccounts)
 
@@ -103,6 +104,13 @@ KCM.SimpleKCM {
             // not indexOfValue(): evaluated before the model is set, it stays at -1 and leaves the box empty
             currentIndex: cfg_compactStyle === "number" ? 1 : 0
             onActivated: cfg_compactStyle = currentValue
+        }
+        QQC2.ComboBox {
+            Kirigami.FormData.label: i18n("Percentages:")
+            model: [i18nc("show the percentage of a limit that is", "Used"),
+                    i18nc("show the percentage of a limit that is", "Remaining")]
+            currentIndex: cfg_showRemaining ? 1 : 0
+            onActivated: cfg_showRemaining = currentIndex === 1
         }
         QQC2.CheckBox {
             id: updatesBox

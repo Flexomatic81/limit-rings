@@ -11,11 +11,12 @@ ColumnLayout {
     property real nowSec
     property int warn
     property int crit
+    property bool remaining: false   // show what is left instead of what is used (colours keep going by usage)
 
     readonly property bool reset: Format.isReset(limit, nowSec)
-    readonly property real pct: Format.effectivePercent(limit, nowSec)
     readonly property string sev: Format.limitSeverity(limit, nowSec, warn, crit)
-    readonly property var elapsed: Format.elapsedShare(limit, nowSec)
+    readonly property real shown: Format.shownPercent(limit, nowSec, remaining)
+    readonly property var elapsed: Format.shownShare(Format.elapsedShare(limit, nowSec), remaining)
     readonly property bool forecastFull: !!(limit.forecast && limit.forecast.status === "full")
 
     spacing: 0
@@ -44,13 +45,14 @@ ColumnLayout {
             color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.15)
 
             Rectangle {
-                width: parent.width * Math.min(100, bar.pct) / 100
+                width: parent.width * Math.min(100, bar.shown) / 100
                 height: parent.height
                 radius: parent.radius
                 color: Format.toneFor(bar.sev, Kirigami.Theme)
             }
 
-            // Where the window stands in time: usage ahead of this mark runs fast
+            // Where the window stands in time: usage ahead of this mark runs fast (remaining: what is left
+            // falls short of the time still to come)
             Rectangle {
                 objectName: "elapsedMark"
                 visible: bar.elapsed !== null
@@ -64,7 +66,7 @@ ColumnLayout {
 
         PlasmaComponents.Label {
             objectName: "percentLabel"
-            text: Math.round(bar.pct) + " %"   // a reset window says so below the bar
+            text: Format.limitPercentText(bar.limit, bar.nowSec, bar.remaining)   // a reset window says so below the bar
             font.bold: bar.sev !== "normal"
             color: bar.sev === "normal" ? Kirigami.Theme.textColor : Format.toneFor(bar.sev, Kirigami.Theme)
             Layout.preferredWidth: Math.max(Kirigami.Units.gridUnit * 3, implicitWidth)

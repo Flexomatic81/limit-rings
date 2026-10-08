@@ -682,4 +682,34 @@ TestCase {
         compare(F.planName(null), "")
         compare(F.planName(undefined), "")
     }
+
+    // "Remaining" mode: what is left instead of what is used; colours and severity stay with the usage
+    function test_shown_values_used_and_remaining() {
+        const now = 1000
+        const l = {window_minutes: 300, used_percent: 64, resets_at: now + 3600}
+        compare(F.shownPercent(l, now, false), 64)
+        compare(F.shownPercent(l, now, true), 36)
+        const reset = Object.assign({}, l, {resets_at: now - 1})
+        compare(F.shownPercent(reset, now, false), 0)
+        compare(F.shownPercent(reset, now, true), 100)
+        compare(F.shownPercent(Object.assign({}, l, {used_percent: 104}), now, true), 0)   // never below 0
+        const limits = [l, {window_minutes: 10080, used_percent: 20, resets_at: now + 86400}]
+        compare(F.shownMax(limits, now, false), 64)
+        compare(F.shownMax(limits, now, true), 36)       // the least left
+        compare(F.shownMax([], now, true), null)
+        compare(F.shownShare(0.25, false), 0.25)
+        compare(F.shownShare(0.25, true), 0.75)          // time still left in the window
+        compare(F.shownShare(null, true), null)
+        compare(F.limitPercentText(l, now, false), "64 %")
+        compare(F.limitPercentText(l, now, true), "36 % left")
+    }
+
+    function test_limitLine_and_tooltip_in_remaining_mode() {
+        const now = 0
+        const l = {window_minutes: 300, used_percent: 64, resets_at: 4 * 3600}
+        compare(F.limitLine("Claude", l, now, true), "Claude · 5 h: 36 % left · Reset in 4 h 0 min")
+        const stats = {providers: {claude: {limits: [l]}}}
+        compare(F.tooltipText(stats, [{key: "claude", name: "Claude"}], now, 0, true),
+                "Claude · 5 h: 36 % left · Reset in 4 h 0 min")
+    }
 }

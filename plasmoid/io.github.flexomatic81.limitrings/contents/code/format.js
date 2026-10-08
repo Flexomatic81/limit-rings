@@ -78,6 +78,29 @@ function effectivePercent(limit, nowSec) {
     return isReset(limit, nowSec) ? 0 : limit.used_percent
 }
 
+// The "Percentages: Remaining" setting shows what is left instead of what is used. Only the shown values
+// change: colours, severity, thresholds and notifications keep going by the usage.
+function shownPercent(limit, nowSec, remaining) {
+    const used = effectivePercent(limit, nowSec)
+    return remaining ? Math.max(0, 100 - used) : used
+}
+
+// The value of the "Number" panel style: the highest usage, or the least that is left
+function shownMax(limits, nowSec, remaining) {
+    const used = maxPercent(limits, nowSec)
+    return used === null || !remaining ? used : Math.max(0, 100 - used)
+}
+
+// The time mark beside a shown value: the share of the window passed, or the share still to come
+function shownShare(elapsed, remaining) {
+    return elapsed === null || !remaining ? elapsed : 1 - elapsed
+}
+
+function limitPercentText(limit, nowSec, remaining) {
+    const pct = Math.round(shownPercent(limit, nowSec, remaining))
+    return remaining ? i18nc("%1 = percent of a limit that is still available", "%1 % left", pct) : pct + " %"
+}
+
 function severity(pct, warn, crit) {
     if (pct >= crit) return "critical"
     if (pct >= warn) return "warning"
@@ -568,12 +591,13 @@ function errorText(errors) {
     }).join("; ")
 }
 
-function limitLine(name, limit, nowSec) {
+function limitLine(name, limit, nowSec, remaining) {
     const head = name + " · " + limitName(limit) + ": "
     if (isReset(limit, nowSec)) return head + i18nc("limit state", "reset")
     const rest = countdownLong(limit.resets_at, nowSec)
     const fc = forecastShort(limit, nowSec)
-    return head + Math.round(limit.used_percent) + " %" + (rest ? " · " + i18n("Reset in %1", rest) : "") + (fc ? " · " + fc : "")
+    return head + limitPercentText(limit, nowSec, remaining) + (rest ? " · " + i18n("Reset in %1", rest) : "")
+        + (fc ? " · " + fc : "")
 }
 
 function authHint(auth, entry) {
@@ -626,7 +650,7 @@ function changesText(changes) {
     return (changes || []).map(_changeText).filter(t => t !== "").join("\n")
 }
 
-function tooltipText(stats, providers, nowSec, refreshedAtMs) {
+function tooltipText(stats, providers, nowSec, refreshedAtMs, remaining) {
     if (!stats) return i18n("No data")
     const lines = []
     for (let i = 0; i < providers.length; i++) {
@@ -636,7 +660,7 @@ function tooltipText(stats, providers, nowSec, refreshedAtMs) {
         else {
             const stale = limitsStale(p, nowSec * 1000) ? " (" + i18nc("limit data is outdated", "stale") + ")" : ""
             for (let j = 0; j < p.limits.length; j++)
-                lines.push(limitLine(providers[i].name, p.limits[j], nowSec) + stale)
+                lines.push(limitLine(providers[i].name, p.limits[j], nowSec, remaining) + stale)
         }
         const hint = p ? authHint(p.auth, providers[i]) : ""
         if (hint) lines.push(providers[i].name + ": " + hint)

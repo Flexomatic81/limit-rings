@@ -177,6 +177,22 @@ TestCase {
         full.stats = original
     }
 
+    // "Percentages: Remaining" shows what is left; the colour still goes by the usage
+    function test_remaining_mode_shows_what_is_left() {
+        const original = full.stats
+        const nowSec = full.nowMs / 1000
+        const stats = JSON.parse(JSON.stringify(original))
+        stats.providers.claude.limits = [{id: "five_hour", used_percent: 76, resets_at: nowSec + 3600,
+                                          window_minutes: 300}]
+        full.stats = stats
+        full.remaining = true
+        tryVerify(() => { const l = findChild(full, "percentLabel"); return l && l.text === "24 % left" })
+        verify(findChild(full, "percentLabel").font.bold)   // 76 % used is above the warning threshold (70)
+        full.remaining = false
+        tryVerify(() => findChild(full, "percentLabel").text === "76 %")
+        full.stats = original
+    }
+
     function test_vanished_limit_leaves_no_bar_behind() {
         const bars = () => {
             const found = []

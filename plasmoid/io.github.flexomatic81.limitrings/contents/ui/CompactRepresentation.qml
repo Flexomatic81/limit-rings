@@ -13,6 +13,7 @@ MouseArea {
     property int warn
     property int crit
     property string style: "ring"
+    property bool remaining: false   // show what is left instead of what is used (colours keep going by usage)
     property bool hasProblem: false
     property bool vertical: false   // vertical panel: the gauges stack, the panel width is the size
 
@@ -42,7 +43,7 @@ MouseArea {
                 required property var modelData
                 readonly property var entryStats: Format.entryData(compact.stats, modelData)
                 readonly property var limits: entryStats ? entryStats.limits : null
-                readonly property var pct: Format.maxPercent(limits, compact.nowSec)
+                readonly property var pct: Format.shownMax(limits, compact.nowSec, compact.remaining)
                 readonly property var rings: Format.ringLimits(limits, compact.nowSec)
                 Layout.fillHeight: !compact.vertical
                 Layout.fillWidth: compact.vertical
@@ -50,10 +51,10 @@ MouseArea {
                 letter: modelData.short
                 percent: pct
                 severity: Format.worstSeverity(limits, compact.nowSec, compact.warn, compact.crit)
-                outerPercent: rings.outer ? Format.effectivePercent(rings.outer, compact.nowSec) : null
-                innerPercent: rings.inner ? Format.effectivePercent(rings.inner, compact.nowSec) : null
-                outerElapsed: Format.elapsedShare(rings.outer, compact.nowSec)
-                innerElapsed: Format.elapsedShare(rings.inner, compact.nowSec)
+                outerPercent: rings.outer ? Format.shownPercent(rings.outer, compact.nowSec, compact.remaining) : null
+                innerPercent: rings.inner ? Format.shownPercent(rings.inner, compact.nowSec, compact.remaining) : null
+                outerElapsed: Format.shownShare(Format.elapsedShare(rings.outer, compact.nowSec), compact.remaining)
+                innerElapsed: Format.shownShare(Format.elapsedShare(rings.inner, compact.nowSec), compact.remaining)
                 outerSeverity: Format.limitSeverity(rings.outer, compact.nowSec, compact.warn, compact.crit)
                 innerSeverity: Format.limitSeverity(rings.inner, compact.nowSec, compact.warn, compact.crit)
                 style: compact.style

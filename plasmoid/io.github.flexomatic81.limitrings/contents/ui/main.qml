@@ -58,7 +58,7 @@ PlasmoidItem {
 
     toolTipMainText: "Limit Rings"
     toolTipSubText: translationHandle
-        ? Format.tooltipText(stats, providers, nowSec, refreshedAtMs)
+        ? Format.tooltipText(stats, providers, nowSec, refreshedAtMs, Plasmoid.configuration.showRemaining)
           + (updateVersion ? "\n" + Format.i18n("Update available: %1", updateVersion) : "")
         : ""
 
@@ -70,6 +70,7 @@ PlasmoidItem {
         warn: root.warn
         crit: root.crit
         style: Plasmoid.configuration.compactStyle
+        remaining: Plasmoid.configuration.showRemaining
         hasProblem: root.statusMessage !== ""
         vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
     }
@@ -79,6 +80,7 @@ PlasmoidItem {
         providers: root.providers
         nowMs: root.nowMs
         refreshedAtMs: root.refreshedAtMs
+        remaining: Plasmoid.configuration.showRemaining
         warn: root.warn
         crit: root.crit
         message: root.statusMessage

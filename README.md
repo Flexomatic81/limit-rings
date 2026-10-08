@@ -74,6 +74,7 @@ see [Installation](#installation).
 - [Several accounts](#several-accounts) per provider (own `CLAUDE_CONFIG_DIR` / `CODEX_HOME`), each with
   its own ring and card.
 - Works without your logins if you prefer: [limits from local copies only](#without-login).
+- Shows what is left of each limit instead of what is used, if you prefer ("Percentages" in the settings).
 - Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs and your logins
