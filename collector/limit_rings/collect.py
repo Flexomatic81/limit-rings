@@ -306,6 +306,8 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     }
     for key in ("claude", "codex"):
         entries[key]["login"] = key in login
+        if key not in login:   # no request will follow, so none is announced (the throttle state stays as it is)
+            entries[key]["limits_next_request_at"] = entries[key]["limits_paused_until"] = None
     for key, limits in with_forecasts.items():
         entries[key]["limits"] = limits
         entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz)

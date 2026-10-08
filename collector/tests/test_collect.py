@@ -831,3 +831,17 @@ def test_codex_account_without_login_reads_no_auth(tmp_path, monkeypatch):
     acc = stats["accounts"]["c0d3x1"]
     assert acc["login"] is False and acc["auth"] is None
     assert acc["limits_source"] == "session_log" and acc["tokens"]["today"]["total"] == 300
+
+
+def test_no_next_request_is_published_for_a_provider_without_login(tmp_path):
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+    cx, _ = make_account(tmp_path, "codex", "c0d3x1", "Team")
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api, accounts=[cx])
+    assert stats["providers"]["claude"]["limits_next_request_at"] is not None
+    assert stats["providers"]["codex"]["limits_next_request_at"] is not None
+    later = NOW + timedelta(minutes=1)
+    stats = run(p, later, BERLIN, fetch=ok_fetch, codex_fetch=codex_api, accounts=[cx], login=set())
+    for x in (stats["providers"]["claude"], stats["providers"]["codex"], stats["accounts"]["c0d3x1"]):
+        assert x["limits_next_request_at"] is None and x["limits_paused_until"] is None
