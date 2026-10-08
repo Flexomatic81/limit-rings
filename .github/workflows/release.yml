@@ -24,9 +24,15 @@ jobs:
         run: python3 tools/release_notes.py "$GITHUB_REF_NAME" > notes.md
       - name: Build the store package
         run: python3 tools/build_plasmoid.py --source store --out dist
-      - name: Build the macOS widget
-        run: python3 tools/build_uebersicht.py --out dist
-      - run: cd dist && sha256sum *.plasmoid > "$(ls *.plasmoid).sha256" && sha256sum limit-rings-macos-*.zip > "$(ls limit-rings-macos-*.zip).sha256"
+      - name: Build the macOS widget and its installer
+        # Version-less copies, so that releases/latest/download/… always names the newest files
+        run: |
+          python3 tools/build_uebersicht.py --out dist
+          cp dist/limit-rings-macos-*.zip dist/limit-rings-macos.zip
+          cp macos/install.sh dist/install-macos.sh
+      - run: |
+          cd dist
+          for f in *.plasmoid limit-rings-macos*.zip install-macos.sh; do sha256sum "$f" > "$f.sha256"; done
       - name: Draft release – upload the .plasmoid to the KDE Store, then publish
         run: gh release create "$GITHUB_REF_NAME" dist/* --draft --title "Limit Rings ${GITHUB_REF_NAME#v}" --notes-file notes.md
         env:
