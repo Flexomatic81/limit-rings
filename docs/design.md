@@ -431,6 +431,45 @@ because Übersicht treats every `.js`, `.jsx` and `.coffee` file outside it as a
   (from `po/plasmoid/de.po`) and `collector/`. The release workflow attaches the zip and its `.sha256` to
   the draft release.
 
+## macOS installer
+
+`macos/install.sh` is published as the release asset `install-macos.sh` and run as
+`curl -fsSL …/releases/latest/download/install-macos.sh | sh [-s -- OPTIONS]`. Options: `--uninstall`,
+`--no-login-item`, `--version vX.Y.Z` (plain release tags only). The file consists of function
+definitions and a final `main "$@"`, so a download cut off midway runs nothing. It runs on macOS only,
+needs no admin rights and writes nothing outside the home folder.
+
+Steps of an install or update:
+
+1. **Lock:** one run at a time, via a lock holding the PID; the lock of a killed run is taken over.
+2. **Recovery:** a widget left aside by an interrupted run is restored before anything is downloaded.
+3. **Übersicht:** an existing app in `/Applications` or `~/Applications` is kept. Otherwise the download
+   page on tracesof.net is read, the archive is fetched (URL prefix checked) and installed into
+   `~/Applications` only if `codesign --verify --deep --strict` and `spctl` (notarized) pass and the team
+   ID is `S3P44NRLCW`, Übersicht's author.
+4. **Widget:** `limit-rings-macos.zip` and its `.sha256` come from the release; the checksum is verified
+   before unpacking. The widget is replaced through a staging folder
+   (`~/Library/Application Support/Übersicht/limit-rings-staging`): the old one is moved aside, the new
+   one moved in, and the old one restored if that fails. `settings.json` is carried over.
+5. **Python:** checked with the widget's `run.sh --which`; a missing Python is a warning with the
+   python.org link, not an error.
+6. **Welcome widget:** Übersicht's `GettingStarted.jsx` is removed only if its hash matches a known
+   original. On a fresh install the widgets folder exists before Übersicht's first start, so it never
+   appears.
+7. **Login item:** a LaunchAgent `~/Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist`
+   starts Übersicht at login (skipped with `--no-login-item`). Übersicht is started if not running.
+
+`--uninstall` removes the widget, the LaunchAgent, the staging folder and `~/.cache/limit-rings`;
+Übersicht stays.
+
+**Test hooks** (environment, for the tests only): `LIMIT_RINGS_RELEASE_BASE` (release download URL),
+`LIMIT_RINGS_UEBERSICHT_PAGE` (Übersicht download page), `LIMIT_RINGS_SYSTEM_APPS` (folder standing in for
+`/Applications`) and `LIMIT_RINGS_WELCOME_ORIGINALS` (hashes of the welcome widget originals).
+`collector/tests/test_install_macos.py` runs the script against stub tools; the lint job runs shellcheck.
+
+**Release assets:** `install-macos.sh`, `limit-rings-macos-<version>.zip` and `limit-rings-macos.zip` (a
+version-less copy, so the `latest/download` URL stays stable), each with a `.sha256`.
+
 ## Installation
 
 `tools/build_plasmoid.py` builds the one package for both ways: plasmoid, collector
