@@ -976,3 +976,22 @@ def test_keychain_is_not_read_without_login_or_when_hidden(tmp_path, monkeypatch
 def test_keychain_only_on_macos(tmp_path):
     assert Paths.default(tmp_path, platform="darwin").keychain == "Claude Code-credentials"
     assert Paths.default(tmp_path, platform="linux").keychain is None
+
+
+def test_unreadable_claude_directory_neither_aborts_the_run_nor_asks_the_keychain(tmp_path, monkeypatch):
+    import os
+    from dataclasses import replace
+    p, reads = keychain_paths(tmp_path, monkeypatch, KEYCHAIN_LOGIN)
+    (tmp_path / "login").mkdir()
+    p = replace(p, credentials=tmp_path / "login" / ".credentials.json")   # only the login dir is closed
+    first = run(p, NOW, BERLIN, fetch=ok_fetch)
+    reads.clear()
+    os.chmod(p.credentials.parent, 0)   # exists() raises PermissionError here before Python 3.14
+    try:
+        stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=ok_fetch)
+    finally:
+        os.chmod(p.credentials.parent, 0o755)
+    assert stats is not None and reads == []
+    assert stats["providers"]["claude"]["auth"]["status"] == "missing"
+    assert not p.state_file.with_name("state.json.corrupt").exists()
+    assert stats["providers"]["claude"]["tokens"] == first["providers"]["claude"]["tokens"]

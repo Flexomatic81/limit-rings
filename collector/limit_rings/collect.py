@@ -105,13 +105,25 @@ def _auth(status: tuple[str, float | None], tz: tzinfo) -> dict:
     return {"status": status[0], "expires_at": _iso(status[1], tz)}
 
 
+def _missing(path: Path) -> bool:
+    """True only if the file is not there; one that cannot be checked (e.g. a closed directory) counts as there,
+    so the file reader reports no login – Path.exists() would raise here before Python 3.14."""
+    try:
+        path.stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return True
+    except OSError:
+        return False
+    return False
+
+
 def _claude_login(section: dict, paths, now_ts: float):
     """Where this pass takes the Claude login from, and what is kept of the last keychain read (or None).
 
     The credentials file is read on every pass. The keychain only when there is no such file and the endpoint
     is due (or nothing was kept yet): its first read asks for permission, and a pass runs every minute.
     In between, plan and expiry of the last read are shown – the token itself is never kept."""
-    if paths.keychain is None or paths.credentials.exists():
+    if paths.keychain is None or not _missing(paths.credentials):
         return paths.credentials, None
     if section["keychain_login"] is None or claude_limits.is_due(section["oauth_last_attempt"], now_ts,
                                                                  section["oauth_pause"]):
