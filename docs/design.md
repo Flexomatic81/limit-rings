@@ -388,6 +388,49 @@ instance that runs first decides.
 - `stats.json`, `state.json` and the status line cache are created with mode `0600`,
   `~/.cache/limit-rings/` with `0700`.
 
+## Shared display logic (`core.mjs`)
+
+The Plasma widget and the macOS widget show the same cards from the same code:
+`plasmoid/io.github.flexomatic81.limitrings/contents/code/core.mjs`. It holds the limit logic (percentages,
+pace, thresholds, reset countdown), the texts of the cards, `readCollectorOutput` (parses the collector's
+envelope) and `statusMessage`.
+
+- **Translator:** every text function takes a `tr` object `{i18n, i18nc, i18np, decimal, integer, weekday}`.
+  `ENGLISH` is the plain implementation; Plasma passes the `i18n*` functions of the QML context, the macOS
+  widget builds one from `de.json` (`lib/i18n.mjs`).
+- **`format.js`** is a thin wrapper: it imports the module with `.import "core.mjs" as Core` and passes
+  its `_tr()` to each function, so QML callers and the QML tests stay unchanged.
+- **Extraction:** `po/update.sh` extracts the texts of `*.mjs` as well, so `core.mjs` strings land in
+  `po/plasmoid/*.po` like all others.
+
+## macOS widget (Übersicht)
+
+Source: `macos/limit-rings.widget/` with `index.jsx` (settings block, rendering), `run.sh`, `lib/card.mjs`
+(builds the card model from the collector output with `core.mjs`) and `lib/i18n.mjs`. Helpers live in `lib/`
+because Übersicht treats every `.js`, `.jsx` and `.coffee` file outside it as a widget.
+
+```
+Übersicht (every 60 s) ─► run.sh ─► run.py (collector) ─► JSON on stdout ─► card.mjs ─► index.jsx
+```
+
+- **`run.sh`** is the widget's `command`. Übersicht runs it from its widgets folder with a minimal `PATH`
+  (`/usr/bin:/bin:/usr/sbin:/sbin`), so it looks for Python itself, in this order: the python.org framework
+  (`/Library/Frameworks/Python.framework/Versions/Current/bin/python3`), `/opt/homebrew/bin/python3`,
+  `/usr/local/bin/python3`, `python3` on `PATH`, and `/usr/bin/python3` – the last one only when the
+  Command Line Tools are installed, otherwise it is a stub that opens an install dialog. The first one
+  ≥ 3.10 wins; without one, `run.sh` runs the first it found, so the card names the version that is too
+  old (with a link to python.org). A pass is killed after 50 s (exit 124), since Übersicht starts the next
+  one only after the last one ended.
+- **Login:** without `~/.claude/.credentials.json` the collector reads the keychain entry
+  `Claude Code-credentials` (see Security). This works in the logged-in desktop session only.
+- **Certificates:** Python from python.org ships without root certificates until "Install
+  Certificates.command" is run. The collector then trusts the system bundle `/etc/ssl/cert.pem` itself
+  (`sources/http.py`), so users need not do anything.
+- **Build:** `python3 tools/build_uebersicht.py --out dist` writes `dist/limit-rings-macos-<version>.zip`
+  (`--dir DIR` leaves an unpacked folder). Besides the source it adds `lib/core.mjs`, `lib/de.json`
+  (from `po/plasmoid/de.po`) and `collector/`. The release workflow attaches the zip and its `.sha256` to
+  the draft release.
+
 ## Installation
 
 `tools/build_plasmoid.py` builds the one package for both ways: plasmoid, collector
@@ -440,10 +483,11 @@ limit-rings/
   plasmoid/io.github.flexomatic81.limitrings/
     metadata.json
     contents/ui/      main.qml  FullRepresentation.qml  UpdateMessage.qml  …
-    contents/code/    format.js  build.js
+    contents/code/    core.mjs  format.js  build.js
     contents/config/  main.xml  config.qml
   po/  plasmoid/  collector/  update.sh
-  tools/  build_plasmoid.py  msgfmt.py  release_notes.py  install-lib.sh
+  macos/limit-rings.widget/  index.jsx  run.sh  lib/
+  tools/  build_plasmoid.py  build_uebersicht.py  msgfmt.py  release_notes.py  install-lib.sh
   .github/workflows/  test.yml  release.yml
   install.sh  uninstall.sh  README.md  CHANGELOG.md
   docs/  design.md  store/description.md

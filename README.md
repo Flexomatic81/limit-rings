@@ -191,6 +191,30 @@ cd limit-rings
 `install.sh` checks the requirements first and names the install command for your distribution if
 something is missing. Use one way or the other: both install the same widget, the last one wins.
 
+### macOS (Übersicht)
+
+A second widget runs on macOS in [Übersicht](https://tracesof.net/uebersicht/). It uses the same collector
+and the same display logic as the Plasma widget and shows one card per provider: rings and bars with the
+pace mark and the reset countdown, tokens for today/week/month and the history over 30 days. It has no
+notifications, no additional accounts, no breakdown by project and model, no extra usage and no 3- or
+12-month ranges.
+
+Requirements: Übersicht and Python ≥ 3.10 from [python.org](https://www.python.org/downloads/macos/)
+(Homebrew works too). Apple's own `python3` is 3.9 and too old; if no suitable Python is found, the card
+says so.
+
+1. Download `limit-rings-macos-<version>.zip` from the
+   [latest release](https://github.com/Flexomatic81/limit-rings/releases/latest) and unzip it.
+2. Move `limit-rings.widget` into `~/Library/Application Support/Übersicht/widgets/`.
+3. Settings (providers, login, remaining instead of used, thresholds, position) are the block at the top of
+   `limit-rings.widget/index.jsx`; Übersicht reloads the widget when you save it.
+
+Claude Code keeps its login in the keychain on macOS. The first time, macOS asks whether `python3` may
+read the entry `Claude Code-credentials` – choose "Always Allow" (see [What is read](#what-is-read-and-where-it-goes)).
+The prompt appears in your desktop session only, not over SSH. Everything said about your logins above
+applies unchanged: it is the same collector, tokens are only read and only sent to the provider, at most
+every 5 minutes.
+
 ### Updating
 
 The widget tells you when a new version is out (it asks GitHub once a day; switch it off in its
