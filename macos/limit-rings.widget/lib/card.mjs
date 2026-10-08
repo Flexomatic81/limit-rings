@@ -8,6 +8,13 @@ export const DEFAULTS = {providers: ["claude", "codex"], login: ["claude", "code
 const NAMES = {claude: "Claude", codex: "Codex"}
 const INSTALL_URL = "https://www.python.org/downloads/macos/"
 
+// Two whole percentages, 1-100, warning below critical – anything else is the default, as in the collector.
+function _thresholds(value) {
+    const ok = Array.isArray(value) && value.length === 2 && value.every(Number.isInteger)
+               && value[0] >= 1 && value[0] < value[1] && value[1] <= 100
+    return ok ? value : DEFAULTS.thresholds
+}
+
 function _ring(limit, nowSec, s) {
     if (!limit) return null
     return {percent: C.shownPercent(limit, nowSec, s.remaining),
@@ -41,7 +48,9 @@ function _card(key, p, nowMs, s, tr) {
         rings: {outer: _ring(r.outer, nowSec, s), inner: _ring(r.inner, nowSec, s)},
         rows: limits.map(l => _row(l, nowSec, s, tr)),
         tokens: ["today", "week", "month"].map(name => ({label: labels[name], value: total(name)})),
-        series: series.map(e => ({date: e.date, total: e.total, height: top > 0 ? e.total / top : 0})),
+        series: series.map(e => ({date: e.date, total: e.total, height: top > 0 ? e.total / top : 0,
+                                  tip: tr.i18nc("daily chart tooltip: %1 date, %2 token count", "%1: %2 tokens",
+                                                e.date, tr.integer(e.total))})),
         footer: limits.length ? C.footerText(p, nowMs, 0, tr) : "",
         stale: C.limitsStale(p, nowMs)
     }
@@ -49,6 +58,7 @@ function _card(key, p, nowMs, s, tr) {
 
 export function view(output, previous, nowMs, settings, tr) {
     const s = Object.assign({}, DEFAULTS, settings)
+    s.thresholds = _thresholds(s.thresholds)
     const read = C.readCollectorOutput(output.exitCode, output.stdout)
     const stats = read.stats || (previous ? previous.stats : null)
     const status = C.statusMessage(read.error, stats, nowMs, {pythonVersion: read.pythonVersion, installUrl: INSTALL_URL}, tr)

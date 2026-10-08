@@ -67,3 +67,14 @@ test("expired login and unreadable logs are both said on the card", () => {
   assert.match(codex.hint, /^No limits without login/)
   assert.equal(codex.errors, "Data could not be processed")
 })
+
+test("chart bars carry a tooltip", () => {
+  assert.match(ok().cards[0].series[0].tip, /^.+: [\d,]+ tokens$/)
+})
+
+test("invalid thresholds fall back to the defaults like the collector", () => {
+  const sev = th => view(out(JSON.parse(STATS)), null, NOW_MS, {...DEFAULTS, thresholds: th}, T).cards[0].rows[0].severity
+  const ref = sev([70, 90])
+  for (const bad of [[80], [90, 70], [0, 50], [50, 101], "x", null]) assert.equal(sev(bad), ref)
+  assert.equal(sev([30, 50]), "warning")
+})
