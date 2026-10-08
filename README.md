@@ -206,7 +206,7 @@ curl -fsSL https://github.com/Flexomatic81/limit-rings/releases/latest/download/
 ```
 
 It works from the first release that ships the installer. Run the same command again to update. It needs
-no admin rights and writes only inside your home folder. It:
+no admin rights and keeps no files outside your home folder. It:
 
 - installs Übersicht into `~/Applications` if you have none – downloaded from tracesof.net and used only
   after its signature, notarization and developer ID check out. An Übersicht you already have is kept
@@ -215,7 +215,7 @@ no admin rights and writes only inside your home folder. It:
   folder. A failed update keeps the old widget, and your `settings.json` stays;
 - removes Übersicht's welcome widget if it is still the unchanged original;
 - starts Übersicht at login (macOS shows "Background item added" once) and starts it now. Add
-  `--no-login-item` to skip the login item: `… | sh -s -- --no-login-item`;
+  `--no-login-item` to skip the login item (this also removes one set up earlier): `… | sh -s -- --no-login-item`;
 - checks for Python and warns if it is missing.
 
 `--version vX.Y.Z` installs a specific release. To remove everything the installer set up (the widget, the
@@ -242,7 +242,8 @@ Install [Übersicht](https://tracesof.net/uebersicht/) yourself, then:
 
 Settings (providers, login, remaining instead of used, thresholds, position) are in
 `limit-rings.widget/settings.json`; Übersicht reloads the widget when you save it. The installer keeps
-this file when it updates the widget.
+this file when it updates the widget. A missing or malformed `login` entry means no login: the live
+limits are then off and only local data is shown.
 
 Claude Code keeps its login in the keychain on macOS. macOS may ask once whether `security` may
 read the entry `Claude Code-credentials` – choose "Always Allow" (see [What is read](#what-is-read-and-where-it-goes)).

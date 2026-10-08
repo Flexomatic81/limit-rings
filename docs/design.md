@@ -437,14 +437,17 @@ because Übersicht treats every `.js`, `.jsx` and `.coffee` file outside it as a
 `curl -fsSL …/releases/latest/download/install-macos.sh | sh [-s -- OPTIONS]`. Options: `--uninstall`,
 `--no-login-item`, `--version vX.Y.Z` (plain release tags only). The file consists of function
 definitions and a final `main "$@"`, so a download cut off midway runs nothing. It runs on macOS only,
-needs no admin rights and writes nothing outside the home folder.
+needs no admin rights and keeps no files outside the home folder (its temporary directory is removed on exit).
 
 Steps of an install or update:
 
 1. **Lock:** one run at a time, via a lock holding the PID; the lock of a killed run is taken over.
 2. **Recovery:** a widget left aside by an interrupted run is restored before anything is downloaded.
 3. **Übersicht:** an existing app in `/Applications` or `~/Applications` is kept. Otherwise the download
-   page on tracesof.net is read, the archive is fetched (URL prefix checked) and installed into
+   page on tracesof.net is read, the first link of the form
+   `https://tracesof.net/uebersicht/releases/Uebersicht-<version>.app.zip` on that page is fetched, its entry
+   names are screened (`zipinfo -1`: no absolute path, no `..` segment; `ditto` itself drops both and does not
+   follow a symlink entry to write below it, as tested on macOS 15) and it is installed into
    `~/Applications` only if `codesign --verify --deep --strict` and `spctl` (notarized) pass and the team
    ID is `S3P44NRLCW`, Übersicht's author.
 4. **Widget:** `limit-rings-macos.zip` and its `.sha256` come from the release; the checksum is verified
@@ -457,7 +460,7 @@ Steps of an install or update:
    original. On a fresh install the widgets folder exists before Übersicht's first start, so it never
    appears.
 7. **Login item:** a LaunchAgent `~/Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist`
-   starts Übersicht at login (skipped with `--no-login-item`). Übersicht is started if not running.
+   starts Übersicht at login (with `--no-login-item` an earlier LaunchAgent is removed instead). Übersicht is started if not running.
 
 `--uninstall` removes the widget, the LaunchAgent, the staging folder and `~/.cache/limit-rings`;
 Übersicht stays.
