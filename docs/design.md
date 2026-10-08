@@ -235,6 +235,13 @@ Rules:
   (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by
   Claude Code in the terminal (valid for about 8 h). If the state is not `ok`, card and tooltip show
   "Login expired – run claude in a terminal" or "No login found – …".
+- `login` (every provider and account entry): whether the live limits via login are on for it
+  (`LIMIT_RINGS_LOGIN`, set by the widget from "Live limits via login"; unset = all providers). Off:
+  the login file is never opened (`auth` is `null`, no Claude plan), the usage endpoint is not asked,
+  a stored record from it is dropped; Claude limits come only from the status line copy, Codex limits
+  only from the session logs. The card says so while there are no limits. A `stats.json` returned from
+  cache is filtered the same way, change events remember their `source` (only local ones are shown),
+  and `limits_next_request_at` / `limits_paused_until` are `null`.
 - `errors` lists problems as codes (`logs_unreadable` with `count`, `logs_failed`,
   `limits_unavailable`); the other fields then carry the last good values.
 - `stats.json` holds no display texts: the plasmoid builds limit names (from `window_minutes` and

@@ -73,6 +73,7 @@ see [Installation](#installation).
 
 - [Several accounts](#several-accounts) per provider (own `CLAUDE_CONFIG_DIR` / `CODEX_HOME`), each with
   its own ring and card.
+- Works without your logins if you prefer: [limits from local copies only](#without-login).
 - Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs and your logins
@@ -105,6 +106,24 @@ before the next request.
 - Touch a directory you have not listed under "Additional accounts", or an account you have unticked there.
 - Touch a provider you have switched off: with Claude or Codex unticked under "Show:" in the
   settings, its login and logs are not read and its endpoint is not asked.
+- Open a login file with "Live limits via login" switched off for its provider.
+
+### Without login
+
+Under "Live limits via login" in the settings you can switch the login off for Claude, Codex or both.
+Limit Rings then never opens that provider's login file and never asks its usage endpoint; the limits
+come only from local copies:
+
+- **Claude:** from the status line copy (`statusline-snippet.sh`), i.e. only while Claude Code runs in a
+  terminal with that status line – `install.sh` sets it up, Store installs add the snippet by hand. Only
+  the 5-hour and the weekly limit: no limits per model, no extra usage, no plan name. Additional Claude
+  accounts have no status line copy and show no limits.
+- **Codex:** from the session logs, i.e. only after you used Codex in a terminal – Codex running only
+  as the Claude Code plugin writes none. No credits.
+
+Token statistics, history and breakdown come from the local logs anyway and stay as they are. The
+setting applies to the widget you set it in (and to the provider's additional accounts): with a second
+Limit Rings widget, switch it off there too.
 
 ### The providers' terms
 
@@ -248,7 +267,7 @@ LIMIT_RINGS_NOTIFY=0 python3 ~/.local/share/plasma/plasmoids/io.github.flexomati
 Limit Rings contacts `api.anthropic.com` and `chatgpt.com` (limits, at most every 5 minutes and paused
 after "too many requests", with the logins described in
 [Important: unofficial APIs and your logins](#important-unofficial-apis-and-your-logins); not for a
-provider or account you have switched off) and `api.github.com` (new version check, once a day, no personal data;
+provider or account you have switched off, or with "Live limits via login" off) and `api.github.com` (new version check, once a day, no personal data;
 can be switched off). Nothing else leaves your machine.
 
 ## Development
