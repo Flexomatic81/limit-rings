@@ -205,7 +205,9 @@ says so.
 
 1. Download `limit-rings-macos-<version>.zip` from the
    [latest release](https://github.com/Flexomatic81/limit-rings/releases/latest) and unzip it.
-2. Move `limit-rings.widget` into `~/Library/Application Support/Übersicht/widgets/`.
+2. Move `limit-rings.widget` into `~/Library/Application Support/Übersicht/widgets/`. Keep the folder name:
+   the widget does not run under another one (the card says so). To update, delete the old folder first,
+   then move the new one in – unzipping next to it would create `limit-rings.widget 2`.
 3. Settings (providers, login, remaining instead of used, thresholds, position) are the block at the top of
    `limit-rings.widget/index.jsx`; Übersicht reloads the widget when you save it.
 

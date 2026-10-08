@@ -106,6 +106,8 @@ test("collector output", () => {
   assert.equal(C.readCollectorOutput(0, "Traceback (most recent call last):").error, "parse")
   const old = C.readCollectorOutput(3, JSON.stringify({envelope: 1, error: "python-too-old", version: "3.9.6"}))
   assert.deepEqual([old.error, old.pythonVersion], ["oldpython", "3.9.6"])
+  assert.equal(C.readCollectorOutput(124, "").error, "timeout")
+  assert.equal(C.readCollectorOutput(0, JSON.stringify({envelope: 1, error: "widget-folder"})).error, "folder")
   const ok = C.readCollectorOutput(0, JSON.stringify({envelope: 1, stats: {schema: 2}, notices: []}))
   assert.equal(ok.error, "")
   assert.deepEqual(ok.stats, {schema: 2})
@@ -117,4 +119,10 @@ test("status message with a download link", () => {
   assert.equal(msg, "Python 3.9.6 is too old – Limit Rings needs 3.10 or newer. " +
                     "Download it from https://www.python.org/downloads/macos/")
   assert.equal(C.statusMessage("", {generated_at: new Date(NOW * 1000).toISOString()}, NOW * 1000, {}, T), "")
+})
+
+test("status messages for a wrong folder name and a timed-out pass", () => {
+  assert.equal(C.statusMessage("folder", null, NOW * 1000, {}, T),
+               "The widget folder must be named limit-rings.widget – rename it in Übersicht's widgets folder.")
+  assert.match(C.statusMessage("timeout", null, NOW * 1000, {}, T), /^The last collector run took too long and was stopped\. Log: /)
 })

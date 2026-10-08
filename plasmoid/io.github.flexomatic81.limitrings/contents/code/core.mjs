@@ -320,6 +320,10 @@ export function readCollectorOutput(exitCode, stdout) {
         out.error = "nopython"
         return out
     }
+    if (exitCode === 124) {   // the macOS wrapper stopped a pass that hung
+        out.error = "timeout"
+        return out
+    }
     let env
     try {
         env = JSON.parse(stdout)
@@ -328,6 +332,10 @@ export function readCollectorOutput(exitCode, stdout) {
     }
     if (!env || typeof env !== "object" || typeof env.envelope !== "number") {
         out.error = "parse"
+        return out
+    }
+    if (env.error === "widget-folder") {   // macOS: the folder is not named limit-rings.widget
+        out.error = "folder"
         return out
     }
     if (env.error === "python-too-old") {
@@ -361,6 +369,10 @@ export function statusMessage(loadError, stats, nowMs, info, tr) {
         return tr.i18n("Limit Rings was updated – restart Plasma or log out and back in to load the new version.")
     case "parse":
         return tr.i18n("The collector output is not readable. Log: %1", LOG_PATH)
+    case "timeout":
+        return tr.i18n("The last collector run took too long and was stopped. Log: %1", LOG_PATH)
+    case "folder":
+        return tr.i18n("The widget folder must be named %1 – rename it in Übersicht's widgets folder.", "limit-rings.widget")
     case "failed":
         return tr.i18n("The last collector run failed. Log: %1", LOG_PATH)
     case "nodata":

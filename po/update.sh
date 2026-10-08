@@ -9,7 +9,7 @@ root="$(dirname "$here")"
 
 extract() {
     local out="$1"
-    (cd "$root" && find plasmoid/io.github.flexomatic81.limitrings/contents \( -name '*.qml' -o -name '*.js' -o -name '*.mjs' \) | sort \
+    (cd "$root" && { find plasmoid/io.github.flexomatic81.limitrings/contents macos/limit-rings.widget \( -name '*.qml' -o -name '*.js' -o -name '*.mjs' -o -name '*.jsx' \); } | sort \
         | xgettext --from-code=UTF-8 -C --kde -ci18n -ki18n:1 -ki18nc:1c,2 -ki18np:1,2 -ki18ncp:1c,2,3 \
             --package-name=limit-rings --no-location -o "$out/plasmoid.pot" -f -)
     (cd "$root" && find collector/limit_rings -name '*.py' | sort \

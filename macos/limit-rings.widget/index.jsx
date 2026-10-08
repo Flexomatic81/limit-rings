@@ -17,10 +17,13 @@ const SETTINGS = {
 // ---------------------------------------------------------------------------------------------------------
 
 const keys = list => list.filter(k => /^[a-z]+$/.test(k)).join(",")
-export const command =
+const env =
   `LIMIT_RINGS_NOTIFY=0 LIMIT_RINGS_PROVIDERS=${keys(SETTINGS.providers)} LIMIT_RINGS_LOGIN=${keys(SETTINGS.login)} ` +
-  `LIMIT_RINGS_THRESHOLDS=${SETTINGS.thresholds.map(n => Math.round(n)).join(",")} ` +
-  `sh limit-rings.widget/run.sh; echo "@exit=$?"`
+  `LIMIT_RINGS_THRESHOLDS=${SETTINGS.thresholds.map(n => Math.round(n)).join(",")}`
+// A folder under another name (e.g. "limit-rings.widget 2") gets an envelope the card can explain, not sh's exit 127.
+export const command =
+  `if [ -f limit-rings.widget/run.sh ]; then ${env} sh limit-rings.widget/run.sh; ` +
+  `else echo '{"envelope":1,"error":"widget-folder"}'; fi; echo "@exit=$?"`
 export const refreshFrequency = 60000
 
 const tr = makeTranslator(typeof navigator !== "undefined" ? navigator.language : "en-US", catalog)
@@ -37,7 +40,7 @@ export const className = `
   top: ${SETTINGS.top}px; left: ${SETTINGS.left}px;
   font: 12px -apple-system, BlinkMacSystemFont, sans-serif;
   --fg: #1d1d1f; --muted: #6e6e73; --track: rgba(0,0,0,.12); --card: rgba(255,255,255,.72);
-  --normal: AccentColor; --warning: #f5a623; --critical: #e5484d;
+  --normal: #0a84ff; --normal: AccentColor; --warning: #f5a623; --critical: #e5484d;
   @media (prefers-color-scheme: dark) {
     --fg: #f5f5f7; --muted: #a1a1a6; --track: rgba(255,255,255,.16); --card: rgba(30,30,32,.72);
   }
@@ -100,7 +103,7 @@ const Card = ({ card }) => (
     {card.errors && <div className="hint">{card.errors}</div>}
     <div className="muted">{card.tokens.map(t => `${t.label} ${t.value}`).join(" · ")}</div>
     {card.series.length > 0 && (
-      <div className="chart">{card.series.map(s => <div key={s.date} title={`${s.date}: ${s.total}`} style={{ height: `${s.height * 100}%` }} />)}</div>
+      <div className="chart">{card.series.map(s => <div key={s.date} title={s.tip} style={{ height: `${s.height * 100}%` }} />)}</div>
     )}
     {card.footer && <div className="note">{card.footer}</div>}
   </div>
