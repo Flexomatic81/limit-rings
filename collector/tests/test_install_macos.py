@@ -37,9 +37,10 @@ case "$1" in
 esac
 ''',
     "spctl": 'echo "spctl $*" >> "$STUB_LOG"; [ -z "$STUB_SPCTL_FAIL" ]\n',
-    # ditto -x -k ZIP DIR
     # ditto -x -k ZIP DIR, with the Python running the tests (macOS runners have no usable /usr/bin/python3)
     "ditto": f'"{sys.executable}" -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$3" "$4"\n',
+    # zipinfo -1 ZIP: one entry name per line
+    "zipinfo": f'"{sys.executable}" -c "import sys, zipfile; print(*zipfile.ZipFile(sys.argv[1]).namelist(), sep=chr(10))" "$2"\n',
     # the real shasum on macOS; GNU sha256sum on Linux
     "shasum": r'''
 [ -x /usr/bin/shasum ] && exec /usr/bin/shasum "$@"
@@ -159,6 +160,15 @@ def test_untrusted_uebersicht_is_not_installed(env, stub):
     assert not user_app(env).exists() and not (widgets(env) / "limit-rings.widget").exists()
 
 
+@pytest.mark.parametrize("name", ["../evil", "/tmp/evil", f"{APP}/../../evil", "a/../../evil"])
+def test_uebersicht_archive_with_escaping_paths_is_rejected(env, name):
+    _zip(Path(env["FIXTURES"], "Uebersicht-1.6.82.app.zip"), {f"{APP}/Contents/Info.plist": "<plist/>", name: "x"})
+    res = install(env)
+    assert res.returncode == 1 and "unexpected content" in res.stderr
+    assert not user_app(env).exists() and not (widgets(env) / "limit-rings.widget").exists()
+    assert not any(c.startswith(("codesign", "spctl")) for c in calls(env))   # screened before it is unpacked
+
+
 def test_download_link_must_point_to_tracesof(env):
     Path(env["FIXTURES"], "page.html").write_text('<a href="https://evil.example/Uebersicht-1.6.82.app.zip">x</a>')
     res = install(env)
@@ -182,6 +192,7 @@ def test_stale_lock_of_a_killed_run_is_taken_over_and_its_widget_restored(env):
     (base / "limit-rings-staging" / "previous" / "index.jsx").write_text("old")
     Path(env["FIXTURES"], "limit-rings-macos.zip").unlink()      # even offline, the widget comes back
     res = install(env)
+    assert res.returncode == 1 and "download of the widget failed" in res.stderr   # offline, but the widget is back
     assert "took over the lock" in res.stdout
     assert (widgets(env) / "limit-rings.widget" / "index.jsx").read_text() == "old"
     assert not (base / "limit-rings-install.lock").exists()
@@ -341,18 +352,32 @@ def test_no_login_item_option(env):
     assert not (Path(env["HOME"]) / "Library/LaunchAgents").exists()
 
 
+def test_no_login_item_removes_the_login_item_of_an_earlier_run(env):
+    install(env)
+    agent = Path(env["HOME"]) / "Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist"
+    assert agent.is_file()
+    res = install(env, "--no-login-item")
+    assert res.returncode == 0, res.stderr
+    assert not agent.exists() and "removed the login item" in res.stdout
+
+
+def test_failed_fresh_install_does_not_claim_a_previous_widget(env):
+    Path(env["HOME"], "Library/Application Support/Übersicht/widgets").mkdir(parents=True)
+    Path(env["HOME"], "Library/Application Support/Übersicht/widgets").chmod(0o555)
+    try:
+        res = install(env)
+    finally:
+        Path(env["HOME"], "Library/Application Support/Übersicht/widgets").chmod(0o755)
+    assert res.returncode == 1 and "previous" not in res.stderr
+
+
 def test_uebersicht_is_started_when_not_running(env):
     install(env)
     assert any(c.startswith("open -a ") or c.startswith("open ") for c in calls(env))
 
 
-def test_pattern_for_the_running_app_works_with_the_decomposed_umlaut(env):
-    res = install(env, STUB_RUNNING="1")
-    assert res.returncode == 0
-    assert not any(c.startswith("open") for c in calls(env))
-
-
 def test_running_uebersicht_is_left_alone(env):
+    # the stub only matches an ASCII-only pattern, like macOS's decomposed "Ü" requires
     res = install(env, STUB_RUNNING="1")
     assert res.returncode == 0
     assert not any(c.startswith("open") for c in calls(env))

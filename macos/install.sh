@@ -4,7 +4,7 @@
 #   … | sh -s -- --uninstall        remove the widget, its login item and its cache (Übersicht stays)
 #   … | sh -s -- --no-login-item    do not start Übersicht at login
 #   … | sh -s -- --version v0.7.0   install that release instead of the latest
-# Needs no admin rights and changes nothing outside your home folder. Never reads from stdin: under
+# Needs no admin rights and keeps no files outside your home folder. Never reads from stdin: under
 # "curl … | sh" stdin is this script.
 set -eu
 
@@ -71,6 +71,11 @@ install_uebersicht() {
         | grep -o 'https://tracesof\.net/uebersicht/releases/Uebersicht-[0-9.]*\.app\.zip' | head -n 1)" || url=""
     [ -n "$url" ] || fail "could not find the Übersicht download on $UEBERSICHT_PAGE"
     curl -fsSL -o "$tmp/uebersicht.zip" "$url" || fail "the download of Übersicht failed"
+    # ditto drops "../" and absolute prefixes itself; refuse such an archive before unpacking anyway
+    names="$(zipinfo -1 "$tmp/uebersicht.zip")" || fail "could not read the Übersicht download – not installed"
+    if printf '%s\n' "$names" | grep -Eq '^/|(^|/)\.\.(/|$)'; then
+        fail "the Übersicht download has unexpected content – not installed"
+    fi
     mkdir "$tmp/uebersicht"
     ditto -x -k "$tmp/uebersicht.zip" "$tmp/uebersicht" || fail "could not unpack Übersicht"
     set -- "$tmp/uebersicht"/*.app
@@ -118,9 +123,12 @@ install_widget() {
         if [ "$updated" = 1 ] && mv "$STAGING/previous" "$WIDGETS/$WIDGET"; then
             fail "could not put the new widget into $WIDGETS – the old one is back in place"
         fi
-        fail "could not put the widget into $WIDGETS – the previous one is kept in $STAGING/previous"
+        if [ "$updated" = 1 ]; then
+            fail "could not put the widget into $WIDGETS – the previous one is kept in $STAGING/previous"
+        fi
+        fail "could not put the widget into $WIDGETS – nothing was installed"
     fi
-    rm -rf "$STAGING"
+    rm -rf "$STAGING" || say "could not tidy up $STAGING – you can delete it"
     if [ "$updated" = 1 ]; then say "updated the widget in $WIDGETS"; else say "installed the widget in $WIDGETS"; fi
 }
 
@@ -217,7 +225,12 @@ if [ -n "$app" ]; then say "found Übersicht at $app"; else install_uebersicht; 
 install_widget
 check_python
 remove_welcome
-if [ "$login_item" = 1 ]; then write_login_item; fi
+if [ "$login_item" = 1 ]; then
+    write_login_item
+elif [ -e "$AGENT" ]; then
+    rm -f "$AGENT"
+    say "removed the login item of an earlier run"
+fi
 start_uebersicht
 say "done – run the same command again to update; add \"-s -- --uninstall\" after sh to remove it"
 }
