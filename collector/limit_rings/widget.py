@@ -151,8 +151,8 @@ def main(home: Path | None = None) -> int:
     if legacy_timer(home):
         # e.g. a store install over a git install of 0.2: two writers would overwrite each other's state.
         logging.getLogger("limit_rings").warning("legacy timer %s found – not collecting", LEGACY_TIMER)
-        envelope = {"envelope": ENVELOPE, "error": "legacy-timer", "stats": withhold_login_data(_read_stats(paths.stats_file), login),
-                    "notices": []}
+        envelope = {"envelope": ENVELOPE, "error": "legacy-timer",
+                    "stats": withhold_login_data(_read_stats(paths.stats_file), login), "notices": []}
         code = 0
     else:
         tz = local_zone()

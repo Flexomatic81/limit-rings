@@ -254,7 +254,7 @@ msgstr "Ohne Login keine Limits – sie kommen aus den Sitzungslogs, sobald du c
 
 #, kde-format
 msgid "No limits without login for additional accounts"
-msgstr "Ohne Login keine Limits für Zusatzkonten"
+msgstr "Ohne Login keine Limits für weitere Konten"
 
 #, kde-format
 msgid ""
@@ -341,7 +341,7 @@ msgid ""
 msgstr ""
 "Ohne Login kommen die Limits nur aus der Claude-Statuszeile oder den Codex-"
 "Sitzungslogs – keine Limits pro Modell, keine Zusatznutzung oder Credits. "
-"Gilt für dieses Widget und die Zusatzkonten des Anbieters."
+"Gilt für dieses Widget und die weiteren Konten des Anbieters."
 
 #, kde-format
 msgid "Notifications:"

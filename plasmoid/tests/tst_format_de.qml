@@ -25,7 +25,7 @@ TestCase {
         "Codex credit balance|unlimited": "unbegrenzt",
         "limit structure change: %1 limit name, %2 date|%1: new limit (since %2)": "%1: neues Limit (seit %2)",
         "limit name: 5-hour window|5 h": "5 h",
-        "No limits without login for additional accounts": "Ohne Login keine Limits für Zusatzkonten"
+        "No limits without login for additional accounts": "Ohne Login keine Limits für weitere Konten"
     })
 
     function subst(text, args) {
@@ -95,6 +95,6 @@ TestCase {
 
     function test_loginHint_in_german() {
         compare(F.loginHint({login: false, limits: []}, {key: "k1", account: true, provider: "claude"}),
-                "Ohne Login keine Limits für Zusatzkonten")
+                "Ohne Login keine Limits für weitere Konten")
     }
 }

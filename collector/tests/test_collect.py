@@ -879,3 +879,20 @@ def test_withhold_login_data_hides_endpoint_data_of_providers_without_login():
     assert nologin["providers"]["codex"]["plan"] == "plus" and nologin["providers"]["codex"]["auth"] is None
     assert withhold_login_data(None, set()) is None
     assert withhold_login_data({"schema": 2}, set()) == {"schema": 2}
+    assert withhold_login_data({"schema": 2, "providers": [1], "accounts": "x"}, set()) == \
+        {"schema": 2, "providers": [1], "accounts": "x"}
+    assert withhold_login_data({"providers": {"claude": 1}, "accounts": {"k": 2}}, set()) == \
+        {"providers": {"claude": 1}, "accounts": {"k": 2}}
+
+
+def test_hidden_provider_without_login_loses_its_endpoint_data(tmp_path):
+    p = make_paths(tmp_path)
+
+    def with_extra(token, timeout=10.0):
+        return {**ok_fetch(token), "extra_usage": {"is_enabled": True, "monthly_limit": None, "used_credits": 250}}
+
+    first = run(p, NOW, BERLIN, fetch=with_extra)
+    assert first["providers"]["claude"]["extra"] is not None
+    stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=ok_fetch, providers={"codex"}, login={"codex"})
+    c = stats["providers"]["claude"]
+    assert (c["limits"], c["limits_source"], c["extra"], c["plan"], c["login"]) == ([], None, None, None, False)

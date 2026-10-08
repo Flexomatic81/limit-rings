@@ -276,7 +276,8 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     claude_errors, claude_plan = [], None
     if "claude" in providers:
         claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
-    codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch, "codex" in login) if "codex" in providers else []
+    codex_errors = (_process_codex(state, paths, now.timestamp(), tz, codex_fetch, "codex" in login)
+                    if "codex" in providers else [])
     _update_history(state)
     _update_changes(state, providers, now.timestamp())
     with_forecasts = {
@@ -312,7 +313,22 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
         entries[key]["limits"] = limits
         entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz,
                                                 local_only=key not in login)
+        if key not in login:   # also a hidden provider, whose state may still hold endpoint data
+            _strip_login_data(key, entries[key])
     return entries
+
+
+def _strip_login_data(provider, entry: dict) -> None:
+    """Remove what came from the usage endpoint or the login file from a provider entry (not the changes)."""
+    if entry.get("limits_source") == "oauth":
+        entry.update(limits=[], limits_source=None, limits_updated_at=None, extra=None)
+        entry["plan"] = None
+    if provider == "claude":
+        entry["plan"] = None   # the Claude plan name always comes from the login file
+    if "auth" in entry:
+        entry["auth"] = None
+    entry["limits_next_request_at"] = entry["limits_paused_until"] = None   # no request will follow
+    entry["login"] = False
 
 
 def withhold_login_data(stats: dict | None, login) -> dict | None:
@@ -322,21 +338,15 @@ def withhold_login_data(stats: dict | None, login) -> dict | None:
     tokens, history and session-log limits stay."""
     if not isinstance(stats, dict):
         return stats
-    entries = [(key, e) for key, e in (stats.get("providers") or {}).items()]
-    entries += [(e.get("provider"), e) for e in (stats.get("accounts") or {}).values()]
+    providers, accounts = stats.get("providers"), stats.get("accounts")
+    entries = list(providers.items()) if isinstance(providers, dict) else []
+    if isinstance(accounts, dict):
+        entries += [(e.get("provider"), e) for e in accounts.values() if isinstance(e, dict)]
     for provider, entry in entries:
         if provider in login or not isinstance(entry, dict):
             continue
-        if entry.get("limits_source") == "oauth":
-            entry.update(limits=[], limits_source=None, limits_updated_at=None, extra=None)
-            entry["plan"] = None
-        if provider == "claude":
-            entry["plan"] = None   # the Claude plan name always comes from the login file
-        if "auth" in entry:
-            entry["auth"] = None
-        entry["limits_next_request_at"] = entry["limits_paused_until"] = None
+        _strip_login_data(provider, entry)
         entry["changes"] = []
-        entry["login"] = False
     return stats
 
 
