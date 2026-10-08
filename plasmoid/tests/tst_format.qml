@@ -599,4 +599,26 @@ TestCase {
         compare(F.errorText([{code: "logs_failed"}, {code: "something_new"}]),
                 "Data could not be processed; something_new")
     }
+
+    function test_changesText_names_each_change() {
+        const at = "2026-10-02T14:30:00+02:00"
+        const local = new Date(at)
+        const day = local.toLocaleDateString(Qt.locale("en_US"), "MMM d")
+        const clock = (local.getHours() < 10 ? "0" : "") + local.getHours() + ":" +
+                      (local.getMinutes() < 10 ? "0" : "") + local.getMinutes()
+        compare(F.changesText(undefined), "")
+        compare(F.changesText([]), "")
+        compare(F.changesText([
+            {kind: "new", limit: {id: "seven_day_opus", window_minutes: 10080, model: "Opus"}, at: at},
+            {kind: "back", limit: {id: "five_hour", window_minutes: 300}, at: at},
+            {kind: "gone", limit: {id: "seven_day_sonnet", window_minutes: 10080, model: "Sonnet"}, at: at},
+            {kind: "length", limit: {id: "primary", window_minutes: 10080}, previous_minutes: 300, at: at},
+            {kind: "early_reset", limit: {id: "seven_day", window_minutes: 10080}, at: at},
+            {kind: "unknown", limit: {id: "x", window_minutes: 60}, at: at}
+        ]), ["Week Opus: new limit (since " + day + ")",
+             "5 h: limit is back (since " + day + ")",
+             "Week Sonnet: no longer reported (since " + day + ")",
+             "Window changed: Week instead of 5 h (since " + day + ")",
+             "Week: reset early (" + day + ", " + clock + ")"].join("\n"))
+    }
 }

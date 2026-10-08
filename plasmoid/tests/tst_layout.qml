@@ -67,6 +67,26 @@ TestCase {
         full.stats = stats
     }
 
+    function test_limit_changes_appear_and_take_space() {
+        waitForRendering(full)
+        const line = findChild(full, "limitChanges")
+        verify(line !== null)
+        verify(!line.visible)
+        full.stats = JSON.parse(JSON.stringify(full.stats))   // settle the layout left by earlier tests
+        waitForRendering(full)
+        const before = full.Layout.preferredHeight
+        const stats = JSON.parse(JSON.stringify(full.stats))
+        stats.providers.claude.changes = [{kind: "new", at: "2026-10-04T12:00:00+02:00",
+                                           limit: {id: "seven_day_opus", window_minutes: 10080, model: "Opus"}}]
+        full.stats = stats
+        waitForRendering(full)
+        verify(line.visible)
+        verify(line.text.indexOf("Week Opus: new limit") === 0, line.text)
+        verify(full.Layout.preferredHeight > before, full.Layout.preferredHeight + " <= " + before)
+        stats.providers.claude.changes = []
+        full.stats = JSON.parse(JSON.stringify(stats))
+    }
+
     function test_bars_mark_the_elapsed_time() {
         const original = full.stats
         const stats = JSON.parse(JSON.stringify(original))

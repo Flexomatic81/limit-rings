@@ -22,7 +22,9 @@ TestCase {
         "Claude's paid usage beyond the plan limits|Extra usage": "Zusatznutzung",
         "%1 = amount spent, %2 = monthly spending limit|%1 of %2": "%1 von %2",
         "%1 = amount spent; extra usage without a monthly limit|%1 spent": "%1 ausgegeben",
-        "Codex credit balance|unlimited": "unbegrenzt"
+        "Codex credit balance|unlimited": "unbegrenzt",
+        "limit structure change: %1 limit name, %2 date|%1: new limit (since %2)": "%1: neues Limit (seit %2)",
+        "limit name: 5-hour window|5 h": "5 h"
     })
 
     function subst(text, args) {
@@ -83,5 +85,10 @@ TestCase {
         compare(F.limitName({id: "s", window_minutes: 10080, model: "Opus"}), "Woche Opus")
         compare(F.errorText([{code: "logs_unreadable", count: 2}]), "2 Dateien nicht lesbar – Zahlen unvollständig")
         compare(F.breakdownRows([{name: null, other: true, total: 1}], 1)[0].name, "Andere")
+    }
+
+    function test_changesText_in_german() {
+        compare(F.changesText([{kind: "new", limit: {id: "seven_day_opus", window_minutes: 10080, model: "Opus"},
+                                at: "2026-10-02T12:00:00+02:00"}]), "Woche Opus: neues Limit (seit 02.10.)")
     }
 }

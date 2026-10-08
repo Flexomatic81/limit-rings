@@ -9,7 +9,7 @@ from datetime import datetime, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from . import aggregate, breakdown, forecast, notify
+from . import aggregate, breakdown, changes, forecast, notify
 from .fsutil import write_json_atomic
 from .limits import public_limit
 from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs
@@ -115,6 +115,21 @@ def _update_history(state: dict) -> None:
         rec = state[key]["limits"]
         providers[name] = (rec["limits"], rec["updated_at"]) if rec else ([], None)
     forecast.update_history(state["history"], providers)
+
+
+def _limits_source(key: str, rec: dict | None) -> str | None:
+    if rec is None:
+        return None
+    return rec["source"] if key == "claude" else rec.get("source", "session_log")
+
+
+def _update_changes(state: dict, providers, now_ts: float) -> None:
+    """Note changes to the limit structure of each shown provider (a hidden one is not compared)."""
+    for key in ("claude", "codex"):
+        if key in providers:
+            section = state[key]
+            section["structure"] = changes.update(section["structure"], section["limits"],
+                                                  _limits_source(key, section["limits"]), now_ts)
 
 
 def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float) -> list[dict]:
@@ -252,6 +267,7 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
         claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch)
     codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch) if "codex" in providers else []
     _update_history(state)
+    _update_changes(state, providers, now.timestamp())
     with_forecasts = {
         key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
         for name, key in (("Claude", "claude"), ("Codex", "codex"))}
@@ -267,24 +283,25 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     codex = state["codex"]
     entries = {
         "claude": {**_provider(claude, today, tz, now.timestamp(),
-                               claude["limits"]["source"] if claude["limits"] else None,
+                               _limits_source("claude", claude["limits"]),
                                claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
                    "auth": _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers else None,
                    "breakdown": _breakdown(claude, now.timestamp(), tz)},
         "codex": _provider(codex, today, tz, now.timestamp(),
-                           codex["limits"].get("source", "session_log") if codex["limits"] else None,
+                           _limits_source("codex", codex["limits"]),
                            codex["limits"]["plan"] if codex["limits"] else None, codex_errors,
                            codex_limits.MIN_INTERVAL),
     }
     for key, limits in with_forecasts.items():
         entries[key]["limits"] = limits
+        entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz)
     return entries
 
 
 def _empty_entry(provider: str | None, today, errors: list[dict]) -> dict:
     """Card data for an account without results (invalid entry, failed pass)."""
     entry = {"limits": [], "limits_source": None, "limits_updated_at": None, "limits_paused_until": None,
-             "limits_next_request_at": None, "extra": None, "plan": None,
+             "limits_next_request_at": None, "extra": None, "plan": None, "changes": [],
              "tokens": aggregate.summarize({}, today), "daily": aggregate.daily_series({}, today),
              "errors": errors}
     if provider == "claude":

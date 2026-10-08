@@ -155,3 +155,30 @@ def test_old_state_without_hourly_requests_a_backfill(tmp_path):
         s["claude"]["hourly"] = bad
         p.write_text(json.dumps(s))
         assert load_state(p) == new_state()
+
+
+def test_structure_section_defaults_and_a_broken_one_is_dropped_alone(tmp_path):
+    p = tmp_path / "state.json"
+    old = new_state()
+    del old["claude"]["structure"], old["codex"]["structure"]
+    p.write_text(json.dumps(old))
+    assert load_state(p) == new_state()
+    for bad in ["x", {"source": "oauth"}, {"source": "oauth", "updated_at": 1, "windows": {}, "gone": {},
+                                            "events": [{"kind": "new"}]},
+                {"source": "oauth", "updated_at": 1, "windows": {"a": None}, "gone": {}, "events": []}]:
+        s = new_state()
+        s["claude"]["buckets"] = {"2026-10-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0}}
+        s["claude"]["structure"] = bad
+        p.write_text(json.dumps(s))
+        loaded = load_state(p)
+        assert loaded["claude"]["structure"] is None
+        assert loaded["claude"]["buckets"] == s["claude"]["buckets"]  # the rest of the state is kept
+    good = new_state()
+    good["codex"]["structure"] = {
+        "source": "oauth", "updated_at": 1791100000.5,
+        "windows": {"primary": {"minutes": 300, "model": None, "resets_at": None, "used": 3.0, "seen": 1791100000.5,
+                                "missing": None}},
+        "gone": {"secondary": {"at": 1791000000}},
+        "events": [{"kind": "gone", "id": "secondary", "minutes": 10080, "model": None, "at": 1791000000}]}
+    p.write_text(json.dumps(good))
+    assert load_state(p) == good

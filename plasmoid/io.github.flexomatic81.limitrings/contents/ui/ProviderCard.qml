@@ -43,6 +43,16 @@ ColumnLayout {
     }
 
     PlasmaComponents.Label {
+        objectName: "limitChanges"
+        readonly property string changes: card.provider ? Format.changesText(card.provider.changes) : ""
+        visible: changes !== ""
+        text: changes
+        color: Kirigami.Theme.neutralTextColor
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
+    }
+
+    PlasmaComponents.Label {
         readonly property string errors: card.provider ? Format.errorText(card.provider.errors) : ""
         visible: errors !== ""
         text: errors

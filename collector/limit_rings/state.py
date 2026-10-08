@@ -20,9 +20,9 @@ def new_state() -> dict:
     return {
         "version": STATE_VERSION,
         "claude": {"files": {}, "seen": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
-                   "oauth_pause": backoff.new(), "hourly": {}, "hourly_backfill": False},
+                   "oauth_pause": backoff.new(), "hourly": {}, "hourly_backfill": False, "structure": None},
         "codex": {"files": {}, "sessions": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
-                  "oauth_pause": backoff.new()},
+                  "oauth_pause": backoff.new(), "structure": None},
         "notified": {},
         "history": {},
     }
@@ -82,6 +82,27 @@ def _minutes_ok(entry: dict) -> bool:
     return entry.get("minutes") is None or _int(entry["minutes"])
 
 
+def _structure_ok(s) -> bool:
+    """Known windows and changes of a provider (see changes.py); None until the first limits."""
+    if s is None:
+        return True
+    if not (isinstance(s, dict) and (s.get("source") is None or isinstance(s["source"], str))
+            and _num(s.get("updated_at")) and isinstance(s.get("windows"), dict)
+            and isinstance(s.get("gone"), dict) and isinstance(s.get("events"), list)):
+        return False
+    windows_ok = all(
+        isinstance(w, dict) and (w.get("minutes") is None or _int(w["minutes"]))
+        and (w.get("model") is None or isinstance(w["model"], str))
+        and (w.get("resets_at") is None or _int(w["resets_at"])) and _num(w.get("used")) and _num(w.get("seen"))
+        and (w.get("missing") is None or _num(w["missing"])) for w in s["windows"].values())
+    gone_ok = all(isinstance(g, dict) and _num(g.get("at")) for g in s["gone"].values())
+    events_ok = all(
+        isinstance(e, dict) and isinstance(e.get("kind"), str) and isinstance(e.get("id"), str) and _num(e.get("at"))
+        and (e.get("minutes") is None or _int(e["minutes"])) and (e.get("model") is None or isinstance(e["model"], str))
+        and (e.get("previous_minutes") is None or _int(e["previous_minutes"])) for e in s["events"])
+    return windows_ok and gone_ok and events_ok
+
+
 def _pause_ok(pause) -> bool:
     return (isinstance(pause, dict) and (pause.get("until") is None or _num(pause["until"]))
             and _int(pause.get("failures")) and pause["failures"] >= 0)
@@ -112,6 +133,10 @@ def load_state(path: Path) -> dict:
             section.setdefault(key, default)
     data.setdefault("notified", {})
     data.setdefault("history", {})
+    for provider in ("claude", "codex"):
+        if not _structure_ok(data[provider]["structure"]):  # only a hint in the card: start it afresh
+            log.warning("%s: limit structure has unexpected shape, starting it afresh", provider)
+            data[provider]["structure"] = None
     if not _shape_ok(data):
         log.warning("state has unexpected shape, re-reading everything")
         return fresh

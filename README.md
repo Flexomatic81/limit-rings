@@ -56,6 +56,8 @@ see [Installation](#installation).
 - Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
   for the transcripts on the current machine, as a share of tokens (not of the limit).
 - Hint in the card and tooltip when the Claude login has expired.
+- A note in the card for three days when a provider changes its limits: a window is new, comes back,
+  is no longer reported, changes length or resets early.
 - "Refresh now" in the context menu: reads the logs right away; the limits follow the 5-minute
   interval, and the card says when they are asked for next.
 

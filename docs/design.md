@@ -72,6 +72,7 @@ Decisions:
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
 | `sources/backoff.py` | Pause after 429/503 from a usage endpoint: reads `Retry-After` (seconds or HTTP date), otherwise growing pauses; used by both limit sources, pause state in `state.json`. | – |
 | `accounts.py` | Additional accounts: `parse_accounts` (validates `LIMIT_RINGS_ACCOUNTS`, canonical directories, at most 8), `account_paths` (state file and directories of one account), `prune_account_states` (removes state files of accounts not shown after 30 days). | `collect` |
+| `changes.py` | Changes to the limit structure: compares each new limits record of a provider with the windows seen before (same source only) and notes new, returning, vanished, re-sized and early-reset windows (`structure` in `state.json`). | `limits` |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
@@ -152,6 +153,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       },
       "daily": [{"date": "2026-09-04", "total": 123456}],
       "errors": [],
+      "changes": [],
       "auth": {"status": "ok", "expires_at": "2026-10-04T19:29:15+02:00"}
     },
     "codex": {
@@ -167,7 +169,9 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "plan": "plus",
       "tokens": {"today": {}, "week": {}, "month": {}},
       "daily": [],
-      "errors": [{"code": "logs_unreadable", "count": 1}]
+      "errors": [{"code": "logs_unreadable", "count": 1}],
+      "changes": [{"kind": "length", "limit": {"id": "primary", "window_minutes": 10080},
+                   "previous_minutes": 300, "at": "2026-10-02T09:15:00+02:00"}]
     }
   },
   "accounts": {}
@@ -210,6 +214,15 @@ Rules:
 
   Card: line below the bar ("Full in ~1 h 20 min at current pace (13:40)", with the weekday
   "(Sat 14:00)" once a day or more away, or "Lasts until reset at current pace"); tooltip: short form.
+- `changes` lists changes to the limit structure of the last 3 days, oldest first: `kind` is `"new"`
+  (a window not seen before), `"back"` (a window that had vanished), `"gone"` (missing from fresh data
+  for at least an hour; `at` is when it was first missing), `"length"` (same id, other window length;
+  with `previous_minutes`) or `"early_reset"` (a new window while the old reset was still more than
+  5 minutes away and the usage dropped). `limit` names the window like a limit (`id`,
+  `window_minutes`, `model`). Only records of the same source are compared – a switch between the
+  usage endpoint and the status line or session log starts afresh without changes; the first run notes
+  nothing. `state.json` keeps the known windows and the changes of 30 days (at most 20) per provider
+  under `structure`; a malformed `structure` is dropped alone. The card shows one line per change.
 - `breakdown` exists only for Claude: token totals since the start of the Claude weekly window
   (weekly limit reset − 7 days; without a known weekly limit the last 7 days, `basis: "7d"`), for
   both `projects` and `models` the four largest entries plus a catch-all entry

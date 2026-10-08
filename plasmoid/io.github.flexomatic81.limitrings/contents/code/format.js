@@ -555,6 +555,34 @@ function authHint(auth, entry) {
     return i18n("No login found – run claude in a terminal")
 }
 
+// Changes to the limit structure of the last days ("changes" in the collector output), one line each
+function _changeText(change) {
+    const at = new Date(change.at)
+    const day = at.toLocaleDateString(_current().locale,
+                                      i18nc("Qt date format for the daily chart tooltip (day and month)", "MMM d"))
+    const name = limitName(change.limit)
+    switch (change.kind) {
+    case "new":
+        return i18nc("limit structure change: %1 limit name, %2 date", "%1: new limit (since %2)", name, day)
+    case "back":
+        return i18nc("limit structure change: %1 limit name, %2 date", "%1: limit is back (since %2)", name, day)
+    case "gone":
+        return i18nc("limit structure change: %1 limit name, %2 date", "%1: no longer reported (since %2)", name, day)
+    case "length":
+        return i18nc("limit structure change: %1 new limit name, %2 previous limit name, %3 date",
+                     "Window changed: %1 instead of %2 (since %3)", name,
+                     limitName(Object.assign({}, change.limit, {window_minutes: change.previous_minutes})), day)
+    case "early_reset":
+        return i18nc("limit structure change: %1 limit name, %2 date, %3 clock time", "%1: reset early (%2, %3)",
+                     name, day, _time(at))
+    }
+    return ""
+}
+
+function changesText(changes) {
+    return (changes || []).map(_changeText).filter(t => t !== "").join("\n")
+}
+
 function tooltipText(stats, providers, nowSec, refreshedAtMs) {
     if (!stats) return i18n("No data")
     const lines = []

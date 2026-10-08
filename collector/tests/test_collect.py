@@ -716,3 +716,20 @@ def test_hidden_account_states_are_pruned_after_30_days(tmp_path):
     os.utime(old, (NOW.timestamp() - 31 * 86400,) * 2)
     run(p, NOW, BERLIN, fetch=ok_fetch)
     assert not old.exists()
+
+
+def test_a_new_window_shows_up_as_a_change(tmp_path):
+    p = make_paths(tmp_path)
+    responses = iter([ok_fetch(None), {**ok_fetch(None), "seven_day_opus": {"utilization": 3.0, "resets_at": None}}])
+
+    def fetch(token, timeout=10.0):
+        return next(responses)
+
+    first = run(p, NOW, BERLIN, fetch=fetch, notifier=lambda n: True)
+    assert first["providers"]["claude"]["changes"] == [] and first["providers"]["codex"]["changes"] == []
+    later = NOW + timedelta(minutes=6)
+    stats = run(p, later, BERLIN, fetch=fetch, notifier=lambda n: True)
+    assert stats["providers"]["claude"]["changes"] == [
+        {"kind": "new", "limit": {"id": "seven_day_opus", "window_minutes": 10080, "model": "Opus"},
+         "at": "2026-10-03T19:48:00+02:00"}]
+

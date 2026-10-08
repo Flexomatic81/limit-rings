@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 19:25+0200\n"
+"POT-Creation-Date: 2026-10-08 10:02+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -245,6 +245,32 @@ msgstr "Anmeldung abgelaufen – claude im Terminal starten"
 #, kde-format
 msgid "No login found – run claude in a terminal"
 msgstr "Keine Anmeldung gefunden – claude im Terminal starten"
+
+#, kde-format
+msgctxt "limit structure change: %1 limit name, %2 date"
+msgid "%1: new limit (since %2)"
+msgstr "%1: neues Limit (seit %2)"
+
+#, kde-format
+msgctxt "limit structure change: %1 limit name, %2 date"
+msgid "%1: limit is back (since %2)"
+msgstr "%1: wieder da (seit %2)"
+
+#, kde-format
+msgctxt "limit structure change: %1 limit name, %2 date"
+msgid "%1: no longer reported (since %2)"
+msgstr "%1: wird nicht mehr gemeldet (seit %2)"
+
+#, kde-format
+msgctxt ""
+"limit structure change: %1 new limit name, %2 previous limit name, %3 date"
+msgid "Window changed: %1 instead of %2 (since %3)"
+msgstr "Fenster geändert: %1 statt %2 (seit %3)"
+
+#, kde-format
+msgctxt "limit structure change: %1 limit name, %2 date, %3 clock time"
+msgid "%1: reset early (%2, %3)"
+msgstr "%1: vorzeitig zurückgesetzt (%2, %3)"
 
 #, kde-format
 msgid "No data"
