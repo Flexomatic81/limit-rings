@@ -10,7 +10,7 @@
         "Website": "https://github.com/Flexomatic81/limit-rings",
         "BugReportUrl": "https://github.com/Flexomatic81/limit-rings/issues",
         "License": "MIT",
-        "Version": "0.5.0",
+        "Version": "0.6.0",
         "FormFactors": ["desktop", "panel"]
     },
     "KPackageStructure": "Plasma/Applet",

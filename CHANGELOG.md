@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- The history chart in each card switches between 30 days, 3 months (per week) and 12 months
+  (per month).
+- Shows what is left of each limit instead of what is used, if you prefer ("Percentages" in the
+  settings).
+- `run.py --status` prints the current limits as JSON for scripts, shell prompts and bars;
+  `--status --waybar` gives a ready-made Waybar module (see "Status for scripts and bars" in the README).
+- `run.py --export` prints the daily token counts of up to 400 days as CSV, or as JSON with `--json`
+  (see "Exporting the token history" in the README).
+
 ## 0.5.0
 
 - Optional mode without login: under "Live limits via login" in the settings, switch the login off for
