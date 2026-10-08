@@ -64,12 +64,13 @@ function _decimal(x) {
     return _current().locale.toString(x, "f", 1)
 }
 
-function compactNumber(n) {
-    if (n < 1000) return String(Math.round(n))
-    if (n < 999500) return Math.round(n / 1000) + " k"
-    if (n < 999950000) return _decimal(n / 1e6) + " M"
-    return _decimal(n / 1e9) + " " + i18nc("billion abbreviation", "B")
+// The translator handed to core.mjs: KDE's texts and the locale of the newest live instance
+function _tr() {
+    return {i18n: i18n, i18nc: i18nc, i18np: i18np, decimal: _decimal, integer: formatInt,
+            weekday: d => _current().locale.standaloneDayName(d, _SHORT_FORMAT)}
 }
+
+function compactNumber(n) { return Core.compactNumber(n, _tr()) }
 
 function isReset(limit, nowSec) { return Core.isReset(limit, nowSec) }
 
@@ -81,10 +82,7 @@ function shownMax(limits, nowSec, remaining) { return Core.shownMax(limits, nowS
 
 function shownShare(elapsed, remaining) { return Core.shownShare(elapsed, remaining) }
 
-function limitPercentText(limit, nowSec, remaining) {
-    const pct = Math.round(shownPercent(limit, nowSec, remaining))
-    return remaining ? i18nc("%1 = percent of a limit that is still available", "%1 % left", pct) : pct + " %"
-}
+function limitPercentText(limit, nowSec, remaining) { return Core.limitPercentText(limit, nowSec, remaining, _tr()) }
 
 function severity(pct, warn, crit) { return Core.severity(pct, warn, crit) }
 
@@ -129,21 +127,9 @@ function countdownShort(resetsAt, nowSec) { return Core.countdownShort(resetsAt,
 
 function countdownLong(resetsAt, nowSec) { return Core.countdownLong(resetsAt, nowSec) }
 
-function ageText(iso, nowMs) {
-    if (!iso) return "—"
-    const s = Math.max(0, Math.round((nowMs - Date.parse(iso)) / 1000))
-    if (s < 60) return i18nc("time ago", "%1 s ago", s)
-    if (s < 3600) return i18nc("time ago", "%1 min ago", Math.floor(s / 60))
-    if (s < 86400) return i18nc("time ago", "%1 h ago", Math.floor(s / 3600))
-    return i18nc("time ago", "%1 d ago", Math.floor(s / 86400))
-}
+function ageText(iso, nowMs) { return Core.ageText(iso, nowMs, _tr()) }
 
-function sourceText(src) {
-    if (src === "oauth") return "OAuth"
-    if (src === "statusline") return i18nc("limit data source", "Status line")
-    if (src === "session_log") return i18nc("limit data source", "Session log")
-    return "—"
-}
+function sourceText(src) { return Core.sourceText(src, _tr()) }
 
 function tokenBreakdown(t) {
     return i18n("Input: %1\nOutput: %2\nCache read: %3\nCache write: %4", formatInt(t.input), formatInt(t.output),
@@ -187,35 +173,9 @@ const STALE_MS = Core.STALE_MS
 
 function limitsStale(provider, nowMs) { return Core.limitsStale(provider, nowMs) }
 
-const REFRESH_HINT_MS = 60000  // how long the hint stays after "Refresh now"
+function refreshHint(provider, nowMs, refreshedAtMs) { return Core.refreshHint(provider, nowMs, refreshedAtMs, _tr()) }
 
-// After "Refresh now": when the limits will be asked for again (the collector keeps its 5-minute interval
-// and any pause); empty when no refresh happened lately or the limits were just asked for.
-function refreshHint(provider, nowMs, refreshedAtMs) {
-    if (!provider || !refreshedAtMs || nowMs - refreshedAtMs > REFRESH_HINT_MS) return ""
-    const next = provider.limits_next_request_at ? Date.parse(provider.limits_next_request_at) : NaN
-    if (!(next > nowMs)) return ""
-    return i18nc("%1 = clock time; shown after a manual refresh", "limits again from %1",
-                 _clock(next / 1000, nowMs / 1000))
-}
-
-function footerText(provider, nowMs, refreshedAtMs) {
-    if (!provider) return ""
-    const hint = refreshHint(provider, nowMs, refreshedAtMs)
-    return i18nc("%1 = age such as '5 min ago', %2 = data source", "Updated %1 · %2",
-                 ageText(provider.limits_updated_at, nowMs), sourceText(provider.limits_source))
-        + (limitsStale(provider, nowMs) ? " · " + i18nc("limit data is outdated", "stale") : "")
-        + _pauseText(provider.limits_paused_until, nowMs)
-        + (hint ? " · " + hint : "")
-}
-
-// After a rate limit (HTTP 429) the collector stops asking until the provider allows it again.
-function _pauseText(iso, nowMs) {
-    const until = iso ? Date.parse(iso) : NaN
-    if (!(until > nowMs)) return ""
-    return " · " + i18nc("%1 = clock time; the provider asked to wait before the next request",
-                         "paused by the provider until %1", _clock(until / 1000, nowMs / 1000))
-}
+function footerText(provider, nowMs, refreshedAtMs) { return Core.footerText(provider, nowMs, refreshedAtMs, _tr()) }
 
 const ENVELOPE = 1   // version of the collector output this widget understands (collector/limit_rings/widget.py)
 const LOG_PATH = "~/.cache/limit-rings/collector.log"
@@ -406,9 +366,7 @@ function updateCommand(repoDir) {
     return "cd " + shellQuote(repoDir) + " && git pull && ./install.sh"
 }
 
-function _time(d) {
-    return (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes()
-}
+function _time(d) { return Core.timeOfDay(d) }
 
 // "Sat 14:00"
 function _weekdayClock(epochSec) {
@@ -416,33 +374,12 @@ function _weekdayClock(epochSec) {
     return _current().locale.standaloneDayName(d.getDay(), _SHORT_FORMAT) + " " + _time(d)
 }
 
-// Clock time, with the weekday once it is a day or more away
-function _clock(epochSec, nowSec) {
-    return epochSec - nowSec >= 86400 ? _weekdayClock(epochSec) : _time(new Date(epochSec * 1000))
-}
+function _clock(epochSec, nowSec) { return Core.clock(epochSec, nowSec, _tr()) }
 
-function _forecastParts(limit, nowSec) {
-    const f = limit.forecast
-    if (!f || isReset(limit, nowSec)) return null
-    if (f.status === "enough") return {full: false}
-    return {full: true, rest: countdownLong(f.eta, nowSec), eta: f.eta}
-}
-
-function forecastText(limit, nowSec) {
-    const f = _forecastParts(limit, nowSec)
-    if (!f) return ""
-    if (!f.full) return i18n("Lasts until reset at current pace")
-    if (!f.rest) return i18n("Full soon at current pace")
-    return i18n("Full in ~%1 at current pace (%2)", f.rest, _clock(f.eta, nowSec))
-}
+function forecastText(limit, nowSec) { return Core.forecastText(limit, nowSec, _tr()) }
 
 // Line below a bar: only what needs attention – a limit that runs out before its reset, or a window that has reset
-function barNote(limit, nowSec) {
-    if (isReset(limit, nowSec))
-        return i18nc("limit window has reset, shown below the bar", "Reset – starts again from 0 %")
-    const f = _forecastParts(limit, nowSec)
-    return f && f.full ? forecastText(limit, nowSec) : ""
-}
+function barNote(limit, nowSec) { return Core.barNote(limit, nowSec, _tr()) }
 
 // Tooltip of a bar: the forecast and when the window resets
 function barTooltip(limit, nowSec) {
@@ -456,39 +393,11 @@ function barTooltip(limit, nowSec) {
     return lines.join("\n")
 }
 
-function forecastShort(limit, nowSec) {
-    const f = _forecastParts(limit, nowSec)
-    if (!f) return ""
-    if (!f.full) return i18n("lasts until reset")
-    return f.rest ? i18n("full in ~%1", f.rest) : i18n("full soon")
-}
+function forecastShort(limit, nowSec) { return Core.forecastShort(limit, nowSec, _tr()) }
 
-function _windowText(minutes) {
-    if (minutes % 1440 === 0) return (minutes / 1440) + " d"
-    if (minutes % 60 === 0) return (minutes / 60) + " h"
-    return minutes + " min"
-}
+function planName(plan) { return Core.planName(plan) }
 
-// Plan as the providers spell it in their login or usage data → product name (not translated);
-// an unknown plan is shown as it comes, so a new one never disappears
-const _PLAN_NAMES = {free: "Free", plus: "Plus", pro: "Pro", prolite: "Pro Lite", max: "Max", team: "Team",
-                     business: "Business", enterprise: "Enterprise", edu: "Edu"}
-
-function planName(plan) {
-    if (!plan) return ""
-    return _PLAN_NAMES[String(plan).toLowerCase()] || String(plan)
-}
-
-// Display name of a limit (stats.json carries only window and model)
-function limitName(limit) {
-    const m = limit.window_minutes
-    if (m === 10080)
-        return limit.model ? i18nc("limit name: weekly window of one model, %1 = model", "Week %1", limit.model)
-                           : i18nc("limit name: weekly window", "Week")
-    if (m === 300 && !limit.model) return i18nc("limit name: 5-hour window", "5 h")
-    if (!m) return limit.id
-    return _windowText(m) + (limit.model ? " " + limit.model : "")
-}
+function limitName(limit) { return Core.limitName(limit, _tr()) }
 
 // Claude's extra usage (amounts in currency units) or Codex credits, see "extra" in the collector output
 const _CURRENCY_SYMBOLS = {USD: "$", EUR: "€", GBP: "£"}
@@ -515,17 +424,7 @@ function extraText(extra) {
                  _money(extra.used, extra.currency), _money(extra.limit, extra.currency))
 }
 
-function errorText(errors) {
-    if (!errors) return ""
-    return errors.map(e => {
-        if (e.code === "logs_unreadable")
-            return i18np("%1 file unreadable – numbers incomplete", "%1 files unreadable – numbers incomplete", e.count)
-        if (e.code === "logs_failed") return i18n("Data could not be processed")
-        if (e.code === "limits_unavailable") return i18n("Limits unavailable")
-        if (e.code === "account_invalid") return i18n("Account settings are invalid – check the directory")
-        return e.code
-    }).join("; ")
-}
+function errorText(errors) { return Core.errorText(errors, _tr()) }
 
 function limitLine(name, limit, nowSec, remaining) {
     const head = name + " · " + limitName(limit) + ": "
@@ -536,27 +435,9 @@ function limitLine(name, limit, nowSec, remaining) {
         + (fc ? " · " + fc : "")
 }
 
-function authHint(auth, entry) {
-    if (!auth || auth.status === "ok") return ""
-    if (entry && entry.account) {
-        const how = entry.provider === "codex" ? i18n("start codex with this CODEX_HOME")
-                                               : i18n("start claude with this config directory")
-        return auth.status === "expired" ? i18n("Login in %1 expired – %2", entry.dir, how)
-                                         : i18n("No login in %1 – %2", entry.dir, how)
-    }
-    if (auth.status === "expired") return i18n("Login expired – run claude in a terminal")
-    return i18n("No login found – run claude in a terminal")
-}
+function authHint(auth, entry) { return Core.authHint(auth, entry, _tr()) }
 
-// Without login a provider gets its limits only from local copies: say where they come from while there are none
-function loginHint(provider, entry) {
-    if (!provider || provider.login !== false || (provider.limits && provider.limits.length)) return ""
-    const key = entry && entry.account ? entry.provider : (entry ? entry.key : "")
-    if (key === "codex")
-        return i18n("No limits without login – they come from the session logs once you use codex in a terminal")
-    if (entry && entry.account) return i18n("No limits without login for additional accounts")
-    return i18n("No limits without login – they come from the status line while claude runs in a terminal")
-}
+function loginHint(provider, entry) { return Core.loginHint(provider, entry, _tr()) }
 
 // Changes to the limit structure of the last days ("changes" in the collector output), one line each
 function _changeText(change) {

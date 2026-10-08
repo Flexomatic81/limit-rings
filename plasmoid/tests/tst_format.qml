@@ -728,4 +728,14 @@ TestCase {
         compare(F.tooltipText(stats, [{key: "claude", name: "Claude"}], now, 0, true),
                 "Claude · 5 h: 36 % left · Reset in 4 h 0 min")
     }
+
+    // Texts now built in core.mjs must still follow the newest live translator and fall back when it is gone.
+    function test_core_texts_follow_the_remaining_translator() {
+        const owner = Qt.createQmlObject('import QtQuick; Item { function tr(t) { return "x" + t } }', this)
+        F.init({i18n: t => owner.tr(t), i18nc: (c, t) => owner.tr(t), i18np: (s, p, n) => owner.tr(s)})
+        compare(F.limitName({window_minutes: 10080}), "xWeek")
+        owner.destroy()
+        wait(0)
+        compare(F.limitName({window_minutes: 10080}), "Week")
+    }
 }

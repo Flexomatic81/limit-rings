@@ -130,3 +130,178 @@ export function limitsStale(provider, nowMs) {
     const t = Date.parse(provider.limits_updated_at)
     return !isNaN(t) && nowMs - t > LIMITS_STALE_MS
 }
+
+// ---- Texts: every function takes the translator `tr` ----
+
+function _subst(text, args) {
+    return text.replace(/%(\d)/g, (m, d) => args[d - 1] !== undefined ? String(args[d - 1]) : m)
+}
+
+// English texts and en-US numbers: the fallback without a catalog, and the translator of the tests
+export const ENGLISH = {
+    i18n: (text, ...args) => _subst(text, args),
+    i18nc: (context, text, ...args) => _subst(text, args),
+    i18np: (singular, plural, n, ...args) => _subst(n === 1 ? singular : plural, [n].concat(args)),
+    decimal: x => x.toFixed(1),
+    integer: n => Math.round(n).toLocaleString("en-US"),
+    weekday: d => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d]
+}
+
+export function compactNumber(n, tr) {
+    if (n < 1000) return String(Math.round(n))
+    if (n < 999500) return Math.round(n / 1000) + " k"
+    if (n < 999950000) return tr.decimal(n / 1e6) + " M"
+    return tr.decimal(n / 1e9) + " " + tr.i18nc("billion abbreviation", "B")
+}
+
+export function ageText(iso, nowMs, tr) {
+    if (!iso) return "—"
+    const s = Math.max(0, Math.round((nowMs - Date.parse(iso)) / 1000))
+    if (s < 60) return tr.i18nc("time ago", "%1 s ago", s)
+    if (s < 3600) return tr.i18nc("time ago", "%1 min ago", Math.floor(s / 60))
+    if (s < 86400) return tr.i18nc("time ago", "%1 h ago", Math.floor(s / 3600))
+    return tr.i18nc("time ago", "%1 d ago", Math.floor(s / 86400))
+}
+
+export function sourceText(src, tr) {
+    if (src === "oauth") return "OAuth"
+    if (src === "statusline") return tr.i18nc("limit data source", "Status line")
+    if (src === "session_log") return tr.i18nc("limit data source", "Session log")
+    return "—"
+}
+
+export function limitPercentText(limit, nowSec, remaining, tr) {
+    const pct = Math.round(shownPercent(limit, nowSec, remaining))
+    return remaining ? tr.i18nc("%1 = percent of a limit that is still available", "%1 % left", pct) : pct + " %"
+}
+
+export function timeOfDay(d) {
+    return (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes()
+}
+
+// Clock time, with the weekday once it is a day or more away
+export function clock(epochSec, nowSec, tr) {
+    const d = new Date(epochSec * 1000)
+    return epochSec - nowSec >= 86400 ? tr.weekday(d.getDay()) + " " + timeOfDay(d) : timeOfDay(d)
+}
+
+function _forecastParts(limit, nowSec) {
+    const f = limit.forecast
+    if (!f || isReset(limit, nowSec)) return null
+    if (f.status === "enough") return {full: false}
+    return {full: true, rest: countdownLong(f.eta, nowSec), eta: f.eta}
+}
+
+export function forecastText(limit, nowSec, tr) {
+    const f = _forecastParts(limit, nowSec)
+    if (!f) return ""
+    if (!f.full) return tr.i18n("Lasts until reset at current pace")
+    if (!f.rest) return tr.i18n("Full soon at current pace")
+    return tr.i18n("Full in ~%1 at current pace (%2)", f.rest, clock(f.eta, nowSec, tr))
+}
+
+// Line below a bar: only what needs attention – a limit that runs out before its reset, or a window that has reset
+export function barNote(limit, nowSec, tr) {
+    if (isReset(limit, nowSec))
+        return tr.i18nc("limit window has reset, shown below the bar", "Reset – starts again from 0 %")
+    const f = _forecastParts(limit, nowSec)
+    return f && f.full ? forecastText(limit, nowSec, tr) : ""
+}
+
+export function forecastShort(limit, nowSec, tr) {
+    const f = _forecastParts(limit, nowSec)
+    if (!f) return ""
+    if (!f.full) return tr.i18n("lasts until reset")
+    return f.rest ? tr.i18n("full in ~%1", f.rest) : tr.i18n("full soon")
+}
+
+function _windowText(minutes) {
+    if (minutes % 1440 === 0) return (minutes / 1440) + " d"
+    if (minutes % 60 === 0) return (minutes / 60) + " h"
+    return minutes + " min"
+}
+
+// Plan as the providers spell it in their login or usage data → product name (not translated);
+// an unknown plan is shown as it comes, so a new one never disappears
+const _PLAN_NAMES = {free: "Free", plus: "Plus", pro: "Pro", prolite: "Pro Lite", max: "Max", team: "Team",
+                     business: "Business", enterprise: "Enterprise", edu: "Edu"}
+
+export function planName(plan) {
+    if (!plan) return ""
+    return _PLAN_NAMES[String(plan).toLowerCase()] || String(plan)
+}
+
+// Display name of a limit (stats.json carries only window and model)
+export function limitName(limit, tr) {
+    const m = limit.window_minutes
+    if (m === 10080)
+        return limit.model ? tr.i18nc("limit name: weekly window of one model, %1 = model", "Week %1", limit.model)
+                           : tr.i18nc("limit name: weekly window", "Week")
+    if (m === 300 && !limit.model) return tr.i18nc("limit name: 5-hour window", "5 h")
+    if (!m) return limit.id
+    return _windowText(m) + (limit.model ? " " + limit.model : "")
+}
+
+export function errorText(errors, tr) {
+    if (!errors) return ""
+    return errors.map(e => {
+        if (e.code === "logs_unreadable")
+            return tr.i18np("%1 file unreadable – numbers incomplete", "%1 files unreadable – numbers incomplete", e.count)
+        if (e.code === "logs_failed") return tr.i18n("Data could not be processed")
+        if (e.code === "limits_unavailable") return tr.i18n("Limits unavailable")
+        if (e.code === "account_invalid") return tr.i18n("Account settings are invalid – check the directory")
+        return e.code
+    }).join("; ")
+}
+
+export function authHint(auth, entry, tr) {
+    if (!auth || auth.status === "ok") return ""
+    if (entry && entry.account) {
+        const how = entry.provider === "codex" ? tr.i18n("start codex with this CODEX_HOME")
+                                               : tr.i18n("start claude with this config directory")
+        return auth.status === "expired" ? tr.i18n("Login in %1 expired – %2", entry.dir, how)
+                                         : tr.i18n("No login in %1 – %2", entry.dir, how)
+    }
+    if (auth.status === "expired") return tr.i18n("Login expired – run claude in a terminal")
+    return tr.i18n("No login found – run claude in a terminal")
+}
+
+// Without login a provider gets its limits only from local copies: say where they come from while there are none
+export function loginHint(provider, entry, tr) {
+    if (!provider || provider.login !== false || (provider.limits && provider.limits.length)) return ""
+    const key = entry && entry.account ? entry.provider : (entry ? entry.key : "")
+    if (key === "codex")
+        return tr.i18n("No limits without login – they come from the session logs once you use codex in a terminal")
+    if (entry && entry.account) return tr.i18n("No limits without login for additional accounts")
+    return tr.i18n("No limits without login – they come from the status line while claude runs in a terminal")
+}
+
+export const REFRESH_HINT_MS = 60000  // how long the hint stays after "Refresh now"
+
+// After "Refresh now": when the limits will be asked for again (the collector keeps its 5-minute interval
+// and any pause); empty when no refresh happened lately or the limits were just asked for.
+export function refreshHint(provider, nowMs, refreshedAtMs, tr) {
+    if (!provider || !refreshedAtMs || nowMs - refreshedAtMs > REFRESH_HINT_MS) return ""
+    const next = provider.limits_next_request_at ? Date.parse(provider.limits_next_request_at) : NaN
+    if (!(next > nowMs)) return ""
+    return tr.i18nc("%1 = clock time; shown after a manual refresh", "limits again from %1",
+                    clock(next / 1000, nowMs / 1000, tr))
+}
+
+// After a rate limit (HTTP 429) the collector stops asking until the provider allows it again.
+function _pauseText(iso, nowMs, tr) {
+    const until = iso ? Date.parse(iso) : NaN
+    if (!(until > nowMs)) return ""
+    return " · " + tr.i18nc("%1 = clock time; the provider asked to wait before the next request",
+                            "paused by the provider until %1", clock(until / 1000, nowMs / 1000, tr))
+}
+
+export function footerText(provider, nowMs, refreshedAtMs, tr) {
+    if (!provider) return ""
+    const hint = refreshHint(provider, nowMs, refreshedAtMs, tr)
+    return tr.i18nc("%1 = age such as '5 min ago', %2 = data source", "Updated %1 · %2",
+                    ageText(provider.limits_updated_at, nowMs, tr), sourceText(provider.limits_source, tr))
+        + (limitsStale(provider, nowMs) ? " · " + tr.i18nc("limit data is outdated", "stale") : "")
+        + _pauseText(provider.limits_paused_until, nowMs, tr)
+        + (hint ? " · " + hint : "")
+}

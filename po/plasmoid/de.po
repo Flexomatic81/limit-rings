@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 13:47+0200\n"
+"POT-Creation-Date: 2026-10-08 22:02+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -14,11 +14,6 @@ msgstr ""
 msgctxt "billion abbreviation"
 msgid "B"
 msgstr "Mrd"
-
-#, kde-format
-msgctxt "%1 = percent of a limit that is still available"
-msgid "%1 % left"
-msgstr "%1 % übrig"
 
 #, kde-format
 msgctxt "time ago"
@@ -49,6 +44,137 @@ msgstr "Statuszeile"
 msgctxt "limit data source"
 msgid "Session log"
 msgstr "Sitzungslog"
+
+#, kde-format
+msgctxt "%1 = percent of a limit that is still available"
+msgid "%1 % left"
+msgstr "%1 % übrig"
+
+#, kde-format
+msgid "Lasts until reset at current pace"
+msgstr "Reicht bei aktuellem Tempo bis zum Reset"
+
+#, kde-format
+msgid "Full soon at current pace"
+msgstr "Bei aktuellem Tempo gleich voll"
+
+#, kde-format
+msgid "Full in ~%1 at current pace (%2)"
+msgstr "Bei aktuellem Tempo voll in ~%1 (%2)"
+
+#, kde-format
+msgctxt "limit window has reset, shown below the bar"
+msgid "Reset – starts again from 0 %"
+msgstr "Zurückgesetzt – beginnt wieder bei 0 %"
+
+#, kde-format
+msgid "lasts until reset"
+msgstr "reicht bis Reset"
+
+#, kde-format
+msgid "full in ~%1"
+msgstr "voll in ~%1"
+
+#, kde-format
+msgid "full soon"
+msgstr "gleich voll"
+
+#, kde-format
+msgctxt "limit name: weekly window of one model, %1 = model"
+msgid "Week %1"
+msgstr "Woche %1"
+
+#, kde-format
+msgctxt "limit name: weekly window"
+msgid "Week"
+msgstr "Woche"
+
+#, kde-format
+msgctxt "limit name: 5-hour window"
+msgid "5 h"
+msgstr "5 h"
+
+#, kde-format
+msgid "%1 file unreadable – numbers incomplete"
+msgid_plural "%1 files unreadable – numbers incomplete"
+msgstr[0] "%1 Datei nicht lesbar – Zahlen unvollständig"
+msgstr[1] "%1 Dateien nicht lesbar – Zahlen unvollständig"
+
+#, kde-format
+msgid "Data could not be processed"
+msgstr "Daten konnten nicht verarbeitet werden"
+
+#, kde-format
+msgid "Limits unavailable"
+msgstr "Limits nicht verfügbar"
+
+#, kde-format
+msgid "Account settings are invalid – check the directory"
+msgstr "Kontoeinstellungen ungültig – Verzeichnis prüfen"
+
+#, kde-format
+msgid "start codex with this CODEX_HOME"
+msgstr "codex mit diesem CODEX_HOME starten"
+
+#, kde-format
+msgid "start claude with this config directory"
+msgstr "claude mit diesem Konfigverzeichnis starten"
+
+#, kde-format
+msgid "Login in %1 expired – %2"
+msgstr "Login in %1 abgelaufen – %2"
+
+#, kde-format
+msgid "No login in %1 – %2"
+msgstr "Kein Login in %1 – %2"
+
+#, kde-format
+msgid "Login expired – run claude in a terminal"
+msgstr "Anmeldung abgelaufen – claude im Terminal starten"
+
+#, kde-format
+msgid "No login found – run claude in a terminal"
+msgstr "Keine Anmeldung gefunden – claude im Terminal starten"
+
+#, kde-format
+msgid ""
+"No limits without login – they come from the session logs once you use codex "
+"in a terminal"
+msgstr ""
+"Ohne Login keine Limits – sie kommen aus den Sitzungslogs, sobald du codex "
+"im Terminal nutzt"
+
+#, kde-format
+msgid "No limits without login for additional accounts"
+msgstr "Ohne Login keine Limits für weitere Konten"
+
+#, kde-format
+msgid ""
+"No limits without login – they come from the status line while claude runs "
+"in a terminal"
+msgstr ""
+"Ohne Login keine Limits – sie kommen aus der Statuszeile, solange claude im "
+"Terminal läuft"
+
+#, kde-format
+msgctxt "%1 = clock time; shown after a manual refresh"
+msgid "limits again from %1"
+msgstr "Limits wieder ab %1"
+
+#, kde-format
+msgctxt "%1 = clock time; the provider asked to wait before the next request"
+msgid "paused by the provider until %1"
+msgstr "vom Anbieter pausiert bis %1"
+
+#, kde-format
+msgctxt "%1 = age such as '5 min ago', %2 = data source"
+msgid "Updated %1 · %2"
+msgstr "Stand %1 · %2"
+
+#, kde-format
+msgctxt "limit data is outdated"
+msgid "stale"
+msgstr "veraltet"
 
 #, kde-format
 msgid ""
@@ -103,26 +229,6 @@ msgid "%1: %2 tokens"
 msgstr "%1: %2 Tokens"
 
 #, kde-format
-msgctxt "%1 = clock time; shown after a manual refresh"
-msgid "limits again from %1"
-msgstr "Limits wieder ab %1"
-
-#, kde-format
-msgctxt "%1 = age such as '5 min ago', %2 = data source"
-msgid "Updated %1 · %2"
-msgstr "Stand %1 · %2"
-
-#, kde-format
-msgctxt "limit data is outdated"
-msgid "stale"
-msgstr "veraltet"
-
-#, kde-format
-msgctxt "%1 = clock time; the provider asked to wait before the next request"
-msgid "paused by the provider until %1"
-msgstr "vom Anbieter pausiert bis %1"
-
-#, kde-format
 msgid "Install it with: %1"
 msgstr "Installieren mit: %1"
 
@@ -167,54 +273,10 @@ msgid "Data from %1 – the collector has not run since. Log: %2"
 msgstr "Daten von %1 – der Collector ist seitdem nicht gelaufen. Log: %2"
 
 #, kde-format
-msgid "Lasts until reset at current pace"
-msgstr "Reicht bei aktuellem Tempo bis zum Reset"
-
-#, kde-format
-msgid "Full soon at current pace"
-msgstr "Bei aktuellem Tempo gleich voll"
-
-#, kde-format
-msgid "Full in ~%1 at current pace (%2)"
-msgstr "Bei aktuellem Tempo voll in ~%1 (%2)"
-
-#, kde-format
-msgctxt "limit window has reset, shown below the bar"
-msgid "Reset – starts again from 0 %"
-msgstr "Zurückgesetzt – beginnt wieder bei 0 %"
-
-#, kde-format
 msgctxt ""
 "%1 = clock time of the reset, with the weekday once it is a day or more away"
 msgid "Resets at %1"
 msgstr "Reset um %1"
-
-#, kde-format
-msgid "lasts until reset"
-msgstr "reicht bis Reset"
-
-#, kde-format
-msgid "full in ~%1"
-msgstr "voll in ~%1"
-
-#, kde-format
-msgid "full soon"
-msgstr "gleich voll"
-
-#, kde-format
-msgctxt "limit name: weekly window of one model, %1 = model"
-msgid "Week %1"
-msgstr "Woche %1"
-
-#, kde-format
-msgctxt "limit name: weekly window"
-msgid "Week"
-msgstr "Woche"
-
-#, kde-format
-msgctxt "limit name: 5-hour window"
-msgid "5 h"
-msgstr "5 h"
 
 #, kde-format
 msgctxt "Codex credit balance"
@@ -242,24 +304,6 @@ msgid "%1 of %2"
 msgstr "%1 von %2"
 
 #, kde-format
-msgid "%1 file unreadable – numbers incomplete"
-msgid_plural "%1 files unreadable – numbers incomplete"
-msgstr[0] "%1 Datei nicht lesbar – Zahlen unvollständig"
-msgstr[1] "%1 Dateien nicht lesbar – Zahlen unvollständig"
-
-#, kde-format
-msgid "Data could not be processed"
-msgstr "Daten konnten nicht verarbeitet werden"
-
-#, kde-format
-msgid "Limits unavailable"
-msgstr "Limits nicht verfügbar"
-
-#, kde-format
-msgid "Account settings are invalid – check the directory"
-msgstr "Kontoeinstellungen ungültig – Verzeichnis prüfen"
-
-#, kde-format
 msgctxt "limit state"
 msgid "reset"
 msgstr "zurückgesetzt"
@@ -267,50 +311,6 @@ msgstr "zurückgesetzt"
 #, kde-format
 msgid "Reset in %1"
 msgstr "Reset in %1"
-
-#, kde-format
-msgid "start codex with this CODEX_HOME"
-msgstr "codex mit diesem CODEX_HOME starten"
-
-#, kde-format
-msgid "start claude with this config directory"
-msgstr "claude mit diesem Konfigverzeichnis starten"
-
-#, kde-format
-msgid "Login in %1 expired – %2"
-msgstr "Login in %1 abgelaufen – %2"
-
-#, kde-format
-msgid "No login in %1 – %2"
-msgstr "Kein Login in %1 – %2"
-
-#, kde-format
-msgid "Login expired – run claude in a terminal"
-msgstr "Anmeldung abgelaufen – claude im Terminal starten"
-
-#, kde-format
-msgid "No login found – run claude in a terminal"
-msgstr "Keine Anmeldung gefunden – claude im Terminal starten"
-
-#, kde-format
-msgid ""
-"No limits without login – they come from the session logs once you use codex "
-"in a terminal"
-msgstr ""
-"Ohne Login keine Limits – sie kommen aus den Sitzungslogs, sobald du codex "
-"im Terminal nutzt"
-
-#, kde-format
-msgid "No limits without login for additional accounts"
-msgstr "Ohne Login keine Limits für weitere Konten"
-
-#, kde-format
-msgid ""
-"No limits without login – they come from the status line while claude runs "
-"in a terminal"
-msgstr ""
-"Ohne Login keine Limits – sie kommen aus der Statuszeile, solange claude im "
-"Terminal läuft"
 
 #, kde-format
 msgctxt "limit structure change: %1 limit name, %2 date"

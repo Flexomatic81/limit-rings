@@ -61,3 +61,42 @@ test("chart series by range", () => {
   assert.deepEqual(C.chartSeries({daily: [1]}, "unknown"), [1])
   assert.deepEqual(C.chartSeries(null, "days"), [])
 })
+
+const T = C.ENGLISH
+
+test("compact numbers and ages", () => {
+  assert.equal(C.compactNumber(999, T), "999")
+  assert.equal(C.compactNumber(12_400, T), "12 k")
+  assert.equal(C.compactNumber(1_250_000, T), "1.3 M")
+  assert.equal(C.compactNumber(2_000_000_000, T), "2.0 B")
+  assert.equal(C.ageText(new Date((NOW - 125) * 1000).toISOString(), NOW * 1000, T), "2 min ago")
+  assert.equal(C.ageText(null, NOW * 1000, T), "—")
+})
+
+test("limit names, plans and percent texts", () => {
+  assert.equal(C.limitName({window_minutes: 300}, T), "5 h")
+  assert.equal(C.limitName({window_minutes: 10080, model: "Opus"}, T), "Week Opus")
+  assert.equal(C.limitName({window_minutes: 1440}, T), "1 d")
+  assert.equal(C.planName("max"), "Max")
+  assert.equal(C.planName("newtier"), "newtier")
+  assert.equal(C.limitPercentText({used_percent: 30.4, resets_at: null}, NOW, true, T), "70 % left")
+})
+
+test("forecast notes use the weekday from the translator", () => {
+  const tr = {...T, weekday: d => ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][d]}
+  const limit = {used_percent: 50, resets_at: NOW + 5 * 86400, forecast: {status: "full", eta: NOW + 2 * 86400}}
+  assert.match(C.forecastText(limit, NOW, tr), /^Full in ~2 d 0 h at current pace \((Su|Mo|Tu|We|Th|Fr|Sa) \d\d:\d\d\)$/)
+  assert.equal(C.barNote({...limit, forecast: {status: "enough"}}, NOW, tr), "")
+})
+
+test("footer names source, staleness and pause", () => {
+  const p = {limits: [{}], limits_source: "oauth", limits_updated_at: new Date((NOW - 60) * 1000).toISOString(),
+             limits_paused_until: null}
+  assert.equal(C.footerText(p, NOW * 1000, 0, T), "Updated 1 min ago · OAuth")
+})
+
+test("auth and login hints", () => {
+  assert.equal(C.authHint({status: "expired"}, null, T), "Login expired – run claude in a terminal")
+  assert.equal(C.authHint({status: "ok"}, null, T), "")
+  assert.match(C.loginHint({login: false, limits: []}, {key: "claude"}, T), /status line/)
+})
