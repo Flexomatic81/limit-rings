@@ -631,4 +631,22 @@ TestCase {
         compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], null, "", ["claude; rm -rf ~"]),
                 "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude LIMIT_RINGS_LOGIN= python3 '/p/run.py'")
     }
+
+    function test_loginHint_only_without_login_and_limits() {
+        const claude = {key: "claude", name: "Claude", short: "C"}
+        const codex = {key: "codex", name: "Codex", short: "X"}
+        const work = {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Work)", dir: "~/.claude-w"}
+        const team = {key: "c0d3x1", account: true, provider: "codex", name: "Codex (Team)", dir: "~/.codex-t"}
+        compare(F.loginHint(null, claude), "")
+        compare(F.loginHint({login: true, limits: []}, claude), "")
+        compare(F.loginHint({limits: []}, claude), "")   // older collector without the field
+        compare(F.loginHint({login: false, limits: [{window_minutes: 300, used_percent: 5}]}, claude), "")
+        compare(F.loginHint({login: false, limits: []}, claude),
+                "No limits without login – they come from the status line while claude runs in a terminal")
+        compare(F.loginHint({login: false, limits: []}, work), "No limits without login for additional accounts")
+        compare(F.loginHint({login: false, limits: []}, codex),
+                "No limits without login – they come from the session logs once you use codex in a terminal")
+        compare(F.loginHint({login: false, limits: []}, team),
+                "No limits without login – they come from the session logs once you use codex in a terminal")
+    }
 }

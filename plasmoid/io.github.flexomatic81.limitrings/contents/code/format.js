@@ -558,6 +558,16 @@ function authHint(auth, entry) {
     return i18n("No login found – run claude in a terminal")
 }
 
+// Without login a provider gets its limits only from local copies: say where they come from while there are none
+function loginHint(provider, entry) {
+    if (!provider || provider.login !== false || (provider.limits && provider.limits.length)) return ""
+    const key = entry && entry.account ? entry.provider : (entry ? entry.key : "")
+    if (key === "codex")
+        return i18n("No limits without login – they come from the session logs once you use codex in a terminal")
+    if (entry && entry.account) return i18n("No limits without login for additional accounts")
+    return i18n("No limits without login – they come from the status line while claude runs in a terminal")
+}
+
 // Changes to the limit structure of the last days ("changes" in the collector output), one line each
 function _changeText(change) {
     const at = new Date(change.at)

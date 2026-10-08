@@ -24,7 +24,8 @@ TestCase {
         "%1 = amount spent; extra usage without a monthly limit|%1 spent": "%1 ausgegeben",
         "Codex credit balance|unlimited": "unbegrenzt",
         "limit structure change: %1 limit name, %2 date|%1: new limit (since %2)": "%1: neues Limit (seit %2)",
-        "limit name: 5-hour window|5 h": "5 h"
+        "limit name: 5-hour window|5 h": "5 h",
+        "No limits without login for additional accounts": "Ohne Login keine Limits für Zusatzkonten"
     })
 
     function subst(text, args) {
@@ -90,5 +91,10 @@ TestCase {
     function test_changesText_in_german() {
         compare(F.changesText([{kind: "new", limit: {id: "seven_day_opus", window_minutes: 10080, model: "Opus"},
                                 at: "2026-10-02T12:00:00+02:00"}]), "Woche Opus: neues Limit (seit 02.10.)")
+    }
+
+    function test_loginHint_in_german() {
+        compare(F.loginHint({login: false, limits: []}, {key: "k1", account: true, provider: "claude"}),
+                "Ohne Login keine Limits für Zusatzkonten")
     }
 }

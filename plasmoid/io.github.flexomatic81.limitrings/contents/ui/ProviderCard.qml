@@ -34,7 +34,8 @@ ColumnLayout {
     }
 
     PlasmaComponents.Label {
-        readonly property string hint: card.provider ? Format.authHint(card.provider.auth, card.entry) : ""
+        readonly property string hint: card.provider ? (Format.authHint(card.provider.auth, card.entry)
+                                                         || Format.loginHint(card.provider, card.entry)) : ""
         visible: hint !== ""
         text: hint
         color: Kirigami.Theme.neutralTextColor
