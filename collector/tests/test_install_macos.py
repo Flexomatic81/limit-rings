@@ -251,6 +251,7 @@ def test_update_keeps_the_settings(env):
     res = install(env)
     assert res.returncode == 0, res.stderr
     assert (old / "settings.json").read_text() == '{"login": []}\n'
+    assert (old / "index.jsx").read_text() != "old"
 
 
 def test_failed_move_restores_the_old_widget(env, tmp_path):
