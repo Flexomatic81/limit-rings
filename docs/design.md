@@ -76,6 +76,7 @@ Decisions:
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
+| `status.py` | `run.py --status [--waybar]`: turns the last `stats.json` into the versioned status format for scripts and bars (format in the README). Reads nothing else, writes nothing. | `collect`, `notify` |
 | `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect` |
 | `run.py` | Checks Python ≥ 3.10, then calls `widget.main`. | `widget` |
 | Plasmoid `io.github.flexomatic81.limitrings` | Presentation, notifications, update check; starts the collector. | collector output |

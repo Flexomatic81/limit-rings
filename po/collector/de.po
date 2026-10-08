@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 17:56+0200\n"
+"POT-Creation-Date: 2026-10-08 13:26+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -47,3 +47,19 @@ msgstr "Jetzt %(percent)d %%"
 #, python-format
 msgid "%(provider)s: %(limit)s at %(percent)d %%"
 msgstr "%(provider)s: %(limit)s bei %(percent)d %%"
+
+msgid "reset"
+msgstr "zurückgesetzt"
+
+#, python-format
+msgid "full in ~%(duration)s"
+msgstr "voll in ~%(duration)s"
+
+msgid "full soon"
+msgstr "gleich voll"
+
+msgid "lasts until reset"
+msgstr "reicht bis Reset"
+
+msgid "No data – is the Limit Rings widget running?"
+msgstr "Keine Daten – läuft das Limit-Rings-Widget?"

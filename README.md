@@ -75,6 +75,7 @@ see [Installation](#installation).
   its own ring and card.
 - Works without your logins if you prefer: [limits from local copies only](#without-login).
 - Shows what is left of each limit instead of what is used, if you prefer ("Percentages" in the settings).
+- The current limits as JSON for scripts and bars such as Waybar ([status output](#status-for-scripts-and-bars)).
 - Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs and your logins
@@ -261,6 +262,50 @@ tail -n 50 ~/.cache/limit-rings/collector.log
 jq . ~/.cache/limit-rings/stats.json
 # one pass by hand; LIMIT_RINGS_NOTIFY=0 leaves due notices for the widget to show
 LIMIT_RINGS_NOTIFY=0 python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py
+```
+
+## Status for scripts and bars
+
+The limits the widget collected last can be read by scripts, shell prompts or bars such as Waybar:
+
+```bash
+python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py --status
+```
+
+This only reads `~/.cache/limit-rings/stats.json`, which the widget's collector writes every 60 s: it sends no
+request, reads no log or login and writes nothing. The widget therefore has to be running; `stale` says when the
+last pass is more than 5 minutes old.
+
+```json
+{
+  "status_version": 1,
+  "generated_at": "2026-10-08T13:20:00+02:00",
+  "stale": false,
+  "providers": [
+    {"id": "claude", "provider": "claude", "name": "Claude", "account": null, "plan": "max", "login": true,
+     "limits_source": "oauth", "limits_updated_at": "2026-10-08T13:19:30+02:00",
+     "limits": [{"id": "five_hour", "window_minutes": 300, "model": null, "used_percent": 64.0,
+                 "remaining_percent": 36.0, "resets_at": "2026-10-08T15:10:00+02:00", "reset": false,
+                 "forecast": {"status": "full", "eta": "2026-10-08T14:00:00+02:00"}}]}
+  ]
+}
+```
+
+- One entry per provider and per additional account (`"account": {"name": …, "dir": …}`).
+- `forecast` is `{"status": "full", "eta": …}`, `{"status": "enough"}` or `null`; a window whose reset has
+  passed has `"reset": true` and counts as 0 % used.
+- The format is versioned: within `status_version` 1, fields are only added, never renamed or removed.
+
+With `--status --waybar` the output is a Waybar custom module (`text` like `C 64% · X 33%`, a tooltip with
+every limit, `percentage`, and `class` `normal`/`warning`/`critical` – from 70 % and 90 % used or a forecast
+that runs out before the reset – plus `stale`):
+
+```json
+"custom/limit-rings": {
+    "exec": "python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py --status --waybar",
+    "return-type": "json",
+    "interval": 60
+}
 ```
 
 ## Privacy & network
