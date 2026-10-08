@@ -1,6 +1,7 @@
 """tools/build_uebersicht.py: the macOS widget folder and its zip, built with the standard library only."""
 
 import json
+import zipfile
 
 import build_uebersicht as bu
 import pytest
@@ -46,3 +47,18 @@ def test_never_builds_into_the_sources_or_over_foreign_folders(tmp_path):
     assert (foreign / "index.jsx").read_text() == "keep"
     bu.build_tree(tmp_path / "out")
     bu.build_tree(tmp_path / "out")   # an earlier build is replaced
+
+
+def test_archive_has_the_folder_at_the_root_and_is_reproducible(tmp_path):
+    a = bu.build_archive(tmp_path / "a.zip")
+    b = bu.build_archive(tmp_path / "b.zip")
+    assert a.read_bytes() == b.read_bytes()
+    with zipfile.ZipFile(a) as zf:
+        names = zf.namelist()
+        assert "limit-rings.widget/index.jsx" in names and all(n.startswith("limit-rings.widget/") for n in names)
+        assert (zf.getinfo("limit-rings.widget/run.sh").external_attr >> 16) & 0o777 == 0o755
+
+
+def test_cli_names_the_zip_by_version(tmp_path):
+    assert bu.main(["--out", str(tmp_path)]) == 0
+    assert (tmp_path / f"limit-rings-macos-{bu.version()}.zip").is_file()

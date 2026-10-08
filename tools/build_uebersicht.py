@@ -1,17 +1,24 @@
 """Builds the macOS widget for Übersicht: the widget folder with the shared display logic, a copy of the collector
 and the German texts as JSON.
 
+Usage:
+    python3 tools/build_uebersicht.py --out dist      zip of the widget folder, named by version
+    python3 tools/build_uebersicht.py --dir DIR       the unpacked widget folder, in DIR
+
 Standard library only.
 """
 
+import argparse
 import json
 import shutil
 import sys
+import tempfile
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import msgfmt  # noqa: E402
-from build_plasmoid import PLUGIN_ID, ROOT, _ignore, version, version_py  # noqa: E402
+from build_plasmoid import PLUGIN_ID, ROOT, ZIP_DATE, _ignore, version, version_py  # noqa: E402
 
 WIDGET = "limit-rings.widget"
 
@@ -57,3 +64,32 @@ def build_tree(out: Path, root: Path = ROOT) -> Path:
     (out / "lib" / "de.json").write_text(json.dumps(catalog, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     (out / "run.sh").chmod(0o755)
     return out
+
+
+def build_archive(dest: Path, root: Path = ROOT) -> Path:
+    with tempfile.TemporaryDirectory() as tmp:
+        tree = build_tree(Path(tmp) / WIDGET, root)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(dest, "w") as zf:
+            for path in sorted(p for p in tree.rglob("*") if p.is_file() and p.name != MARKER):
+                info = zipfile.ZipInfo(f"{WIDGET}/{path.relative_to(tree).as_posix()}", ZIP_DATE)
+                info.external_attr = (0o755 if path.name == "run.sh" else 0o644) << 16
+                info.compress_type = zipfile.ZIP_DEFLATED
+                zf.writestr(info, path.read_bytes())
+    return dest
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build the Limit Rings widget for Übersicht (macOS).")
+    parser.add_argument("--out", default="dist", help="directory for the zip")
+    parser.add_argument("--dir", help="write the unpacked widget folder here instead")
+    args = parser.parse_args(argv)
+    if args.dir:
+        print(build_tree(Path(args.dir)))
+    else:
+        print(build_archive(Path(args.out) / f"limit-rings-macos-{version()}.zip"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
