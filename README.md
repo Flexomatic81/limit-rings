@@ -1,24 +1,76 @@
-# Limit Rings
+<p align="center">
+  <img src="docs/images/logo.png" width="112" alt="Limit Rings logo">
+</p>
 
-KDE Plasma 6 widget showing usage limits and token statistics for **Claude Code** and **Codex**.
+<h1 align="center">Limit Rings</h1>
 
-- Panel: one double ring per provider — the outer ring shows the weekly limit, the inner one the
-  5-hour limit; the tooltip lists all limits with a countdown.
+<p align="center">
+  KDE Plasma 6 widget showing usage limits and token statistics for <b>Claude Code</b> and <b>Codex</b>.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Flexomatic81/limit-rings/actions/workflows/test.yml"><img src="https://github.com/Flexomatic81/limit-rings/actions/workflows/test.yml/badge.svg?branch=main" alt="Tests"></a>
+  <a href="https://github.com/Flexomatic81/limit-rings/releases/latest"><img src="https://img.shields.io/github/v/release/Flexomatic81/limit-rings" alt="Latest release"></a>
+  <a href="https://store.kde.org/p/2377644/"><img src="https://img.shields.io/badge/KDE_Store-Limit_Rings-1d99f3?logo=kde&logoColor=white" alt="KDE Store"></a>
+  <img src="https://img.shields.io/badge/Plasma-6-1d99f3" alt="Plasma 6">
+  <img src="https://img.shields.io/badge/Python-%E2%89%A5%203.10-3776ab?logo=python&logoColor=white" alt="Python 3.10 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Flexomatic81/limit-rings" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <img src="docs/images/popup.png" width="820" alt="The widget's card with the Claude and Codex limits, reset countdowns, token history and a breakdown by project and model">
+  <br>
+  <sub>All screenshots show sample data.</sub>
+</p>
+
+> [!IMPORTANT]
+> **Your logins at a glance:** Limit Rings asks undocumented usage endpoints of Anthropic and OpenAI,
+> using the logins Claude Code and Codex keep on your machine. Tokens are only read – never stored,
+> refreshed or logged – and only sent to `api.anthropic.com` or `chatgpt.com`, at most every 5 minutes.
+> Details and the providers' terms: [Important: unofficial APIs and your logins](#important-unofficial-apis-and-your-logins).
+
+## Quick start
+
+Requires KDE Plasma 6 and Python ≥ 3.10. Right-click the panel → "Add Widgets…" → "Get New Widgets…" →
+"Download New Plasma Widgets", search for **Limit Rings** and drag it onto a panel or the desktop – or get it
+from the [KDE Store](https://store.kde.org/p/2377644/). Installing from GitHub:
+see [Installation](#installation).
+
+## Features
+
+### In the panel
+
+<img src="docs/images/panel-tooltip.png" width="440" alt="Two double rings for Claude and Codex in the panel, with a tooltip listing all limits">
+
+- One double ring per provider — the outer ring shows the weekly limit, the inner one the 5-hour limit;
+  the tooltip lists all limits with a countdown.
 - A mark on each ring and bar shows how much of the window has passed, and a ring turns to the warning
   colour as soon as it would run out before the reset at the current pace.
-- Desktop/popup: limits with a reset countdown, tokens for today/week/month, 30-day history.
+- Works on horizontal and vertical panels.
+
+### On the desktop or in the popup
+
+- Limits with a reset countdown, tokens for today/week/month, 30-day history.
 - Claude extra usage (amount spent and monthly limit) and Codex credits, when your account has them.
 - Forecast of when a limit will be reached at the current pace (5 h: last 30 min, week: last 24 h).
-- Desktop notification when a limit reaches 80 % or 95 % (adjustable), plus an early warning when the
-  forecast says the 5-hour limit will be full within 30 minutes or the weekly limit within 24 hours
-  (each at most once per window); optionally a notice when a limit that had warned has reset.
+- Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
+  for the transcripts on the current machine, as a share of tokens (not of the limit).
 - Hint in the card and tooltip when the Claude login has expired.
 - "Refresh now" in the context menu: reads the logs right away; the limits follow the 5-minute
   interval, and the card says when they are asked for next.
-- Works on horizontal and vertical panels.
-- Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
-  for the transcripts on the current machine, as a share of tokens (not of the limit).
-- Several accounts per provider (own `CLAUDE_CONFIG_DIR` / `CODEX_HOME`), each with its own ring and card.
+
+### Notifications
+
+<img src="docs/images/notifications.png" width="440" alt="Two desktop notifications: Claude's 5-hour limit full in about 25 minutes, Codex weekly limit at 80 %">
+
+- Desktop notification when a limit reaches 80 % or 95 % (adjustable), plus an early warning when the
+  forecast says the 5-hour limit will be full within 30 minutes or the weekly limit within 24 hours
+  (each at most once per window); optionally a notice when a limit that had warned has reset.
+
+### More
+
+- [Several accounts](#several-accounts) per provider (own `CLAUDE_CONFIG_DIR` / `CODEX_HOME`), each with
+  its own ring and card.
 - Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs and your logins
@@ -144,6 +196,10 @@ its own `CLAUDE_CONFIG_DIR`, or a second `CODEX_HOME`), add them in the widget's
 a name and a short label for the ring, and leave "Show" ticked. Each shown account gets its own ring and
 card with its own limits, forecast, token statistics, pause after "too many requests" and notifications
 ("Claude (Work): 5-hour limit at 82 %").
+
+<p align="center">
+  <img src="docs/images/several-accounts.png" width="600" alt="Cards for a private and a work Claude account and for Codex, each with its own ring in the panel">
+</p>
 
 - Only the directories you list are read: `<dir>/.credentials.json` and `<dir>/projects` for Claude,
   `<dir>/auth.json` and `<dir>/sessions` for Codex. An account you untick is neither read nor asked.
