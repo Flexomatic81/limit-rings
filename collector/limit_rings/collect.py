@@ -4,6 +4,7 @@ import copy
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from datetime import datetime, tzinfo
 from pathlib import Path
@@ -12,7 +13,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from . import aggregate, breakdown, changes, forecast, notify
 from .fsutil import write_json_atomic
 from .limits import public_limit
-from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs
+from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs, keychain
 from .state import load_state, prune_state, save_state
 
 log = logging.getLogger("limit_rings")
@@ -29,9 +30,10 @@ class Paths:
     state_file: Path
     stats_file: Path
     codex_auth: Path | None = None
+    keychain: str | None = None   # keychain entry with the Claude login when the credentials file is missing
 
     @classmethod
-    def default(cls, home: Path) -> "Paths":
+    def default(cls, home: Path, platform: str = sys.platform) -> "Paths":
         cache = home / ".cache" / "limit-rings"
         return cls(
             claude_root=home / ".claude" / "projects",
@@ -41,6 +43,7 @@ class Paths:
             state_file=cache / "state.json",
             stats_file=cache / "stats.json",
             codex_auth=home / ".codex" / "auth.json",
+            keychain=keychain.SERVICE if platform == "darwin" else None,   # Claude Code on macOS keeps it there
         )
 
 
@@ -98,9 +101,24 @@ def _series(buckets, today) -> dict:
             "monthly": aggregate.monthly_series(buckets, today)}
 
 
-def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
-    status, expires_at = claude_limits.credential_status(credentials, now_ts)
-    return {"status": status, "expires_at": _iso(expires_at, tz)}
+def _auth(status: tuple[str, float | None], tz: tzinfo) -> dict:
+    return {"status": status[0], "expires_at": _iso(status[1], tz)}
+
+
+def _claude_login(section: dict, paths, now_ts: float):
+    """Where this pass takes the Claude login from, and what is kept of the last keychain read (or None).
+
+    The credentials file is read on every pass. The keychain only when there is no such file and the endpoint
+    is due (or nothing was kept yet): its first read asks for permission, and a pass runs every minute.
+    In between, plan and expiry of the last read are shown – the token itself is never kept."""
+    if paths.keychain is None or paths.credentials.exists():
+        return paths.credentials, None
+    if section["keychain_login"] is None or claude_limits.is_due(section["oauth_last_attempt"], now_ts,
+                                                                 section["oauth_pause"]):
+        oauth = keychain.read_login(paths.keychain)
+        section["keychain_login"] = claude_limits.login_summary(oauth)
+        return oauth, section["keychain_login"]
+    return None, section["keychain_login"]
 
 
 def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice,
@@ -183,7 +201,8 @@ def _backfill_hourly(section: dict, paths, now_ts: float, resolver) -> None:
     section["hourly_backfill"] = False
 
 
-def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[list[dict], str | None]:
+def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[list[dict], str | None, dict | None]:
+    """Errors, plan and login state (for the card's auth entry) of the Claude section."""
     section = state["claude"]
     errors = []
     resolver = breakdown.ProjectResolver()
@@ -205,18 +224,24 @@ def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[li
 
     if not use_login:  # neither the login file nor the endpoint; the throttle state stays as it is
         section["limits"] = claude_limits.resolve_local(section["limits"], paths.statusline_cache)
-        return errors, None
+        return errors, None, None
     plan = None
+    credentials, kept = _claude_login(section, paths, now_ts)
     try:
         rec, attempt, plan = claude_limits.resolve(
             section["limits"], section["oauth_last_attempt"], now_ts,
-            paths.credentials, paths.statusline_cache, fetch=fetch, pause=section["oauth_pause"])
+            credentials, paths.statusline_cache, fetch=fetch, pause=section["oauth_pause"])
         section["limits"], section["oauth_last_attempt"] = rec, attempt
     except Exception as e:
         log.error("Claude limits: unexpected error: %s", type(e).__name__)
         section["oauth_last_attempt"] = now_ts  # throttle here too, otherwise it queries on every run
         errors.append(dict(LIMITS_UNAVAILABLE))
-    return errors, plan
+    if kept is not None:
+        plan = kept["plan"]
+        status = claude_limits.expiry_status(kept["expires_at"], now_ts)
+    else:
+        status = claude_limits.credential_status(credentials, now_ts)
+    return errors, plan, _auth(status, tz)
 
 
 def _process_codex(state, paths, now_ts, tz, fetch, use_login=True) -> list[dict]:
@@ -279,9 +304,9 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
 
-    claude_errors, claude_plan = [], None
+    claude_errors, claude_plan, claude_auth = [], None, None
     if "claude" in providers:
-        claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
+        claude_errors, claude_plan, claude_auth = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
     codex_errors = (_process_codex(state, paths, now.timestamp(), tz, codex_fetch, "codex" in login)
                     if "codex" in providers else [])
     _update_history(state)
@@ -303,8 +328,7 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
         "claude": {**_provider(claude, today, tz, now.timestamp(),
                                _limits_source("claude", claude["limits"]),
                                claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
-                   "auth": (_auth(paths.credentials, now.timestamp(), tz)
-                            if "claude" in providers and "claude" in login else None),
+                   "auth": claude_auth,
                    "breakdown": _breakdown(claude, now.timestamp(), tz)},
         "codex": _provider(codex, today, tz, now.timestamp(),
                            _limits_source("codex", codex["limits"]),

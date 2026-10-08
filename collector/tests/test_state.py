@@ -208,3 +208,22 @@ def test_structure_with_missing_keys_is_dropped_alone(tmp_path):
     s["claude"]["structure"] = {**full, "events": [{**event, "source": "oauth"}]}
     p.write_text(json.dumps(s))
     assert load_state(p)["claude"]["structure"] == s["claude"]["structure"]
+
+
+def test_keychain_login_defaults_and_validation(tmp_path):
+    p = tmp_path / "state.json"
+    old = new_state()
+    del old["claude"]["keychain_login"]
+    p.write_text(json.dumps(old))
+    assert load_state(p)["claude"]["keychain_login"] is None   # state from before the keychain
+    for kept in ({"plan": "max", "expires_at": 1.5e9}, {"plan": None, "expires_at": None}):
+        state = new_state()
+        state["claude"]["keychain_login"] = kept
+        p.write_text(json.dumps(state))
+        assert load_state(p)["claude"]["keychain_login"] == kept
+    for bad in ("x", {"plan": 3}, {"expires_at": "soon"}):
+        state = new_state()
+        state["claude"]["keychain_login"] = bad
+        state["claude"]["buckets"] = {"2026-10-01": {}}
+        p.write_text(json.dumps(state))
+        assert load_state(p) == new_state()

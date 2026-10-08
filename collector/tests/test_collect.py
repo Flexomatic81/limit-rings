@@ -900,3 +900,79 @@ def test_hidden_provider_without_login_loses_its_endpoint_data(tmp_path):
     stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=ok_fetch, providers={"codex"}, login={"codex"})
     c = stats["providers"]["claude"]
     assert (c["limits"], c["limits_source"], c["extra"], c["plan"], c["login"]) == ([], None, None, None, False)
+
+
+def keychain_paths(tmp_path, monkeypatch, oauth):
+    """Main account as on macOS: no .credentials.json, the login in the keychain; returns paths and the reads."""
+    from dataclasses import replace
+    p = make_paths(tmp_path)
+    p.credentials.unlink()
+    reads = []
+
+    def read_login(service):
+        reads.append(service)
+        return oauth
+    monkeypatch.setattr(collect.keychain, "read_login", read_login)
+    return replace(p, keychain="Claude Code-credentials"), reads
+
+
+KEYCHAIN_LOGIN = {"accessToken": "top-secret", "expiresAt": int((NOW.timestamp() + 3600) * 1000),
+                  "subscriptionType": "max"}
+
+
+def test_keychain_login_is_used_without_credentials_file(tmp_path, monkeypatch):
+    p, reads = keychain_paths(tmp_path, monkeypatch, KEYCHAIN_LOGIN)
+    tokens = []
+
+    def fetch(token, timeout=10.0):
+        tokens.append(token)
+        return ok_fetch(token)
+    stats = run(p, NOW, BERLIN, fetch=fetch)
+    claude = stats["providers"]["claude"]
+    assert reads == ["Claude Code-credentials"] and tokens == ["top-secret"]
+    assert claude["limits_source"] == "oauth" and claude["plan"] == "max"
+    assert claude["auth"] == {"status": "ok", "expires_at": "2026-10-03T20:42:00+02:00"}
+
+
+def test_keychain_is_read_only_when_the_endpoint_is_due(tmp_path, monkeypatch):
+    p, reads = keychain_paths(tmp_path, monkeypatch, KEYCHAIN_LOGIN)
+    run(p, NOW, BERLIN, fetch=ok_fetch)
+    stats = run(p, NOW + timedelta(minutes=1), BERLIN, fetch=ok_fetch)
+    assert len(reads) == 1                                  # a pass runs every minute, a request every 5
+    claude = stats["providers"]["claude"]                    # plan and expiry of the last read stay on show
+    assert claude["plan"] == "max" and claude["limits_source"] == "oauth"
+    assert claude["auth"] == {"status": "ok", "expires_at": "2026-10-03T20:42:00+02:00"}
+    later = run(p, NOW + timedelta(minutes=61), BERLIN, fetch=ok_fetch)
+    assert len(reads) == 2
+    assert later["providers"]["claude"]["auth"]["status"] == "expired"
+    assert "top-secret" not in p.state_file.read_text() + p.stats_file.read_text()
+
+
+def test_missing_keychain_entry_reports_the_login_missing(tmp_path, monkeypatch):
+    p, reads = keychain_paths(tmp_path, monkeypatch, None)
+
+    def forbidden(*a, **k):
+        raise AssertionError("no token, no request")
+    stats = run(p, NOW, BERLIN, fetch=forbidden)
+    assert stats["providers"]["claude"]["auth"] == {"status": "missing", "expires_at": None}
+    run(p, NOW + timedelta(minutes=1), BERLIN, fetch=forbidden)
+    assert len(reads) == 1
+
+
+def test_credentials_file_wins_over_the_keychain(tmp_path, monkeypatch):
+    p, reads = keychain_paths(tmp_path, monkeypatch, KEYCHAIN_LOGIN)
+    p.credentials.write_text(json.dumps({"claudeAiOauth": {**KEYCHAIN_LOGIN, "subscriptionType": "pro"}}))
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch)
+    assert reads == [] and stats["providers"]["claude"]["plan"] == "pro"
+
+
+def test_keychain_is_not_read_without_login_or_when_hidden(tmp_path, monkeypatch):
+    p, reads = keychain_paths(tmp_path, monkeypatch, KEYCHAIN_LOGIN)
+    run(p, NOW, BERLIN, fetch=ok_fetch, login={"codex"})
+    run(p, NOW, BERLIN, fetch=ok_fetch, providers={"codex"})
+    assert reads == []
+
+
+def test_keychain_only_on_macos(tmp_path):
+    assert Paths.default(tmp_path, platform="darwin").keychain == "Claude Code-credentials"
+    assert Paths.default(tmp_path, platform="linux").keychain is None

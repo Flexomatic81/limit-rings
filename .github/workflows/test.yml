@@ -44,16 +44,28 @@ jobs:
           python tools/build_plasmoid.py --source store --dir "$RUNNER_TEMP/pkg"
           mkdir -p "$RUNNER_TEMP/home"
           HOME="$RUNNER_TEMP/home" LIMIT_RINGS_NOTIFY=0 python "$RUNNER_TEMP/pkg/contents/collector/run.py" > "$RUNNER_TEMP/out.json"
-          python - "$RUNNER_TEMP" <<'EOF'
-          import json, sys
-          tmp = sys.argv[1]
-          out = json.load(open(f"{tmp}/out.json"))
-          assert out.get("envelope") == 1 and "stats" in out, out
-          meta = json.load(open(f"{tmp}/pkg/metadata.json"))["KPlugin"]["Version"]
-          built = open(f"{tmp}/pkg/contents/collector/limit_rings/version.py").read()
-          assert f'VERSION = "{meta}"' in built, built
-          print(f"package {meta}: collector ran")
-          EOF
+          python tools/check_package.py "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/out.json"
+
+  collector-macos:
+    # The collector on macOS (Claude login from the keychain); install.sh and the gettext comparison are skipped.
+    name: collector (macos)
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - run: python -m pip install pytest
+      - run: python -m pytest -q
+        working-directory: collector
+      - name: Run the collector from the built package
+        # The empty HOME has no credentials file, so this pass looks for the login in the keychain.
+        run: |
+          python tools/build_plasmoid.py --source store --dir "$RUNNER_TEMP/pkg"
+          mkdir -p "$RUNNER_TEMP/home"
+          HOME="$RUNNER_TEMP/home" LIMIT_RINGS_NOTIFY=0 python "$RUNNER_TEMP/pkg/contents/collector/run.py" > "$RUNNER_TEMP/out.json"
+          python tools/check_package.py "$RUNNER_TEMP/pkg" "$RUNNER_TEMP/out.json"
 
   lint:
     runs-on: ubuntu-latest

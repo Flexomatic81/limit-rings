@@ -3,10 +3,13 @@
 import os
 import pty
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "darwin", reason="install.sh installs into KDE Plasma on Linux")
 
 ROOT = Path(__file__).resolve().parents[2]
 ID = "io.github.flexomatic81.limitrings"

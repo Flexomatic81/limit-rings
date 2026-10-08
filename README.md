@@ -91,7 +91,7 @@ and Codex store on your machine.
 
 | | Claude Code | Codex |
 |---|---|---|
-| File | `~/.claude/.credentials.json` (and `<dir>/.credentials.json` of each additional Claude account) | `~/.codex/auth.json` (and `<dir>/auth.json` of each additional Codex account) |
+| File | `~/.claude/.credentials.json` (and `<dir>/.credentials.json` of each additional Claude account); on macOS without that file the keychain entry `Claude Code-credentials` | `~/.codex/auth.json` (and `<dir>/auth.json` of each additional Codex account) |
 | Read from it | access token, its expiry, plan name | access token, account ID |
 | Sent to | `api.anthropic.com` only | `chatgpt.com` only |
 | Asked for | the usage numbers of your plan | the usage numbers of your plan |
@@ -105,7 +105,7 @@ before the next request.
 - Run models or send prompts with your login – it only asks for the usage numbers.
 - Refresh, store, copy or log a token. An expired token simply goes unused until Claude Code or Codex
   renews it.
-- Write to the login files of Claude Code or Codex.
+- Write to the login files of Claude Code or Codex, or to their keychain entry.
 - Follow redirects – the token could otherwise end up at another host.
 - Touch a directory you have not listed under "Additional accounts", or an account you have unticked there.
 - Touch a provider you have switched off: with Claude or Codex unticked under "Show:" in the
@@ -155,7 +155,11 @@ writes `~/.cache/limit-rings/stats.json` and hands the result and any due notifi
 widget; its log is `~/.cache/limit-rings/collector.log`.
 
 Claude limits come from the (undocumented) OAuth usage endpoint; the token from
-`~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. If the endpoint
+`~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. On macOS, where Claude
+Code keeps its login in the keychain, the collector reads the entry `Claude Code-credentials` with
+Apple's `security` tool instead – only while that file is missing, and at most every 5 minutes, since
+macOS asks once for permission. Between reads it keeps the plan name and expiry, never the token.
+Additional Claude accounts are read from their `.credentials.json` only. If the endpoint
 fails, a capture of the Claude Code status line serves as a fallback.
 
 Codex limits likewise come directly from the Codex service (ChatGPT login from `~/.codex/auth.json`,

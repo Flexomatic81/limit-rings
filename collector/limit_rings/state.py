@@ -20,7 +20,8 @@ def new_state() -> dict:
     return {
         "version": STATE_VERSION,
         "claude": {"files": {}, "seen": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
-                   "oauth_pause": backoff.new(), "hourly": {}, "hourly_backfill": False, "structure": None},
+                   "oauth_pause": backoff.new(), "hourly": {}, "hourly_backfill": False, "structure": None,
+                   "keychain_login": None},
         "codex": {"files": {}, "sessions": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
                   "oauth_pause": backoff.new(), "structure": None},
         "notified": {},
@@ -73,6 +74,8 @@ def _shape_ok(data: dict) -> bool:
             and all(isinstance(pt, list) and len(pt) == 2 and _num(pt[0]) and _num(pt[1]) for pt in v["points"])
             for v in history.values()):
         return False
+    if not _keychain_login_ok(claude["keychain_login"]):
+        return False
     return all((s["oauth_last_attempt"] is None or _num(s["oauth_last_attempt"])) and _pause_ok(s["oauth_pause"])
                for s in (claude, codex))
 
@@ -109,6 +112,12 @@ def _structure_ok(s) -> bool:
         and (e.get("previous_minutes") is None or _int(e["previous_minutes"]))
         and (e.get("source") is None or isinstance(e["source"], str)) for e in s["events"])
     return windows_ok and gone_ok and events_ok
+
+
+def _keychain_login_ok(kept) -> bool:
+    """Plan and expiry of the last keychain read (see collect._claude_login), None before the first."""
+    return kept is None or (isinstance(kept, dict) and (kept.get("plan") is None or isinstance(kept["plan"], str))
+                            and (kept.get("expires_at") is None or _num(kept["expires_at"])))
 
 
 def _pause_ok(pause) -> bool:

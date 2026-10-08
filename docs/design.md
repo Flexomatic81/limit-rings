@@ -240,7 +240,11 @@ Rules:
   transcripts of **this** machine and are token shares, not the (undisclosed) limit consumption
   per model. Existing states without `hourly` backfill the hourly count once.
 - `auth` exists only for Claude: state of the login token in `~/.claude/.credentials.json`
-  (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by
+  (`"ok"` | `"expired"` | `"missing"`) and expiry time. On macOS without that file the login comes from
+  the keychain entry `Claude Code-credentials` (`sources/keychain.py`, via `/usr/bin/security`). It is
+  read only when the endpoint is due or nothing is kept yet – the first read shows a permission prompt,
+  and a pass runs every minute; `state.json` keeps plan and expiry of the last read
+  (`claude.keychain_login`), never the token. Additional accounts use their file only. The token is written and refreshed only by
   Claude Code in the terminal (valid for about 8 h). If the state is not `ok`, card and tooltip show
   "Login expired – run claude in a terminal" or "No login found – …".
 - `login` (every provider and account entry): whether the live limits via login are on for it
@@ -373,8 +377,9 @@ instance that runs first decides.
 
 ## Security
 
-- `~/.claude/.credentials.json` (and the login file of each additional account) is only read. The collector does **not** refresh any tokens and
-  never writes to this file; an expired token leads to the fallback until Claude Code refreshes
+- `~/.claude/.credentials.json` (and the login file of each additional account, or on macOS the keychain
+  entry) is only read. The collector does **not** refresh any tokens and
+  never writes to this file or entry; the output of `security` is never logged; an expired token leads to the fallback until Claude Code refreshes
   it itself.
 - The token is sent exclusively to `api.anthropic.com` — never into `stats.json`,
   `state.json`, logs or error messages. Redirects are rejected because `urllib` would otherwise

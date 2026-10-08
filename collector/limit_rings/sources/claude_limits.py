@@ -19,12 +19,19 @@ OAUTH_URL = "https://api.anthropic.com/api/oauth/usage"
 OAUTH_MIN_INTERVAL = 300
 
 
-def read_credentials(path: Path, now: float) -> tuple[str | None, str | None]:
-    try:
-        oauth = json.loads(path.read_text(encoding="utf-8"))["claudeAiOauth"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return None, None
-    if not isinstance(oauth, dict):
+def _oauth(source) -> dict | None:
+    """source: the credentials file, or the login already read from the keychain (dict or None)."""
+    if isinstance(source, Path):
+        try:
+            source = json.loads(source.read_text(encoding="utf-8"))["claudeAiOauth"]
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+    return source if isinstance(source, dict) else None
+
+
+def read_credentials(source, now: float) -> tuple[str | None, str | None]:
+    oauth = _oauth(source)
+    if oauth is None:
         return None, None
     plan = oauth.get("subscriptionType")
     token = oauth.get("accessToken")
@@ -34,19 +41,39 @@ def read_credentials(path: Path, now: float) -> tuple[str | None, str | None]:
     return token, plan
 
 
-def credential_status(path: Path, now: float) -> tuple[str, float | None]:
+def credential_status(source, now: float) -> tuple[str, float | None]:
     """Login state for display: ("ok" | "expired" | "missing", expiry in epoch seconds)."""
-    try:
-        oauth = json.loads(path.read_text(encoding="utf-8"))["claudeAiOauth"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return "missing", None
-    if not isinstance(oauth, dict) or not oauth.get("accessToken"):
-        return "missing", None
+    return expiry_status(_expires_at(_oauth(source)), now)
+
+
+def _expires_at(oauth: dict | None) -> float | None:
+    """Expiry of a login with a token, None without one."""
+    if oauth is None or not oauth.get("accessToken"):
+        return None
     expires_ms = oauth.get("expiresAt")
     if not isinstance(expires_ms, (int, float)) or isinstance(expires_ms, bool) or expires_ms <= 0:
+        return None
+    return expires_ms / 1000
+
+
+def expiry_status(expires_at: float | None, now: float) -> tuple[str, float | None]:
+    if expires_at is None:
         return "missing", None
-    expires_at = expires_ms / 1000
     return ("ok" if expires_at > now else "expired"), expires_at
+
+
+def login_summary(source) -> dict:
+    """What may be kept of a login between passes: plan and expiry, never the token."""
+    oauth = _oauth(source)
+    plan = oauth.get("subscriptionType") if oauth else None
+    return {"plan": plan if isinstance(plan, str) else None, "expires_at": _expires_at(oauth)}
+
+
+def is_due(last_attempt: float | None, now: float, pause: dict) -> bool:
+    """Whether resolve() would ask the endpoint now."""
+    # If the clock runs backwards (last_attempt in the future), don't throttle forever.
+    due = last_attempt is None or now - last_attempt >= OAUTH_MIN_INTERVAL or now < last_attempt
+    return due and backoff.blocked_until(pause, now) is None
 
 
 def fetch_oauth_usage(token: str, timeout: float = 10.0, url: str = OAUTH_URL) -> dict:
@@ -67,14 +94,13 @@ def _read_statusline(path: Path | None) -> dict | None:
     return {"limits": limits, "source": "statusline", "updated_at": written_at}
 
 
-def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Path | None,
+def resolve(previous, last_attempt, now, credentials, statusline_cache: Path | None,
             fetch=fetch_oauth_usage, pause: dict | None = None):
-    """pause: back-off state (backoff.new()), updated in place after 429/503 and after a success."""
+    """credentials: see _oauth. pause: back-off state (backoff.new()), updated in place after 429/503 and after
+    a success."""
     pause = backoff.new() if pause is None else pause
     token, plan = read_credentials(credentials, now)
-    # If the clock runs backwards (last_attempt in the future), don't throttle forever.
-    due = last_attempt is None or now - last_attempt >= OAUTH_MIN_INTERVAL or now < last_attempt
-    if due and backoff.blocked_until(pause, now) is None:
+    if is_due(last_attempt, now, pause):
         last_attempt = now
         if token:
             resp = None
