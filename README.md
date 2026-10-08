@@ -209,7 +209,7 @@ says so.
 3. Settings (providers, login, remaining instead of used, thresholds, position) are the block at the top of
    `limit-rings.widget/index.jsx`; Übersicht reloads the widget when you save it.
 
-Claude Code keeps its login in the keychain on macOS. The first time, macOS asks whether `python3` may
+Claude Code keeps its login in the keychain on macOS. macOS may ask once whether `security` may
 read the entry `Claude Code-credentials` – choose "Always Allow" (see [What is read](#what-is-read-and-where-it-goes)).
 The prompt appears in your desktop session only, not over SSH. Everything said about your logins above
 applies unchanged: it is the same collector, tokens are only read and only sent to the provider, at most
