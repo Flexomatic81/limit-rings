@@ -1,0 +1,8 @@
+{
+  "providers": ["claude", "codex"],
+  "login": ["claude", "codex"],
+  "remaining": false,
+  "thresholds": [70, 90],
+  "top": 40,
+  "left": 40
+}

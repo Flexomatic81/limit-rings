@@ -208,8 +208,9 @@ says so.
 2. Move `limit-rings.widget` into `~/Library/Application Support/Übersicht/widgets/`. Keep the folder name:
    the widget does not run under another one (the card says so). To update, delete the old folder first,
    then move the new one in – unzipping next to it would create `limit-rings.widget 2`.
-3. Settings (providers, login, remaining instead of used, thresholds, position) are the block at the top of
-   `limit-rings.widget/index.jsx`; Übersicht reloads the widget when you save it.
+3. Settings (providers, login, remaining instead of used, thresholds, position) are in
+   `limit-rings.widget/settings.json`; Übersicht reloads the widget when you save it. The installer keeps
+   this file when it updates the widget.
 
 Claude Code keeps its login in the keychain on macOS. macOS may ask once whether `security` may
 read the entry `Claude Code-credentials` – choose "Always Allow" (see [What is read](#what-is-read-and-where-it-goes)).

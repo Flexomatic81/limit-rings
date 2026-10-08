@@ -4,16 +4,13 @@
 import { view, DEFAULTS } from "./lib/card.mjs"
 import { makeTranslator } from "./lib/i18n.mjs"
 import catalog from "./lib/de.json"
+import settings from "./settings.json"
 
-// ---- Settings -------------------------------------------------------------------------------------------
-const SETTINGS = {
-  ...DEFAULTS,
-  providers: ["claude", "codex"],   // cards to show (hidden ones are neither read nor queried)
-  login: ["claude", "codex"],       // live limits via login; without it only status line / session logs
-  remaining: false,                 // true: show what is left of each limit instead of what is used
-  thresholds: [70, 90],             // warning and critical, in percent used
-  top: 40, left: 40,                // position on the desktop, in pixels
-}
+// ---- Settings: edit settings.json next to this file (kept when the installer updates the widget) ---------
+const SETTINGS = { ...DEFAULTS, top: 40, left: 40, ...settings }
+// providers: cards to show; login: live limits via login (without it only status line / session logs);
+// remaining: show what is left instead of what is used; thresholds: warning and critical in percent used;
+// top/left: position on the desktop in pixels
 // ---------------------------------------------------------------------------------------------------------
 
 const keys = list => list.filter(k => /^[a-z]+$/.test(k)).join(",")

@@ -18,10 +18,13 @@ def test_catalog_json_has_contexts_and_plural_forms():
 
 def test_tree_has_widget_core_collector_and_catalog(tmp_path):
     tree = bu.build_tree(tmp_path / bu.WIDGET)
-    for rel in ("index.jsx", "lib/card.mjs", "lib/i18n.mjs", "run.sh", "lib/core.mjs", "lib/de.json",
+    for rel in ("index.jsx", "settings.json", "lib/card.mjs", "lib/i18n.mjs", "run.sh", "lib/core.mjs", "lib/de.json",
                 "collector/run.py", "collector/limit_rings/widget.py", "collector/limit_rings/sources/keychain.py"):
         assert (tree / rel).is_file(), rel
     assert not list(tree.rglob("__pycache__"))
+    assert json.loads((tree / "settings.json").read_text(encoding="utf-8"))["login"] == ["claude", "codex"]
+    jsx = (tree / "index.jsx").read_text(encoding="utf-8")
+    assert 'from "./settings.json"' in jsx and 'providers: ["claude", "codex"]' not in jsx
     assert json.loads((tree / "lib" / "de.json").read_text(encoding="utf-8"))["limit name: weekly window\u0004Week"] == "Woche"
     assert f'VERSION = "{bu.version()}"' in (tree / "collector/limit_rings/version.py").read_text()
     assert (tree / "run.sh").stat().st_mode & 0o111
