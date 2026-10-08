@@ -6,8 +6,6 @@
 #   … | sh -s -- --version v0.7.0   install that release instead of the latest
 # Needs no admin rights and changes nothing outside your home folder. Never reads from stdin: under
 # "curl … | sh" stdin is this script.
-# Variables below are used by the install, login-item and uninstall steps added in later changes.
-# shellcheck disable=SC2034
 set -eu
 
 RELEASES="${LIMIT_RINGS_RELEASE_BASE:-https://github.com/Flexomatic81/limit-rings/releases}"
@@ -19,7 +17,7 @@ WIDGETS="$HOME/Library/Application Support/Übersicht/widgets"
 WIDGET="limit-rings.widget"
 AGENT="$HOME/Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist"
 # SHA-256 of Übersicht's own welcome widget GettingStarted.jsx as shipped; only an unchanged one is removed
-WELCOME_ORIGINALS="1176cb4b78732ad1bb99ab9b2b4b9f7c03ae49e1082d74d879fccf177b273e3b"
+WELCOME_ORIGINALS="${LIMIT_RINGS_WELCOME_ORIGINALS:-1176cb4b78732ad1bb99ab9b2b4b9f7c03ae49e1082d74d879fccf177b273e3b}"
 
 say() { printf 'Limit Rings: %s\n' "$*"; }
 fail() { printf 'Limit Rings: %s\n' "$*" >&2; exit 1; }
@@ -134,6 +132,56 @@ check_python() {
     fi
 }
 
+remove_welcome() {
+    f="$WIDGETS/GettingStarted.jsx"
+    [ -f "$f" ] || return 0
+    sum="$(shasum -a 256 "$f" | cut -d ' ' -f 1)"
+    case " $WELCOME_ORIGINALS " in
+        *" $sum "*) rm -f "$f"; say "removed Übersicht's welcome widget" ;;
+        *) say "kept GettingStarted.jsx – it was changed, so it may be yours" ;;
+    esac
+}
+
+xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+
+write_login_item() {
+    mkdir -p "$(dirname "$AGENT")"
+    cat > "$AGENT" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.github.flexomatic81.limitrings.uebersicht</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/open</string>
+        <string>-a</string>
+        <string>$(xml_escape "$app")</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+EOF
+    say "Übersicht starts at login (macOS may show \"Background item added\" once)"
+}
+
+start_uebersicht() {
+    if pgrep -f "Übersicht.app/Contents/MacOS/" >/dev/null 2>&1; then
+        say "Übersicht is running – the cards appear within a minute"
+    else
+        open -a "$app"
+        say "started Übersicht – the cards appear within a minute"
+    fi
+}
+
+uninstall_all() {
+    rm -rf "${WIDGETS:?}/$WIDGET" "$STAGING" "$HOME/.cache/limit-rings"
+    rm -f "$AGENT"
+    say "removed the widget, its login item and ~/.cache/limit-rings (Übersicht itself stays)"
+}
+
 main() {
 uninstall=0
 login_item=1
@@ -159,11 +207,18 @@ take_lock
 recover_previous
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/limit-rings.XXXXXX")"
 
+if [ "$uninstall" = 1 ]; then
+    uninstall_all
+    exit 0
+fi
 app="$(find_uebersicht)"
 if [ -n "$app" ]; then say "found Übersicht at $app"; else install_uebersicht; fi
 install_widget
 check_python
-say "done"
+remove_welcome
+if [ "$login_item" = 1 ]; then write_login_item; fi
+start_uebersicht
+say "done – run the same command again to update; add \"-s -- --uninstall\" after sh to remove it"
 }
 
 # The only top-level command: a download cut off before this line runs nothing.

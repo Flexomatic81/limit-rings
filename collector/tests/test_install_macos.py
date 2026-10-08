@@ -290,3 +290,86 @@ def test_missing_python_is_a_warning_not_a_failure(env):
     res = install(env, STUB_PY="127")
     assert res.returncode == 0
     assert "python.org" in res.stdout + res.stderr
+
+
+def _welcome(env, text=WELCOME) -> Path:
+    f = widgets(env) / "GettingStarted.jsx"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text)
+    return f
+
+
+def _originals():
+    return {"LIMIT_RINGS_WELCOME_ORIGINALS": hashlib.sha256(WELCOME.encode()).hexdigest()}
+
+
+def test_original_welcome_widget_is_removed(env):
+    f = _welcome(env)
+    res = install(env, **_originals())
+    assert res.returncode == 0 and not f.exists()
+
+
+def test_changed_welcome_widget_is_kept(env):
+    f = _welcome(env, "my own widget\n")
+    res = install(env, **_originals())
+    assert res.returncode == 0 and f.read_text() == "my own widget\n"
+    assert "GettingStarted.jsx" in res.stdout
+
+
+def test_login_item_points_at_the_found_app(env):
+    system = Path(env["LIMIT_RINGS_SYSTEM_APPS"]) / APP
+    (system / "Contents").mkdir(parents=True)
+    install(env)
+    plist = Path(env["HOME"]) / "Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist"
+    text = plist.read_text()
+    assert "<string>/usr/bin/open</string>" in text and f"<string>{system}</string>" in text
+    assert "<key>RunAtLoad</key>" in text and "<true/>" in text
+    assert not any(c.startswith("launchctl") for c in calls(env))
+
+
+def test_no_login_item_option(env):
+    res = install(env, "--no-login-item")
+    assert res.returncode == 0, res.stderr
+    assert "starts at login" not in res.stdout and "started" in res.stdout   # the rest of the run still happened
+    assert not (Path(env["HOME"]) / "Library/LaunchAgents").exists()
+
+
+def test_uebersicht_is_started_when_not_running(env):
+    install(env)
+    assert any(c.startswith("open -a ") or c.startswith("open ") for c in calls(env))
+
+
+def test_running_uebersicht_is_left_alone(env):
+    res = install(env, STUB_RUNNING="1")
+    assert res.returncode == 0
+    assert not any(c.startswith("open") for c in calls(env))
+    assert "within a minute" in res.stdout
+
+
+def test_second_run_is_an_update(env):
+    assert install(env).returncode == 0
+    res = install(env, STUB_RUNNING="1")
+    assert res.returncode == 0, res.stderr
+    assert "updated" in res.stdout
+    assert len(list((Path(env["HOME"]) / "Applications").iterdir())) == 1
+    assert len(list((Path(env["HOME"]) / "Library/LaunchAgents").iterdir())) == 1
+
+
+def test_uninstall_removes_widget_login_item_and_cache_but_not_uebersicht(env):
+    install(env)
+    cache = Path(env["HOME"]) / ".cache" / "limit-rings"
+    cache.mkdir(parents=True)
+    (widgets(env) / "other.jsx").write_text("keep")
+    res = install(env, "--uninstall")
+    assert res.returncode == 0, res.stderr
+    assert not (widgets(env) / "limit-rings.widget").exists() and not cache.exists()
+    assert not (Path(env["HOME"]) / "Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist").exists()
+    assert (widgets(env) / "other.jsx").exists() and user_app(env).exists()
+
+
+def test_truncated_script_changes_nothing(env):
+    text = SCRIPT.read_text()
+    cut = text[:text.rindex('main "$@"')]          # everything but the final call, as if curl stopped there
+    res = subprocess.run(["sh", "-s", "--"], input=cut, env=env, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert not (Path(env["HOME"]) / "Library").exists() and not user_app(env).exists() and calls(env) == []
