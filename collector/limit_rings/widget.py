@@ -68,11 +68,20 @@ def _still_the_lock(fd: int, lock_file: Path) -> bool:
     return (locked.st_dev, locked.st_ino) == (current.st_dev, current.st_ino)
 
 
-def shown_providers(value: str | None) -> frozenset:
-    """LIMIT_RINGS_PROVIDERS ("claude,codex", set by the widget) → providers to collect; unset: all."""
+def _provider_set(value: str | None) -> frozenset:
     if value is None:
         return PROVIDERS
     return frozenset(name.strip() for name in value.split(",")) & PROVIDERS
+
+
+def shown_providers(value: str | None) -> frozenset:
+    """LIMIT_RINGS_PROVIDERS ("claude,codex", set by the widget) → providers to collect; unset: all."""
+    return _provider_set(value)
+
+
+def login_providers(value: str | None) -> frozenset:
+    """LIMIT_RINGS_LOGIN ("claude,codex", set by the widget) → providers whose login may be used; unset: all."""
+    return _provider_set(value)
 
 
 def notice_thresholds(value: str | None) -> tuple[int, int]:
@@ -91,7 +100,7 @@ def reset_notice(value: str | None) -> bool:
 
 def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], tz: tzinfo, notify: bool = True,
                  wait: float = LOCK_WAIT, providers=PROVIDERS, thresholds=THRESHOLDS,
-                 reset_notice: bool = False, accounts=()) -> tuple[dict, int]:
+                 reset_notice: bool = False, accounts=(), login=PROVIDERS) -> tuple[dict, int]:
     """Run one pass, after the pass of another instance if that one holds the lock; return envelope and exit code.
 
     Every instance gets its own pass: one that gave up on a busy lock would never see a notice while the other
@@ -103,6 +112,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
     providers: the providers the widget shows; the others are neither read nor queried.
     thresholds, reset_notice: the widget's notification settings.
     accounts: the additional accounts (accounts.parse_accounts), collected in the same pass.
+    login: the providers whose login may be used for live limits; the others only get local limits.
 
     A pass that waited while uninstall.sh deleted the cache holds the deleted lock file: it does nothing (stats
     null, exit 0) and writes nothing, so the deleted directory is not recreated."""
@@ -116,7 +126,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
             stats = None
         else:
             stats = run_safely(paths, clock(), tz, notices.append if notify else None, providers=providers,
-                               thresholds=thresholds, reset_notice=reset_notice, accounts=accounts)
+                               thresholds=thresholds, reset_notice=reset_notice, accounts=accounts, login=login)
             if stats is None:
                 code = 1
                 notices.clear()  # state.json was not saved: they come again with the next pass
@@ -150,6 +160,7 @@ def main(home: Path | None = None) -> int:
                                       providers=shown_providers(os.environ.get("LIMIT_RINGS_PROVIDERS")),
                                       thresholds=notice_thresholds(os.environ.get("LIMIT_RINGS_THRESHOLDS")),
                                       reset_notice=reset_notice(os.environ.get("LIMIT_RINGS_RESET_NOTICE")),
-                                      accounts=parse_accounts(os.environ.get("LIMIT_RINGS_ACCOUNTS"), home))
+                                      accounts=parse_accounts(os.environ.get("LIMIT_RINGS_ACCOUNTS"), home),
+                                      login=login_providers(os.environ.get("LIMIT_RINGS_LOGIN")))
     sys.stdout.write(json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n")
     return code

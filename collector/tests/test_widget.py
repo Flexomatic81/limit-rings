@@ -279,8 +279,8 @@ def test_notice_settings_from_the_environment():
 def test_main_passes_the_notice_settings(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(widget, "run_safely",
-                        lambda p, now, tz, notifier, providers=None, thresholds=None, reset_notice=None, accounts=():
-                        seen.append((thresholds, reset_notice)) or {"schema": 2})
+                        lambda p, now, tz, notifier, providers=None, thresholds=None, reset_notice=None, accounts=(),
+                        login=None: seen.append((thresholds, reset_notice)) or {"schema": 2})
     monkeypatch.setenv("LIMIT_RINGS_THRESHOLDS", "60,85")
     monkeypatch.setenv("LIMIT_RINGS_RESET_NOTICE", "1")
     widget.main(home=tmp_path)
@@ -297,3 +297,21 @@ def test_main_reads_the_additional_accounts(tmp_path, monkeypatch):
     monkeypatch.delenv("LIMIT_RINGS_ACCOUNTS")
     widget.main(home=tmp_path)
     assert seen[1] == []
+
+
+def test_login_providers_from_the_environment():
+    assert widget.login_providers(None) == {"claude", "codex"}   # old widgets and manual runs keep the login
+    assert widget.login_providers("") == set()
+    assert widget.login_providers("codex") == {"codex"}
+    assert widget.login_providers("codex,gemini, claude") == {"claude", "codex"}
+
+
+def test_main_passes_the_login_setting(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(widget, "run_safely", lambda p, now, tz, notifier, **kw: seen.append(kw["login"])
+                        or {"schema": 2})
+    monkeypatch.setenv("LIMIT_RINGS_LOGIN", "claude")
+    widget.main(home=tmp_path)
+    monkeypatch.delenv("LIMIT_RINGS_LOGIN")
+    widget.main(home=tmp_path)
+    assert seen == [{"claude"}, {"claude", "codex"}]

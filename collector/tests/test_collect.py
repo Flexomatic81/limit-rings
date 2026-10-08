@@ -733,3 +733,10 @@ def test_a_new_window_shows_up_as_a_change(tmp_path):
         {"kind": "new", "limit": {"id": "seven_day_opus", "window_minutes": 10080, "model": "Opus"},
          "at": "2026-10-03T19:48:00+02:00"}]
 
+
+def test_entries_say_whether_the_login_is_used(tmp_path):
+    p = make_paths(tmp_path)
+    work, _ = make_account(tmp_path)
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch, accounts=[work])
+    assert stats["providers"]["claude"]["login"] is True and stats["providers"]["codex"]["login"] is True
+    assert stats["accounts"]["k7f3a2"]["login"] is True

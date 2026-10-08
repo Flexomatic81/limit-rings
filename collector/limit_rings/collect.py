@@ -252,11 +252,12 @@ PROVIDERS = frozenset({"claude", "codex"})
 
 
 def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, providers, thresholds,
-          reset_notice, labels=None) -> dict:
+          reset_notice, labels=None, login=PROVIDERS) -> dict:
     """Collect one account from its paths and state file; return its provider entries for stats.json.
 
     A provider missing from providers (hidden in the widget) is neither read nor queried: no logs,
     no login, no request, no notification – its card keeps the last known values.
+    A provider missing from login gets its limits only from local copies (see _process_claude / _process_codex).
     Saves the state, not stats.json."""
     state = load_state(paths.state_file)
     before = _fingerprint(state)
@@ -292,37 +293,41 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
                            codex["limits"]["plan"] if codex["limits"] else None, codex_errors,
                            codex_limits.MIN_INTERVAL),
     }
+    for key in ("claude", "codex"):
+        entries[key]["login"] = key in login
     for key, limits in with_forecasts.items():
         entries[key]["limits"] = limits
         entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz)
     return entries
 
 
-def _empty_entry(provider: str | None, today, errors: list[dict]) -> dict:
+def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = True) -> dict:
     """Card data for an account without results (invalid entry, failed pass)."""
     entry = {"limits": [], "limits_source": None, "limits_updated_at": None, "limits_paused_until": None,
              "limits_next_request_at": None, "extra": None, "plan": None, "changes": [],
              "tokens": aggregate.summarize({}, today), "daily": aggregate.daily_series({}, today),
-             "errors": errors}
+             "errors": errors, "login": login}
     if provider == "claude":
         entry.update(auth=None, breakdown=None)
     return entry
 
 
 def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, thresholds,
-              reset_notice) -> dict:
+              reset_notice, login) -> dict:
     from . import accounts as accounts_mod   # accounts imports Paths from here
     out = {}
     today = now.astimezone(tz).date()
     for account in accounts:
         head = {"provider": account.provider, "name": account.name, "dir": account.dir_text}
         if account.error:
-            out[account.id] = {**_empty_entry(account.provider, today, [{"code": account.error}]), **head}
+            out[account.id] = {**_empty_entry(account.provider, today, [{"code": account.error}],
+                                              login=account.provider in login), **head}
             continue
         paths = accounts_mod.account_paths(account, cache)
         try:
             entry = _pass(paths, now, tz, fetch, codex_fetch, notifier, {account.provider}, thresholds,
-                          reset_notice, labels={accounts_mod.PROVIDER_NAMES[account.provider]: account.label})
+                          reset_notice, labels={accounts_mod.PROVIDER_NAMES[account.provider]: account.label},
+                          login=login)
             entry = entry[account.provider]
         except Exception as e:
             log.error("account %s: run aborted: %s", account.id, type(e).__name__)
@@ -330,7 +335,8 @@ def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fet
                 os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
             except OSError:
                 pass
-            entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)])
+            entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)],
+                                 login=account.provider in login)
         if account.provider == "codex":
             token, _ = codex_limits.read_auth(paths.codex_auth)
             entry["auth"] = {"status": "ok" if token else "missing", "expires_at": None}
@@ -341,24 +347,25 @@ def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fet
 
 def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
         notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS,
-        thresholds=notify.THRESHOLDS, reset_notice=False, accounts=()) -> dict:
-    """One pass over the main account and each additional account (see _pass); writes stats.json."""
+        thresholds=notify.THRESHOLDS, reset_notice=False, accounts=(), login=PROVIDERS) -> dict:
+    """One pass over the main account and each additional account (see _pass); writes stats.json.
+    login: providers whose login may be used (see _pass)."""
     stats = {"schema": SCHEMA, "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
              "providers": _pass(paths, now, tz, fetch, codex_fetch, notifier, providers, thresholds,
-                                reset_notice),
+                                reset_notice, login=login),
              "accounts": _accounts(accounts, paths.state_file.parent, now, tz, fetch, codex_fetch, notifier,
-                                   thresholds, reset_notice)}
+                                   thresholds, reset_notice, login)}
     write_json_atomic(paths.stats_file, stats)
     return stats
 
 
 def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROVIDERS,
-               thresholds=notify.THRESHOLDS, reset_notice=False, accounts=()) -> dict | None:
+               thresholds=notify.THRESHOLDS, reset_notice=False, accounts=(), login=PROVIDERS) -> dict | None:
     """One run that never raises: after an unexpected error, state.json and the additional accounts' state
     files are moved aside so the next run starts fresh (their due notices were not delivered)."""
     try:
         return run(paths, now, tz, notifier=notifier, providers=providers, thresholds=thresholds,
-                   reset_notice=reset_notice, accounts=accounts)
+                   reset_notice=reset_notice, accounts=accounts, login=login)
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
         from . import accounts as accounts_mod
