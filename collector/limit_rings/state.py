@@ -82,24 +82,32 @@ def _minutes_ok(entry: dict) -> bool:
     return entry.get("minutes") is None or _int(entry["minutes"])
 
 
+_WINDOW_KEYS = frozenset({"minutes", "model", "resets_at", "used", "seen", "missing"})
+_EVENT_KEYS = frozenset({"kind", "id", "minutes", "model", "at"})
+
+
 def _structure_ok(s) -> bool:
-    """Known windows and changes of a provider (see changes.py); None until the first limits."""
+    """Known windows and changes of a provider (see changes.py); None until the first limits.
+
+    Every key changes.py reads directly must be present, otherwise the next run would fail as a whole."""
     if s is None:
         return True
-    if not (isinstance(s, dict) and (s.get("source") is None or isinstance(s["source"], str))
+    if not (isinstance(s, dict) and "source" in s and (s["source"] is None or isinstance(s["source"], str))
             and _num(s.get("updated_at")) and isinstance(s.get("windows"), dict)
             and isinstance(s.get("gone"), dict) and isinstance(s.get("events"), list)):
         return False
     windows_ok = all(
-        isinstance(w, dict) and (w.get("minutes") is None or _int(w["minutes"]))
-        and (w.get("model") is None or isinstance(w["model"], str))
-        and (w.get("resets_at") is None or _int(w["resets_at"])) and _num(w.get("used")) and _num(w.get("seen"))
-        and (w.get("missing") is None or _num(w["missing"])) for w in s["windows"].values())
+        isinstance(w, dict) and _WINDOW_KEYS <= w.keys() and (w["minutes"] is None or _int(w["minutes"]))
+        and (w["model"] is None or isinstance(w["model"], str))
+        and (w["resets_at"] is None or _int(w["resets_at"])) and _num(w["used"]) and _num(w["seen"])
+        and (w["missing"] is None or _num(w["missing"])) for w in s["windows"].values())
     gone_ok = all(isinstance(g, dict) and _num(g.get("at")) for g in s["gone"].values())
     events_ok = all(
-        isinstance(e, dict) and isinstance(e.get("kind"), str) and isinstance(e.get("id"), str) and _num(e.get("at"))
-        and (e.get("minutes") is None or _int(e["minutes"])) and (e.get("model") is None or isinstance(e["model"], str))
-        and (e.get("previous_minutes") is None or _int(e["previous_minutes"])) for e in s["events"])
+        isinstance(e, dict) and _EVENT_KEYS <= e.keys() and isinstance(e["kind"], str) and isinstance(e["id"], str)
+        and _num(e["at"]) and (e["minutes"] is None or _int(e["minutes"]))
+        and (e["model"] is None or isinstance(e["model"], str))
+        and (e.get("previous_minutes") is None or _int(e["previous_minutes"]))
+        and (e.get("source") is None or isinstance(e["source"], str)) for e in s["events"])
     return windows_ok and gone_ok and events_ok
 
 
