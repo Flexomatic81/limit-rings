@@ -25,9 +25,9 @@ echo '{{"envelope": 1}}'
     return path
 
 
-def run(candidates, tmp_path, **extra):
+def run(candidates, tmp_path, *args, **extra):
     env = {**os.environ, "LIMIT_RINGS_PYTHONS": " ".join(str(c) for c in candidates), **extra}
-    return subprocess.run(["sh", str(RUN_SH)], capture_output=True, text=True, env=env, cwd=tmp_path)
+    return subprocess.run(["sh", str(RUN_SH), *args], capture_output=True, text=True, env=env, cwd=tmp_path)
 
 
 def test_prefers_a_suitable_python_over_an_old_one(tmp_path):
@@ -82,4 +82,24 @@ def test_a_hung_pass_is_killed_at_the_deadline(tmp_path):
 
 def test_no_python_at_all_is_127(tmp_path):
     res = run([tmp_path / "missing"], tmp_path)
+    assert res.returncode == 127 and res.stdout == ""
+
+
+def test_which_names_a_suitable_python_without_running_the_collector(tmp_path):
+    log = tmp_path / "log"
+    old = fake_python(tmp_path / "py39", (3, 9), log)
+    new = fake_python(tmp_path / "py313", (3, 13), log)
+    res = run([old, new], tmp_path, "--which")
+    assert res.returncode == 0 and res.stdout.strip() == str(new)
+    assert not log.exists()                      # run.py was not started
+
+
+def test_which_with_only_an_old_python_is_1(tmp_path):
+    old = fake_python(tmp_path / "py39", (3, 9), tmp_path / "log")
+    res = run([old], tmp_path, "--which")
+    assert res.returncode == 1 and res.stdout.strip() == str(old)
+
+
+def test_which_without_python_is_127(tmp_path):
+    res = run([tmp_path / "missing"], tmp_path, "--which")
     assert res.returncode == 127 and res.stdout == ""
