@@ -5,6 +5,8 @@ Thanks for wanting to help! Bug reports, translations and pull requests are all 
 For anything bigger than a small fix, please open an issue first, so that we can agree on the
 approach before you spend time on it.
 
+Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Branches
 
 - `main` is the released state – it is what `git clone && ./install.sh` installs.
