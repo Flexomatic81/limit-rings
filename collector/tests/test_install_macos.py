@@ -127,6 +127,11 @@ def test_unknown_option_and_bad_version_are_refused(env):
     assert install(env, "--frobnicate").returncode == 1
     assert install(env, "--version", "latest").returncode == 1
     assert install(env, "--version").returncode == 1
+    for bad in ("v1.2.3/../x", "v1.2.3?x", "v1..3", "v1.2", "v1.2.3\nx"):
+        res = install(env, "--version", bad)
+        assert res.returncode == 1 and "such as v0.7.0" in res.stderr, bad
+    assert calls(env) == []
+    assert install(env, "--version", "v0.7.0").returncode == 0
 
 
 def test_missing_uebersicht_is_downloaded_and_verified(env):

@@ -100,10 +100,10 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-case "$version" in
-    ""|v[0-9]*.[0-9]*.[0-9]*) ;;
-    *) fail "--version needs a release tag such as v0.7.0, not $version" ;;
-esac
+case "$version" in *[!v0-9.]*) version_bad=1 ;; *) version_bad=0 ;; esac
+if [ -n "$version" ] && { [ "$version_bad" = 1 ] || ! printf '%s\n' "$version" | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; }; then
+    fail "--version needs a release tag such as v0.7.0, not $version"
+fi
 
 [ "$(uname -s)" = Darwin ] || fail "this installer is for macOS – on Linux, install the KDE widget (see the README)"
 { [ -n "${HOME:-}" ] && [ -d "$HOME" ]; } || fail "HOME is not set"
