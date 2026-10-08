@@ -168,7 +168,8 @@ EOF
 }
 
 start_uebersicht() {
-    if pgrep -f "Übersicht.app/Contents/MacOS/" >/dev/null 2>&1; then
+    # ASCII only: macOS lists the process under the decomposed "Ü", which a typed "Ü" never matches
+    if pgrep -f "bersicht\.app/Contents/MacOS/" >/dev/null 2>&1; then
         say "Übersicht is running – the cards appear within a minute"
     else
         open -a "$app"

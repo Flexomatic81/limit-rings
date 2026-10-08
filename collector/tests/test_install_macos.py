@@ -47,7 +47,14 @@ esac
 if [ "$1" = "-c" ]; then sha256sum -c "$2"; else sha256sum "$@"; fi
 ''',
     "open": 'echo "open $*" >> "$STUB_LOG"\n',
-    "pgrep": '[ -n "$STUB_RUNNING" ]\n',
+    # macOS lists the running app under its decomposed name (U + combining diaeresis): a pattern that
+    # spells the umlaut precomposed never matches, so only an ASCII-only pattern finds the process
+    "pgrep": r'''
+for last; do :; done
+echo "pgrep $last" >> "$STUB_LOG"
+[ -n "$STUB_RUNNING" ] || exit 1
+case "$last" in *[!\ -~]*) exit 1;; esac
+''',
 }
 
 
@@ -337,6 +344,12 @@ def test_no_login_item_option(env):
 def test_uebersicht_is_started_when_not_running(env):
     install(env)
     assert any(c.startswith("open -a ") or c.startswith("open ") for c in calls(env))
+
+
+def test_pattern_for_the_running_app_works_with_the_decomposed_umlaut(env):
+    res = install(env, STUB_RUNNING="1")
+    assert res.returncode == 0
+    assert not any(c.startswith("open") for c in calls(env))
 
 
 def test_running_uebersicht_is_left_alone(env):
