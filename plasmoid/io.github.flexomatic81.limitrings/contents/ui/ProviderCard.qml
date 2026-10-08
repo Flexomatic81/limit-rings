@@ -15,6 +15,8 @@ ColumnLayout {
     property int warn
     property int crit
     property bool remaining: false
+    property string chartRange: "days"   // "days", "weeks" or "months", shared by all cards
+    signal chartRangeChosen(string range)
     readonly property real nowSec: nowMs / 1000
     // Width the card gets; set by the parent layout because width is 0 before the first layout
     property real layoutWidth: width
@@ -121,10 +123,34 @@ ColumnLayout {
         }
     }
 
+    RowLayout {
+        visible: !!card.provider
+        Layout.fillWidth: true
+        spacing: Kirigami.Units.largeSpacing
+
+        Item { Layout.fillWidth: true }
+        Repeater {
+            model: Format.chartRanges()
+            delegate: PlasmaComponents.Label {
+                required property var modelData
+                readonly property bool selected: card.chartRange === modelData.key
+                objectName: "chartRange-" + modelData.key
+                text: modelData.label
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                font.bold: selected
+                opacity: selected ? 1 : rangeHover.hovered ? 0.85 : 0.6
+                HoverHandler { id: rangeHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler { onTapped: card.chartRangeChosen(modelData.key) }
+            }
+        }
+    }
+
     DailyChart {
+        objectName: "dailyChart"
         Layout.fillWidth: true
         Layout.preferredHeight: Kirigami.Units.gridUnit * 2.5
-        series: card.provider ? card.provider.daily : []
+        range: card.chartRange
+        series: Format.chartSeries(card.provider, card.chartRange)
     }
 
     // Breakdown by project and model (Claude only)

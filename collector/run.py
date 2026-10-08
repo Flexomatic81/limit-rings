@@ -1,4 +1,5 @@
-"""Started by the widget every 60 s (with --status: the last collected limits for scripts, see status.py).
+"""Started by the widget every 60 s (with --status: the last collected limits for scripts, see status.py;
+with --export: the daily token counts as CSV or JSON, see export.py).
 
 Checks the Python version first: the collector needs 3.10."""
 
@@ -16,6 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 if "--status" in sys.argv[1:]:  # the last collected limits for scripts and bars: reads stats.json only
     from limit_rings import status  # noqa: E402
     sys.exit(status.main(sys.argv[1:]))
+if "--export" in sys.argv[1:]:  # the daily token counts as CSV or JSON: reads the cache only
+    from limit_rings import export  # noqa: E402
+    sys.exit(export.main(sys.argv[1:]))
 
 from limit_rings import widget  # noqa: E402
 

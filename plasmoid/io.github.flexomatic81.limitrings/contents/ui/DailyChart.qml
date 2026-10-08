@@ -7,6 +7,7 @@ Item {
     id: chart
 
     property var series: []
+    property string range: "days"   // what one bar stands for: a day, a week or a month (Format.chartRanges)
     readonly property real maxTotal: {
         let m = 0
         for (let i = 0; i < series.length; i++) m = Math.max(m, series[i].total)
@@ -37,7 +38,7 @@ Item {
 
                 PlasmaComponents.ToolTip {
                     visible: hover.hovered
-                    text: Format.dayTooltip(modelData)
+                    text: Format.chartTooltip(modelData, chart.range)
                 }
             }
         }

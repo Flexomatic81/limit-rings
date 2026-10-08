@@ -6,7 +6,7 @@ Category: KDE Plasma Extensions → Plasma 6 Extensions → Plasma 6 Applets. Li
 
 **Limit Rings** shows the usage limits and token statistics of **Claude Code** and **Codex** in your panel:
 one double ring per provider (outer: weekly limit, inner: 5-hour limit), a popup with reset countdowns,
-forecasts and a 30-day history, and a notification when a limit reaches 80 % or 95 %.
+forecasts and a history of up to 12 months, and a notification when a limit reaches 80 % or 95 %.
 
 **Requires KDE Plasma 6 and Python 3.10 or newer** (`python3`, preinstalled on most distributions). Nothing else.
 
@@ -37,7 +37,7 @@ Bugs and ideas: https://github.com/Flexomatic81/limit-rings/issues
 
 **Limit Rings** zeigt Nutzungslimits und Token-Statistiken von **Claude Code** und **Codex** im Panel:
 ein Doppelring pro Anbieter (außen Wochenlimit, innen 5-Stunden-Limit), ein Popup mit Reset-Countdown,
-Prognose und 30-Tage-Verlauf sowie eine Benachrichtigung, wenn ein Limit 80 % oder 95 % erreicht.
+Prognose und einem Verlauf über bis zu 12 Monate sowie eine Benachrichtigung, wenn ein Limit 80 % oder 95 % erreicht.
 
 **Voraussetzung: KDE Plasma 6 und Python 3.10 oder neuer** (`python3`, auf den meisten Distributionen vorinstalliert).
 

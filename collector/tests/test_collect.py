@@ -73,6 +73,8 @@ def test_full_run_writes_valid_stats(tmp_path):
     assert x["limits_updated_at"] == "2026-10-02T12:00:00+02:00"
     for prov in (c, x):
         assert len(prov["daily"]) == 30 and prov["daily"][-1]["date"] == "2026-10-03"
+        assert len(prov["weekly"]) == 13 and prov["weekly"][-1]["date"] == "2026-09-28"
+        assert len(prov["monthly"]) == 12 and prov["monthly"][-1]["date"] == "2026-10-01"
         for t in prov["tokens"].values():
             assert t["total"] == t["input"] + t["output"] + t["cache_read"] + t["cache_write"]
 
@@ -98,6 +100,8 @@ def test_next_day_without_new_events(tmp_path):
     c = stats["providers"]["claude"]
     assert c["tokens"]["today"]["total"] == 0
     assert c["daily"][-2] == {"date": "2026-10-03", "total": 11}
+    assert c["weekly"][-1] == {"date": "2026-09-28", "total": 11}
+    assert c["monthly"][-1] == {"date": "2026-10-01", "total": 11}
 
 
 def test_provider_failure_is_isolated(tmp_path, monkeypatch):

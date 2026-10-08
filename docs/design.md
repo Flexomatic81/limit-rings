@@ -11,7 +11,7 @@ and **Codex** side by side — so you can see a limit coming before you run into
 
 - The panel always shows the utilisation of the most heavily used limit per provider.
 - The full view shows per provider: all limits with a countdown to the reset, tokens for
-  today/week/month and a 30-day history.
+  today/week/month and a history over 30 days, 13 weeks or 12 months.
 - Today's token counts match an independent count over the raw logs.
 - If one data source fails, the remaining displays stay correct; the age of every value is
   visible.
@@ -73,10 +73,11 @@ Decisions:
 | `sources/backoff.py` | Pause after 429/503 from a usage endpoint: reads `Retry-After` (seconds or HTTP date), otherwise growing pauses; used by both limit sources, pause state in `state.json`. | – |
 | `accounts.py` | Additional accounts: `parse_accounts` (validates `LIMIT_RINGS_ACCOUNTS`, canonical directories, at most 8), `account_paths` (state file and directories of one account), `prune_account_states` (removes state files of accounts not shown after 30 days). | `collect` |
 | `changes.py` | Changes to the limit structure: compares each new limits record of a provider with the windows seen before (same source only) and notes new, returning, vanished, re-sized and early-reset windows (`structure` in `state.json`). | `limits` |
-| `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free 30-day series. | none |
+| `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free series of 30 days, 13 weeks (from Monday) and 12 months. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
 | `status.py` | `run.py --status [--waybar]`: turns the last `stats.json` into the versioned status format for scripts and bars (format in the README). Reads nothing else, writes nothing. | `collect`, `notify` |
+| `export.py` | `run.py --export [--json]`: the daily buckets of `state.json` and of the accounts listed in `stats.json` as CSV or versioned JSON (format in the README). Reads only the cache, writes nothing. | `accounts`, `state` |
 | `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect` |
 | `run.py` | Checks Python ≥ 3.10, then calls `widget.main`. | `widget` |
 | Plasmoid `io.github.flexomatic81.limitrings` | Presentation, notifications, update check; starts the collector. | collector output |
@@ -112,7 +113,7 @@ moved or copied session files are not counted twice.
   next run.
 - File smaller than the offset or a different inode → read from the start; deduplication prevents
   double counting.
-- Daily buckets older than 400 days are discarded (the monthly total and the 30-day series need less).
+- Daily buckets older than 400 days are discarded (the 12-month series and the export need less).
 - `state.json` missing or unreadable → full re-read (once, takes seconds).
 
 ### Time handling
@@ -153,6 +154,8 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
         "month": {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "total": 0}
       },
       "daily": [{"date": "2026-09-04", "total": 123456}],
+      "weekly": [{"date": "2026-07-06", "total": 2345678}],
+      "monthly": [{"date": "2025-11-01", "total": 34567890}],
       "errors": [],
       "changes": [],
       "auth": {"status": "ok", "expires_at": "2026-10-04T19:29:15+02:00"}
@@ -169,7 +172,7 @@ collector's stdout; the file is the persisted copy). Mode `0600`, written atomic
       "extra": null,
       "plan": "plus",
       "tokens": {"today": {}, "week": {}, "month": {}},
-      "daily": [],
+      "daily": [], "weekly": [], "monthly": [],
       "errors": [{"code": "logs_unreadable", "count": 1}],
       "changes": [{"kind": "length", "limit": {"id": "primary", "window_minutes": 10080},
                    "previous_minutes": 300, "at": "2026-10-02T09:15:00+02:00"}]
@@ -198,6 +201,8 @@ Rules:
   terminal sessions, because the plugin does not store token counts.
 - `total` = `input + output + cache_read + cache_write`.
 - `daily` has exactly 30 entries, oldest first, missing days with `total: 0`.
+- `weekly` has exactly 13 entries (dated by their Monday) and `monthly` exactly 12 (dated by the first
+  of the month), oldest first; the current week and month count up to today.
 - Limits with a 5-hour window (`window_minutes` 300) and a weekly window (10080) can carry a
   `forecast` field: `{"status": "full", "eta": <epoch>}` (full before the reset at the current pace)
   or `{"status": "enough"}`; if it is missing, there is no forecast (yet). It is based on the history in

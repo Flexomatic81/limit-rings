@@ -232,12 +232,42 @@ function tokenBreakdown(t) {
                 formatInt(t.cache_read), formatInt(t.cache_write))
 }
 
+function _localDate(iso) {
+    const p = iso.split("-")
+    return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
+}
+
 function dayTooltip(entry) {
-    const p = entry.date.split("-")
-    const date = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
     const format = i18nc("Qt date format for the daily chart tooltip (day and month)", "MMM d")
     return i18nc("daily chart tooltip: %1 date, %2 token count", "%1: %2 tokens",
-                 date.toLocaleDateString(_current().locale, format), formatInt(entry.total))
+                 _localDate(entry.date).toLocaleDateString(_current().locale, format), formatInt(entry.total))
+}
+
+// The chart's ranges; the collector writes one series per range (daily, weekly, monthly)
+const CHART_SERIES = {days: "daily", weeks: "weekly", months: "monthly"}
+
+function chartRanges() {
+    return [{key: "days", label: i18nc("chart range", "30 days")},
+            {key: "weeks", label: i18nc("chart range", "3 months")},
+            {key: "months", label: i18nc("chart range", "12 months")}]
+}
+
+function chartSeries(provider, range) {
+    return (provider && provider[CHART_SERIES[range] || "daily"]) || []
+}
+
+function chartTooltip(entry, range) {
+    if (range === "weeks") {
+        const format = i18nc("Qt date format for the daily chart tooltip (day and month)", "MMM d")
+        return i18nc("weekly chart tooltip: %1 date of the Monday, %2 token count", "Week of %1: %2 tokens",
+                     _localDate(entry.date).toLocaleDateString(_current().locale, format), formatInt(entry.total))
+    }
+    if (range === "months") {
+        const format = i18nc("Qt date format for the monthly chart tooltip (month and year)", "MMMM yyyy")
+        return i18nc("monthly chart tooltip: %1 month, %2 token count", "%1: %2 tokens",
+                     _localDate(entry.date).toLocaleDateString(_current().locale, format), formatInt(entry.total))
+    }
+    return dayTooltip(entry)
 }
 
 const STALE_MS = 300000

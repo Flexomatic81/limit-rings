@@ -49,6 +49,31 @@ def daily_series(buckets, today: date, days: int = 30) -> list[dict]:
     return series
 
 
+def _range_series(buckets, starts: list[date], end: date) -> list[dict]:
+    """Totals from each start up to the next one (the last up to end), oldest first."""
+    totals = [0] * len(starts)
+    lo, hi = starts[0].isoformat(), end.isoformat()
+    keys = [s.isoformat() for s in starts]
+    for day, bucket in buckets.items():
+        if lo <= day <= hi:
+            i = max(n for n, k in enumerate(keys) if k <= day)
+            totals[i] += sum(bucket.get(f, 0) for f in FIELDS)
+    return [{"date": k, "total": t} for k, t in zip(keys, totals)]
+
+
+def weekly_series(buckets, today: date, weeks: int = 13) -> list[dict]:
+    monday = today - timedelta(days=today.weekday())
+    return _range_series(buckets, [monday - timedelta(weeks=back) for back in range(weeks - 1, -1, -1)], today)
+
+
+def monthly_series(buckets, today: date, months: int = 12) -> list[dict]:
+    starts = []
+    for back in range(months - 1, -1, -1):
+        y, m = divmod(today.year * 12 + today.month - 1 - back, 12)
+        starts.append(date(y, m + 1, 1))
+    return _range_series(buckets, starts, today)
+
+
 def prune_buckets(buckets, today: date, keep_days: int = 400) -> None:
     cutoff = (today - timedelta(days=keep_days)).isoformat()
     for day in [d for d in buckets if d < cutoff]:

@@ -50,7 +50,8 @@ see [Installation](#installation).
 
 ### On the desktop or in the popup
 
-- Limits with a reset countdown, tokens for today/week/month, 30-day history.
+- Limits with a reset countdown, tokens for today/week/month, and a history chart over 30 days, 3 months
+  (per week) or 12 months (per month).
 - Claude extra usage (amount spent and monthly limit) and Codex credits, when your account has them.
 - Forecast of when a limit will be reached at the current pace (5 h: last 30 min, week: last 24 h).
 - Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
@@ -76,6 +77,7 @@ see [Installation](#installation).
 - Works without your logins if you prefer: [limits from local copies only](#without-login).
 - Shows what is left of each limit instead of what is used, if you prefer ("Percentages" in the settings).
 - The current limits as JSON for scripts and bars such as Waybar ([status output](#status-for-scripts-and-bars)).
+- The daily token counts of up to 400 days as CSV or JSON ([export](#exporting-the-token-history)).
 - Widget and notifications follow the system language (English, German).
 
 ## Important: unofficial APIs and your logins
@@ -307,6 +309,27 @@ that runs out before the reset – plus `stale`):
     "interval": 60
 }
 ```
+
+## Exporting the token history
+
+The collector keeps the daily token counts for 400 days. To get them as CSV (or as JSON with `--json`):
+
+```bash
+python3 ~/.local/share/plasma/plasmoids/io.github.flexomatic81.limitrings/contents/collector/run.py --export > tokens.csv
+```
+
+```csv
+date,provider,account,input,output,cache_read,cache_write,total
+2026-10-07,claude,,1520,48210,8123400,412300,8585430
+2026-10-07,claude,Work,800,12000,950000,64000,1026800
+2026-10-07,codex,,210000,18000,1200000,0,1428000
+```
+
+- One row per day with tokens, provider and account (empty for the main login), oldest first. Additional
+  accounts are included while the widget shows them.
+- Like `--status`, this only reads `~/.cache/limit-rings`: no request, no log or login read, nothing written.
+- `--json` gives `{"export_version": 1, "days": [...]}` with the same fields (`account` is `null` for the
+  main login); within version 1, fields are only added, never renamed or removed.
 
 ## Privacy & network
 

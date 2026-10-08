@@ -11,6 +11,10 @@ TestCase {
         "billion abbreviation|B": "Mrd",
         "Qt date format for the daily chart tooltip (day and month)|MMM d": "dd.MM.",
         "daily chart tooltip: %1 date, %2 token count|%1: %2 tokens": "%1: %2 Tokens",
+        "weekly chart tooltip: %1 date of the Monday, %2 token count|Week of %1: %2 tokens":
+            "Woche ab %1: %2 Tokens",
+        "chart range|3 months": "3 Monate",
+        "monthly chart tooltip: %1 month, %2 token count|%1: %2 tokens": "%1: %2 Tokens",
         "Since weekly reset (%1)": "Seit Wochen-Reset (%1)",
         "%1 file unreadable – numbers incomplete": ["%1 Datei nicht lesbar – Zahlen unvollständig",
                                                      "%1 Dateien nicht lesbar – Zahlen unvollständig"],
@@ -73,6 +77,12 @@ TestCase {
 
     function test_day_tooltip() {
         compare(F.dayTooltip({date: "2026-10-04", total: 1234}), "04.10.: 1.234 Tokens")
+    }
+
+    function test_chart_tooltips() {
+        compare(F.chartTooltip({date: "2026-09-28", total: 1234}, "weeks"), "Woche ab 28.09.: 1.234 Tokens")
+        compare(F.chartTooltip({date: "2026-09-01", total: 1234}, "months"), "September 2026: 1.234 Tokens")
+        compare(F.chartRanges()[1].label, "3 Monate")
     }
 
     function test_weekday_has_no_trailing_dot() {

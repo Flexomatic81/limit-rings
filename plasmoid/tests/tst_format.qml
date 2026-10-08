@@ -131,6 +131,22 @@ TestCase {
         compare(F.dayTooltip({date: "2026-10-04", total: 1234}), "Oct 4: 1,234 tokens")
     }
 
+    function test_chart_ranges() {
+        compare(F.chartRanges().map(r => r.key), ["days", "weeks", "months"])
+        compare(F.chartRanges().map(r => r.label), ["30 days", "3 months", "12 months"])
+        const p = {daily: [{date: "2026-10-04", total: 1}], weekly: [{date: "2026-09-28", total: 2}],
+                   monthly: [{date: "2026-10-01", total: 3}]}
+        compare(F.chartSeries(p, "days"), p.daily)
+        compare(F.chartSeries(p, "weeks"), p.weekly)
+        compare(F.chartSeries(p, "months"), p.monthly)
+        compare(F.chartSeries(p, "bogus"), p.daily)
+        compare(F.chartSeries({daily: []}, "weeks"), [])     // stats.json from an older collector
+        compare(F.chartSeries(null, "days"), [])
+        compare(F.chartTooltip({date: "2026-10-04", total: 1234}, "days"), "Oct 4: 1,234 tokens")
+        compare(F.chartTooltip({date: "2026-09-28", total: 1234}, "weeks"), "Week of Sep 28: 1,234 tokens")
+        compare(F.chartTooltip({date: "2026-09-01", total: 1234}, "months"), "September 2026: 1,234 tokens")
+    }
+
     function test_statusMessage() {
         const t = Date.parse("2026-10-04T13:30:00+02:00")
         const fresh = {generated_at: "2026-10-04T13:29:30+02:00"}

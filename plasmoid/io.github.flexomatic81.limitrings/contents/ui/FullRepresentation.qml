@@ -13,6 +13,8 @@ Item {
     property int warn
     property int crit
     property bool remaining: false   // show what is left of each limit instead of what is used
+    property string chartRange: "days"
+    signal chartRangeChosen(string range)
     property string message: ""
     property string updateVersion: ""
     property string installSource: "dev"
@@ -75,6 +77,8 @@ Item {
                     warn: full.warn
                     crit: full.crit
                     remaining: full.remaining
+                    chartRange: full.chartRange
+                    onChartRangeChosen: range => full.chartRangeChosen(range)
                     layoutWidth: cards.columns === 2 ? (cards.availableWidth - cards.columnSpacing) / 2
                                                      : cards.availableWidth
                     onMinimumContentWidthChanged: full.cardMinWidth = Math.max(full.cardMinWidth, minimumContentWidth)

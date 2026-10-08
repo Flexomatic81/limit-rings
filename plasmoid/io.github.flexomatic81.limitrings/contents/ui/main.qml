@@ -81,6 +81,8 @@ PlasmoidItem {
         nowMs: root.nowMs
         refreshedAtMs: root.refreshedAtMs
         remaining: Plasmoid.configuration.showRemaining
+        chartRange: Plasmoid.configuration.chartRange
+        onChartRangeChosen: range => Plasmoid.configuration.chartRange = range
         warn: root.warn
         crit: root.crit
         message: root.statusMessage

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from limit_rings.aggregate import add_event, daily_series, prune_buckets, summarize
+from limit_rings.aggregate import add_event, daily_series, monthly_series, prune_buckets, summarize, weekly_series
 from limit_rings.models import TokenEvent
 
 BERLIN = ZoneInfo("Europe/Berlin")
@@ -67,3 +67,31 @@ def test_prune_drops_old_buckets():
          "2026-10-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0}}
     prune_buckets(b, date(2026, 10, 14), keep_days=400)
     assert list(b) == ["2026-10-01"]
+
+
+def test_weekly_series_has_13_weeks_from_monday_oldest_first():
+    b = {}
+    add_event(b, ev("2026-10-12T10:00:00+00:00", i=2), BERLIN)  # Mon of this week
+    add_event(b, ev("2026-10-14T10:00:00+00:00", i=3), BERLIN)  # Wed = today
+    add_event(b, ev("2026-10-11T10:00:00+00:00", i=5), BERLIN)  # Sun: previous week
+    add_event(b, ev("2026-07-20T10:00:00+00:00", i=7), BERLIN)  # Mon, oldest week shown
+    add_event(b, ev("2026-07-19T10:00:00+00:00", i=99), BERLIN)  # Sun before: outside
+    series = weekly_series(b, date(2026, 10, 14))
+    assert len(series) == 13
+    assert series[0] == {"date": "2026-07-20", "total": 7}
+    assert series[-2] == {"date": "2026-10-05", "total": 5}
+    assert series[-1] == {"date": "2026-10-12", "total": 5}
+
+
+def test_monthly_series_has_12_months_across_the_year_boundary():
+    b = {}
+    add_event(b, ev("2026-02-28T10:00:00+00:00", o=4), BERLIN)
+    add_event(b, ev("2026-02-01T10:00:00+00:00", o=1), BERLIN)
+    add_event(b, ev("2025-12-31T10:00:00+00:00", o=99), BERLIN)  # outside
+    add_event(b, ev("2026-01-15T10:00:00+00:00", o=6), BERLIN)
+    series = monthly_series(b, date(2026, 12, 3))
+    assert len(series) == 12
+    assert series[0] == {"date": "2026-01-01", "total": 6}
+    assert series[1] == {"date": "2026-02-01", "total": 5}
+    assert series[-1] == {"date": "2026-12-01", "total": 0}
+    assert monthly_series(b, date(2027, 1, 31))[0] == {"date": "2026-02-01", "total": 5}

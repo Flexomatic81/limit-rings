@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 13:17+0200\n"
+"POT-Creation-Date: 2026-10-08 13:47+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -69,6 +69,36 @@ msgstr "dd.MM."
 
 #, kde-format
 msgctxt "daily chart tooltip: %1 date, %2 token count"
+msgid "%1: %2 tokens"
+msgstr "%1: %2 Tokens"
+
+#, kde-format
+msgctxt "chart range"
+msgid "30 days"
+msgstr "30 Tage"
+
+#, kde-format
+msgctxt "chart range"
+msgid "3 months"
+msgstr "3 Monate"
+
+#, kde-format
+msgctxt "chart range"
+msgid "12 months"
+msgstr "12 Monate"
+
+#, kde-format
+msgctxt "weekly chart tooltip: %1 date of the Monday, %2 token count"
+msgid "Week of %1: %2 tokens"
+msgstr "Woche ab %1: %2 Tokens"
+
+#, kde-format
+msgctxt "Qt date format for the monthly chart tooltip (month and year)"
+msgid "MMMM yyyy"
+msgstr "MMMM yyyy"
+
+#, kde-format
+msgctxt "monthly chart tooltip: %1 month, %2 token count"
 msgid "%1: %2 tokens"
 msgstr "%1: %2 Tokens"
 

@@ -87,9 +87,15 @@ def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors, int
         "extra": rec.get("extra") if rec else None,
         "plan": plan,
         "tokens": aggregate.summarize(section["buckets"], today),
-        "daily": aggregate.daily_series(section["buckets"], today),
+        **_series(section["buckets"], today),
         "errors": errors,
     }
+
+
+def _series(buckets, today) -> dict:
+    """The chart's three ranges: 30 days, 13 weeks and 12 months."""
+    return {"daily": aggregate.daily_series(buckets, today), "weekly": aggregate.weekly_series(buckets, today),
+            "monthly": aggregate.monthly_series(buckets, today)}
 
 
 def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
@@ -354,8 +360,7 @@ def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = 
     """Card data for an account without results (invalid entry, failed pass)."""
     entry = {"limits": [], "limits_source": None, "limits_updated_at": None, "limits_paused_until": None,
              "limits_next_request_at": None, "extra": None, "plan": None, "changes": [],
-             "tokens": aggregate.summarize({}, today), "daily": aggregate.daily_series({}, today),
-             "errors": errors, "login": login}
+             "tokens": aggregate.summarize({}, today), **_series({}, today), "errors": errors, "login": login}
     if provider == "claude":
         entry.update(auth=None, breakdown=None)
     return entry

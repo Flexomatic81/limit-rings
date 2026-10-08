@@ -26,11 +26,29 @@ TestCase {
             tokens: {today: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4},
                      week: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4},
                      month: {input: 1, output: 1, cache_read: 1, cache_write: 1, total: 4}},
-            daily: [{date: "2026-10-04", total: 4}], errors: [],
+            daily: [{date: "2026-10-04", total: 4}], weekly: [{date: "2026-09-28", total: 4}],
+            monthly: [{date: "2026-09-01", total: 9}, {date: "2026-10-01", total: 4}], errors: [],
             breakdown: {since: "2026-09-29T06:00:00+02:00", basis: "window", total: 110,
                         projects: [{name: "website", total: 67}, {name: "limit-rings", total: 33},
                                    {name: null, other: true, total: 10}],
                         models: [{name: "Opus 5.5", total: 100}]}}}})
+    }
+
+    SignalSpy { id: rangeSpy; target: full; signalName: "chartRangeChosen" }
+
+    function test_chart_range_switch() {
+        waitForRendering(full)
+        const chart = findChild(full, "dailyChart")
+        compare(chart.series.length, 1)
+        const months = findChild(full, "chartRange-months")
+        verify(months !== null && months.visible)
+        mouseClick(months)
+        compare(rangeSpy.count, 1)
+        compare(rangeSpy.signalArguments[0][0], "months")
+        full.chartRange = "months"      // main.qml stores the choice and hands it back
+        compare(chart.series.length, 2)
+        compare(chart.range, "months")
+        full.chartRange = "days"
     }
 
     function test_update_message_appears_only_with_a_version() {
