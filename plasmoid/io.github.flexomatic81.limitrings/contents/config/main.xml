@@ -9,6 +9,8 @@
     <entry name="showClaude" type="Bool"><default>true</default></entry>
     <entry name="extraAccounts" type="String"><default>[]</default></entry>
     <entry name="showCodex" type="Bool"><default>true</default></entry>
+    <entry name="useLoginClaude" type="Bool"><default>true</default></entry>
+    <entry name="useLoginCodex" type="Bool"><default>true</default></entry>
     <entry name="compactStyle" type="String"><default>ring</default></entry>
     <entry name="showNotifications" type="Bool"><default>true</default></entry>
     <entry name="notifyFirst" type="Int"><default>80</default></entry>

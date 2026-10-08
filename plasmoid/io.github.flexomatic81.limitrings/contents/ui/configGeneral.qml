@@ -10,6 +10,8 @@ KCM.SimpleKCM {
     property alias cfg_criticalThreshold: critSpin.value
     property alias cfg_showClaude: claudeBox.checked
     property alias cfg_showCodex: codexBox.checked
+    property alias cfg_useLoginClaude: loginClaudeBox.checked
+    property alias cfg_useLoginCodex: loginCodexBox.checked
     property alias cfg_showNotifications: notificationsBox.checked
     property alias cfg_notifyFirst: firstSpin.value
     property alias cfg_notifySecond: secondSpin.value
@@ -52,6 +54,21 @@ KCM.SimpleKCM {
         QQC2.CheckBox {
             id: codexBox
             text: "Codex"
+        }
+        QQC2.CheckBox {
+            id: loginClaudeBox
+            Kirigami.FormData.label: i18n("Live limits via login:")
+            text: "Claude"
+        }
+        QQC2.CheckBox {
+            id: loginCodexBox
+            text: "Codex"
+        }
+        QQC2.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            font: Kirigami.Theme.smallFont
+            text: i18n("Without login, limits come only from Claude's status line or Codex's session logs – no limits per model, no extra usage or credits. Applies to this widget and to the provider's additional accounts.")
         }
         QQC2.CheckBox {
             id: notificationsBox

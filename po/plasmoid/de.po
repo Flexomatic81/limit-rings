@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 10:02+0200\n"
+"POT-Creation-Date: 2026-10-08 10:58+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -312,6 +312,20 @@ msgstr "Kritisch ab (%):"
 #, kde-format
 msgid "Show:"
 msgstr "Anzeigen:"
+
+#, kde-format
+msgid "Live limits via login:"
+msgstr "Live-Limits per Login:"
+
+#, kde-format
+msgid ""
+"Without login, limits come only from Claude's status line or Codex's session "
+"logs – no limits per model, no extra usage or credits. Applies to this "
+"widget and to the provider's additional accounts."
+msgstr ""
+"Ohne Login kommen die Limits nur aus der Claude-Statuszeile oder den "
+"Codex-Sitzungslogs – keine Limits pro Modell, keine Zusatznutzung oder "
+"Credits. Gilt für dieses Widget und die Zusatzkonten des Anbieters."
 
 #, kde-format
 msgid "Notifications:"

@@ -36,7 +36,10 @@ PlasmoidItem {
                                                                        {thresholds: [Plasmoid.configuration.notifyFirst,
                                                                                      Plasmoid.configuration.notifySecond],
                                                                         reset: Plasmoid.configuration.notifyReset},
-                                                                       Format.accountsEnv(accounts))
+                                                                       Format.accountsEnv(accounts),
+                                                                       [Plasmoid.configuration.useLoginClaude ? "claude" : "",
+                                                                        Plasmoid.configuration.useLoginCodex ? "codex" : ""]
+                                                                           .filter(k => k !== ""))
     readonly property string releaseApi: "https://api.github.com/repos/Flexomatic81/limit-rings/releases/latest"
     readonly property string releasePage: "https://github.com/Flexomatic81/limit-rings/releases/latest"
     readonly property string storeProvider: "api.kde-look.org"   // KNewStuff provider ID of store.kde.org
@@ -109,6 +112,9 @@ PlasmoidItem {
         source: "Notifier.qml"
     }
 
+    // A changed setting (login, providers, accounts, thresholds) gives a new command: run it right away
+    onCollectorCommandChanged: executable.connectSource(root.collectorCommand)
+
     // Runs a collector pass right away: the logs are read anew, the limits only when due (5-minute interval,
     // pauses after a rate limit) – the footer says when they come next.
     function refreshNow() {
@@ -173,8 +179,9 @@ PlasmoidItem {
             disconnectSource(sourceName)
             if (sourceName === root.osReleaseCommand)
                 root.osRelease = data["exit code"] === 0 ? data["stdout"] : ""
-            else
+            else if (sourceName === root.collectorCommand)
                 root.applyResult(data["exit code"], data["stdout"])
+            // else: a pass of a command that settings have since replaced – its result is dropped
         }
     }
 

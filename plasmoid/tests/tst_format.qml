@@ -621,4 +621,14 @@ TestCase {
              "Window changed: Week instead of 5 h (since " + day + ")",
              "Week: reset early (" + day + ", " + clock + ")"].join("\n"))
     }
+
+    function test_collectorCommand_passes_the_login_providers() {
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude", "codex"], null, "", ["codex"]),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude,codex"
+                + " LIMIT_RINGS_LOGIN=codex python3 '/p/run.py'")
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], null, "", []),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude LIMIT_RINGS_LOGIN= python3 '/p/run.py'")
+        compare(F.collectorCommand("file:///p/run.py", 7, true, ["claude"], null, "", ["claude; rm -rf ~"]),
+                "LIMIT_RINGS_INSTANCE=7 LIMIT_RINGS_NOTIFY=1 LIMIT_RINGS_PROVIDERS=claude LIMIT_RINGS_LOGIN= python3 '/p/run.py'")
+    }
 }

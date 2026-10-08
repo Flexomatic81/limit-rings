@@ -274,14 +274,17 @@ function shellQuote(s) {
 // providers: keys of the shown providers; the collector neither reads nor queries the others.
 // notice: {thresholds: [first, second], reset: bool} – when to notify, and whether to tell about resets.
 // accountsJson: accountsEnv() of the additional accounts, "" or undefined for none.
-function collectorCommand(runPyUrl, instanceId, notify, providers, notice, accountsJson) {
+// loginProviders: keys of the providers whose login may be used for live limits; undefined: leave it to the collector (all).
+function collectorCommand(runPyUrl, instanceId, notify, providers, notice, accountsJson, loginProviders) {
     const s = String(runPyUrl)
-    const shown = providers ? " LIMIT_RINGS_PROVIDERS=" + providers.filter(k => /^[a-z]+$/.test(k)).join(",") : ""
+    const keys = list => list.filter(k => /^[a-z]+$/.test(k)).join(",")
+    const shown = providers ? " LIMIT_RINGS_PROVIDERS=" + keys(providers) : ""
     const settings = notice ? " LIMIT_RINGS_THRESHOLDS=" + notice.thresholds.map(n => Math.round(Number(n))).join(",")
                               + " LIMIT_RINGS_RESET_NOTICE=" + (notice.reset ? "1" : "0") : ""
     const accounts = accountsJson ? " LIMIT_RINGS_ACCOUNTS=" + shellQuote(accountsJson) : ""
+    const login = loginProviders ? " LIMIT_RINGS_LOGIN=" + keys(loginProviders) : ""
     return "LIMIT_RINGS_INSTANCE=" + Number(instanceId) + " LIMIT_RINGS_NOTIFY=" + (notify ? "1" : "0") + shown
-        + settings + accounts + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
+        + settings + accounts + login + " python3 " + shellQuote(s.startsWith("file://") ? decodeURIComponent(s.slice(7)) : s)
 }
 
 // Additional accounts (own CLAUDE_CONFIG_DIR / CODEX_HOME), stored as JSON in the setting extraAccounts
