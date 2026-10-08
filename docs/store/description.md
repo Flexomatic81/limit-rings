@@ -16,6 +16,9 @@ forecasts and a 30-day history, and a notification when a limit reaches 80 % or 
   and sends them **only** to `api.anthropic.com` and `chatgpt.com` to fetch your limits – at most every
   5 minutes. They are never stored, logged or refreshed, and never used to run models. Untick a provider
   under "Show:" in the settings and neither its login nor its logs are read.
+- Rather not hand over your login? Untick a provider under "Live limits via login" in the settings: its
+  login file is never opened and its endpoint never asked; the limits then come only from Claude's status
+  line or Codex's session logs (fewer details – see "Without login" in the README).
 - These are **unofficial, undocumented endpoints**; they may change at any time. Anthropic intends its
   subscription login for its own applications and has not said whether such read-only use is allowed.
   Check yourself whether this use complies with the terms of Anthropic and OpenAI (details in the
@@ -45,6 +48,9 @@ Prognose und 30-Tage-Verlauf sowie eine Benachrichtigung, wenn ein Limit 80 % od
   alle 5 Minuten. Sie werden nie gespeichert, protokolliert oder erneuert und nie für Modellaufrufe
   genutzt. Wer einen Anbieter in den Einstellungen unter „Anzeigen:“ abwählt, bei dem werden weder Login
   noch Logs gelesen.
+- Login lieber nicht hergeben? In den Einstellungen unter „Live-Limits per Login:“ den Anbieter abwählen:
+  Dann wird seine Login-Datei nie geöffnet und sein Endpunkt nie gefragt; die Limits kommen nur noch aus
+  der Claude-Statuszeile bzw. den Codex-Sitzungslogs (weniger Details – siehe „Without login“ in der README).
 - Das sind **inoffizielle, undokumentierte Schnittstellen**, die sich jederzeit ändern können. Anthropic
   sieht den Abo-Login für die eigenen Anwendungen vor und hat sich nicht dazu geäußert, ob solch ein reines
   Lesen erlaubt ist. Ob diese Nutzung mit den Bedingungen von Anthropic und OpenAI vereinbar ist, bitte
@@ -54,7 +60,7 @@ Prognose und 30-Tage-Verlauf sowie eine Benachrichtigung, wenn ein Limit 80 % od
 - Führt alle 60 s ein mitgeliefertes Python-Skript aus; Daten und Log liegen in `~/.cache/limit-rings`
   (nach dem Deinstallieren entfernen: `rm -r ~/.cache/limit-rings`).
 
-Mehrere Konten pro Anbieter sind möglich: weitere `CLAUDE_CONFIG_DIR`-/`CODEX_HOME`-Verzeichnisse unter „Additional accounts“ in den Einstellungen eintragen; jedes bekommt einen eigenen Ring und eine eigene Karte, gelesen werden nur die eingetragenen Verzeichnisse.
+Mehrere Konten pro Anbieter sind möglich: weitere `CLAUDE_CONFIG_DIR`-/`CODEX_HOME`-Verzeichnisse unter „Weitere Konten“ in den Einstellungen eintragen; jedes bekommt einen eigenen Ring und eine eigene Karte, gelesen werden nur die eingetragenen Verzeichnisse.
 
 Optionaler Statuszeilen-Fallback für Claude-Limits: siehe README auf GitHub (manuell, braucht `jq`).
 Fehler und Ideen: https://github.com/Flexomatic81/limit-rings/issues
