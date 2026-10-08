@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+- Optional mode without login: under "Live limits via login" in the settings, switch the login off for
+  Claude, Codex or both. Limit Rings then never opens that provider's login file and never asks its
+  usage endpoint; the limits come only from Claude's status line or Codex's session logs (see "Without
+  login" in the README).
+- The card notes for three days when a provider changes its limits: a window is new, comes back, is no
+  longer reported, changes length or resets early.
+- A quieter card: below a bar only a forecast that runs out before the reset; "lasts until reset" and
+  the reset time are in the bar's tooltip.
+- Plan names in a readable form ("Pro Lite" instead of "prolite").
+- For KDE Store installs, the update notice now leads to the store entry.
+
 ## 0.4.0
 
 - Several accounts per provider (own `CLAUDE_CONFIG_DIR` / `CODEX_HOME`), each with its own ring, card
