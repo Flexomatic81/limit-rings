@@ -1,4 +1,5 @@
 .pragma library
+.import "core.mjs" as Core
 
 // Translation: every widget instance hands over KDE's i18n functions and the system locale via
 // init() and gives them back via release(); this library is shared by all instances of the widget.
@@ -70,50 +71,24 @@ function compactNumber(n) {
     return _decimal(n / 1e9) + " " + i18nc("billion abbreviation", "B")
 }
 
-function isReset(limit, nowSec) {
-    return limit.resets_at !== null && limit.resets_at !== undefined && limit.resets_at <= nowSec
-}
+function isReset(limit, nowSec) { return Core.isReset(limit, nowSec) }
 
-function effectivePercent(limit, nowSec) {
-    return isReset(limit, nowSec) ? 0 : limit.used_percent
-}
+function effectivePercent(limit, nowSec) { return Core.effectivePercent(limit, nowSec) }
 
-// The "Percentages: Remaining" setting shows what is left instead of what is used. Only the shown values
-// change: colours, severity, thresholds and notifications keep going by the usage.
-function shownPercent(limit, nowSec, remaining) {
-    const used = effectivePercent(limit, nowSec)
-    return remaining ? Math.max(0, 100 - used) : used
-}
+function shownPercent(limit, nowSec, remaining) { return Core.shownPercent(limit, nowSec, remaining) }
 
-// The value of the "Number" panel style: the highest usage, or the least that is left
-function shownMax(limits, nowSec, remaining) {
-    const used = maxPercent(limits, nowSec)
-    return used === null || !remaining ? used : Math.max(0, 100 - used)
-}
+function shownMax(limits, nowSec, remaining) { return Core.shownMax(limits, nowSec, remaining) }
 
-// The time mark beside a shown value: the share of the window passed, or the share still to come
-function shownShare(elapsed, remaining) {
-    return elapsed === null || !remaining ? elapsed : 1 - elapsed
-}
+function shownShare(elapsed, remaining) { return Core.shownShare(elapsed, remaining) }
 
 function limitPercentText(limit, nowSec, remaining) {
     const pct = Math.round(shownPercent(limit, nowSec, remaining))
     return remaining ? i18nc("%1 = percent of a limit that is still available", "%1 % left", pct) : pct + " %"
 }
 
-function severity(pct, warn, crit) {
-    if (pct >= crit) return "critical"
-    if (pct >= warn) return "warning"
-    return "normal"
-}
+function severity(pct, warn, crit) { return Core.severity(pct, warn, crit) }
 
-function maxPercent(limits, nowSec) {
-    if (!limits || limits.length === 0) return null
-    let best = 0
-    for (let i = 0; i < limits.length; i++)
-        best = Math.max(best, effectivePercent(limits[i], nowSec))
-    return best
-}
+function maxPercent(limits, nowSec) { return Core.maxPercent(limits, nowSec) }
 
 // Do two colours look different enough to tell states apart? Greyish colours always do.
 function _distinct(a, b) {
@@ -140,76 +115,19 @@ function toneFor(sev, theme) {
          : normalColor(theme)
 }
 
-// Severity of one limit: the fixed thresholds, and at least "warning" while the forecast sees it full
-// before the reset at the current pace (the same forecast the popup shows)
-function limitSeverity(limit, nowSec, warn, crit) {
-    if (!limit) return "normal"
-    const sev = severity(effectivePercent(limit, nowSec), warn, crit)
-    const full = !isReset(limit, nowSec) && !!limit.forecast && limit.forecast.status === "full"
-    return sev === "normal" && full ? "warning" : sev
-}
+function limitSeverity(limit, nowSec, warn, crit) { return Core.limitSeverity(limit, nowSec, warn, crit) }
 
-// Most severe of several limits (the "Number" panel style shows one value for all of them)
-function worstSeverity(limits, nowSec, warn, crit) {
-    const order = ["normal", "warning", "critical"]
-    let worst = 0
-    for (let i = 0; i < (limits ? limits.length : 0); i++)
-        worst = Math.max(worst, order.indexOf(limitSeverity(limits[i], nowSec, warn, crit)))
-    return order[worst]
-}
+function worstSeverity(limits, nowSec, warn, crit) { return Core.worstSeverity(limits, nowSec, warn, crit) }
 
-// Share of the window that has passed (0–1), for the time mark on rings and bars; null if unknown
-function elapsedShare(limit, nowSec) {
-    if (!limit || !limit.window_minutes || limit.resets_at === null || limit.resets_at === undefined) return null
-    const left = limit.resets_at - nowSec
-    if (left <= 0) return null
-    return Math.min(1, Math.max(0, 1 - left / (limit.window_minutes * 60)))
-}
+function elapsedShare(limit, nowSec) { return Core.elapsedShare(limit, nowSec) }
 
-// The limits behind the panel ring: outer is the highest weekly limit, inner the 5 h limit; with
-// neither, the highest limit of any other length goes on the outer ring
-function ringLimits(limits, nowSec) {
-    let outer = null, inner = null, any = null
-    const higher = (a, b) => a === null || effectivePercent(b, nowSec) > effectivePercent(a, nowSec) ? b : a
-    for (let i = 0; i < (limits ? limits.length : 0); i++) {
-        const l = limits[i]
-        if (l.window_minutes === 300) inner = higher(inner, l)
-        else if (l.window_minutes === 10080) outer = higher(outer, l)
-        any = higher(any, l)
-    }
-    return {outer: outer === null && inner === null ? any : outer, inner: inner}
-}
+function ringLimits(limits, nowSec) { return Core.ringLimits(limits, nowSec) }
 
-// Values for the panel ring (percent per ring, null = no ring)
-function ringValues(limits, nowSec) {
-    const r = ringLimits(limits, nowSec)
-    return {outer: r.outer ? effectivePercent(r.outer, nowSec) : null,
-            inner: r.inner ? effectivePercent(r.inner, nowSec) : null}
-}
+function ringValues(limits, nowSec) { return Core.ringValues(limits, nowSec) }
 
-function _parts(resetsAt, nowSec) {
-    if (resetsAt === null || resetsAt === undefined) return null
-    const s = resetsAt - nowSec
-    if (s <= 0) return null
-    const totalMin = Math.max(1, Math.ceil(s / 60))
-    return {d: Math.floor(totalMin / 1440), h: Math.floor((totalMin % 1440) / 60), m: totalMin % 60}
-}
+function countdownShort(resetsAt, nowSec) { return Core.countdownShort(resetsAt, nowSec) }
 
-function countdownShort(resetsAt, nowSec) {
-    const p = _parts(resetsAt, nowSec)
-    if (!p) return ""
-    if (p.d > 0) return p.d + "d " + p.h + "h"
-    if (p.h > 0) return p.h + "h" + (p.m < 10 ? "0" : "") + p.m + "m"
-    return p.m + "m"
-}
-
-function countdownLong(resetsAt, nowSec) {
-    const p = _parts(resetsAt, nowSec)
-    if (!p) return ""
-    if (p.d > 0) return p.d + " d " + p.h + " h"
-    if (p.h > 0) return p.h + " h " + p.m + " min"
-    return p.m + " min"
-}
+function countdownLong(resetsAt, nowSec) { return Core.countdownLong(resetsAt, nowSec) }
 
 function ageText(iso, nowMs) {
     if (!iso) return "—"
@@ -243,18 +161,13 @@ function dayTooltip(entry) {
                  _localDate(entry.date).toLocaleDateString(_current().locale, format), formatInt(entry.total))
 }
 
-// The chart's ranges; the collector writes one series per range (daily, weekly, monthly)
-const CHART_SERIES = {days: "daily", weeks: "weekly", months: "monthly"}
-
 function chartRanges() {
     return [{key: "days", label: i18nc("chart range", "30 days")},
             {key: "weeks", label: i18nc("chart range", "3 months")},
             {key: "months", label: i18nc("chart range", "12 months")}]
 }
 
-function chartSeries(provider, range) {
-    return (provider && provider[CHART_SERIES[range] || "daily"]) || []
-}
+function chartSeries(provider, range) { return Core.chartSeries(provider, range) }
 
 function chartTooltip(entry, range) {
     if (range === "weeks") {
@@ -270,16 +183,9 @@ function chartTooltip(entry, range) {
     return dayTooltip(entry)
 }
 
-const STALE_MS = 300000
-const LIMITS_STALE_MS = 6 * 3600 * 1000
+const STALE_MS = Core.STALE_MS
 
-// Limit data older than 6 h (e.g. a Codex log from days ago) is shown as "stale"
-function limitsStale(provider, nowMs) {
-    if (!provider || !provider.limits_updated_at || !provider.limits || provider.limits.length === 0)
-        return false
-    const t = Date.parse(provider.limits_updated_at)
-    return !isNaN(t) && nowMs - t > LIMITS_STALE_MS
-}
+function limitsStale(provider, nowMs) { return Core.limitsStale(provider, nowMs) }
 
 const REFRESH_HINT_MS = 60000  // how long the hint stays after "Refresh now"
 

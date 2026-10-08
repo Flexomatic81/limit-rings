@@ -89,3 +89,14 @@ jobs:
       - run: /usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
         env:
           QT_QPA_PLATFORM: offscreen
+
+  macos-widget:
+    # The shared display logic and the macOS widget's view model, with Node's built-in test runner.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - run: node --test 'macos/tests/*.test.mjs'

@@ -19,6 +19,7 @@ def tree(tmp_path):
 
 def test_package_contains_widget_collector_and_translations(tree):
     for rel in ("metadata.json", "contents/ui/main.qml", "contents/code/format.js",
+                "contents/code/core.mjs",
                 "contents/collector/run.py", "contents/collector/limit_rings/widget.py",
                 f"contents/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo",
                 "contents/locale/de/LC_MESSAGES/limit-rings.mo"):
