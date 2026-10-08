@@ -17,7 +17,7 @@ from datetime import datetime, tzinfo
 from pathlib import Path
 
 from .accounts import parse_accounts
-from .collect import PROVIDERS, Paths, local_zone, run_safely
+from .collect import PROVIDERS, Paths, local_zone, run_safely, withhold_login_data
 from .notify import THRESHOLDS
 
 ENVELOPE = 1
@@ -121,7 +121,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
     fd = os.open(lock_file, os.O_CREAT | os.O_RDWR, 0o600)
     try:
         if not _acquire(fd, wait):
-            stats = _read_stats(paths.stats_file)
+            stats = withhold_login_data(_read_stats(paths.stats_file), login)
         elif not _still_the_lock(fd, lock_file):
             stats = None
         else:
@@ -130,7 +130,7 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
             if stats is None:
                 code = 1
                 notices.clear()  # state.json was not saved: they come again with the next pass
-                stats = _read_stats(paths.stats_file)
+                stats = withhold_login_data(_read_stats(paths.stats_file), login)
     finally:
         os.close(fd)
     return {"envelope": ENVELOPE, "stats": stats, "notices": [n.to_json() for n in notices]}, code
@@ -147,10 +147,11 @@ def main(home: Path | None = None) -> int:
     paths = Paths.default(home)
     cache = paths.stats_file.parent
     _setup_logging(cache)
+    login = login_providers(os.environ.get("LIMIT_RINGS_LOGIN"))
     if legacy_timer(home):
         # e.g. a store install over a git install of 0.2: two writers would overwrite each other's state.
         logging.getLogger("limit_rings").warning("legacy timer %s found – not collecting", LEGACY_TIMER)
-        envelope = {"envelope": ENVELOPE, "error": "legacy-timer", "stats": _read_stats(paths.stats_file),
+        envelope = {"envelope": ENVELOPE, "error": "legacy-timer", "stats": withhold_login_data(_read_stats(paths.stats_file), login),
                     "notices": []}
         code = 0
     else:
@@ -161,6 +162,6 @@ def main(home: Path | None = None) -> int:
                                       thresholds=notice_thresholds(os.environ.get("LIMIT_RINGS_THRESHOLDS")),
                                       reset_notice=reset_notice(os.environ.get("LIMIT_RINGS_RESET_NOTICE")),
                                       accounts=parse_accounts(os.environ.get("LIMIT_RINGS_ACCOUNTS"), home),
-                                      login=login_providers(os.environ.get("LIMIT_RINGS_LOGIN")))
+                                      login=login)
     sys.stdout.write(json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n")
     return code

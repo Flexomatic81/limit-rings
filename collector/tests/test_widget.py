@@ -315,3 +315,31 @@ def test_main_passes_the_login_setting(tmp_path, monkeypatch):
     monkeypatch.delenv("LIMIT_RINGS_LOGIN")
     widget.main(home=tmp_path)
     assert seen == [{"claude"}, {"claude", "codex"}]
+
+
+def test_legacy_timer_output_withholds_login_data(tmp_path, monkeypatch, capsys):
+    paths = Paths.default(tmp_path)
+    paths.stats_file.parent.mkdir(parents=True)
+    paths.stats_file.write_text(json.dumps({"schema": 2, "providers": {"codex": {
+        "limits": [{"id": "primary"}], "limits_source": "oauth", "extra": {"kind": "credits"}, "plan": "plus"}}}))
+    timer = tmp_path / widget.LEGACY_TIMER
+    timer.parent.mkdir(parents=True, exist_ok=True)
+    timer.write_text("")
+    monkeypatch.setenv("LIMIT_RINGS_LOGIN", "claude")
+    widget.main(home=tmp_path)
+    codex = json.loads(capsys.readouterr().out)["stats"]["providers"]["codex"]
+    assert codex["limits"] == [] and codex["extra"] is None and codex["plan"] is None
+
+
+def test_busy_lock_withholds_login_data_the_widget_switched_off(paths, monkeypatch):
+    lock = lock_of(paths)
+    paths.stats_file.write_text(json.dumps({"schema": 2, "providers": {"claude": {
+        "limits": [{"id": "five_hour"}], "limits_source": "oauth", "auth": {"status": "ok"}, "plan": "max"}}}))
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        envelope, _ = widget.collect_once(paths, lock, lambda: NOW, TZ, wait=0, login=frozenset({"codex"}))
+    finally:
+        os.close(fd)
+    claude = envelope["stats"]["providers"]["claude"]
+    assert claude["limits"] == [] and claude["auth"] is None and claude["plan"] is None

@@ -845,3 +845,37 @@ def test_no_next_request_is_published_for_a_provider_without_login(tmp_path):
     stats = run(p, later, BERLIN, fetch=ok_fetch, codex_fetch=codex_api, accounts=[cx], login=set())
     for x in (stats["providers"]["claude"], stats["providers"]["codex"], stats["accounts"]["c0d3x1"]):
         assert x["limits_next_request_at"] is None and x["limits_paused_until"] is None
+
+
+def test_changes_noticed_via_the_login_go_when_it_is_switched_off(tmp_path):
+    p = make_paths(tmp_path)
+    responses = iter([ok_fetch(None), {**ok_fetch(None), "seven_day_opus": {"utilization": 3.0, "resets_at": None}}])
+    run(p, NOW, BERLIN, fetch=lambda t, timeout=10.0: next(responses))
+    stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=lambda t, timeout=10.0: next(responses))
+    assert [c["kind"] for c in stats["providers"]["claude"]["changes"]] == ["new"]
+    stats = run(p, NOW + timedelta(minutes=12), BERLIN, fetch=ok_fetch, login={"codex"})
+    assert stats["providers"]["claude"]["changes"] == []
+
+
+def test_withhold_login_data_hides_endpoint_data_of_providers_without_login():
+    from limit_rings.collect import withhold_login_data
+    oauth = {"limits": [{"id": "five_hour"}], "limits_source": "oauth", "limits_updated_at": "t", "extra": {"kind": "x"},
+             "plan": "max", "auth": {"status": "ok"}, "changes": [{"kind": "new"}], "login": True, "tokens": {"a": 1},
+             "limits_next_request_at": "t", "limits_paused_until": "t"}
+    local = {**oauth, "limits_source": "session_log", "plan": "plus"}
+    stats = {"schema": 2, "providers": {"claude": dict(oauth), "codex": dict(local)},
+             "accounts": {"k1": {**oauth, "provider": "claude"}, "c1": {**oauth, "provider": "codex"}}}
+    out = withhold_login_data(stats, {"codex"})
+    c = out["providers"]["claude"]
+    assert (c["limits"], c["limits_source"], c["extra"], c["plan"], c["auth"], c["changes"], c["login"]) == \
+        ([], None, None, None, None, [], False)
+    assert c["limits_next_request_at"] is None and c["limits_paused_until"] is None
+    assert c["tokens"] == {"a": 1}                                   # local data stays
+    assert out["providers"]["codex"] == local                         # login on: untouched
+    assert out["accounts"]["k1"]["limits"] == [] and out["accounts"]["k1"]["auth"] is None
+    assert out["accounts"]["c1"] == stats["accounts"]["c1"]
+    nologin = withhold_login_data(stats, set())
+    assert nologin["providers"]["codex"]["limits"] == [{"id": "five_hour"}]   # session-log limits stay
+    assert nologin["providers"]["codex"]["plan"] == "plus" and nologin["providers"]["codex"]["auth"] is None
+    assert withhold_login_data(None, set()) is None
+    assert withhold_login_data({"schema": 2}, set()) == {"schema": 2}

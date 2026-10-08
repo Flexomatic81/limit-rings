@@ -162,3 +162,21 @@ def test_recent_returns_the_last_days_for_stats():
     ]
     assert recent(s, T0 + 300 + RECENT + 1, BERLIN) == []
     assert recent(None, T0, BERLIN) == []
+
+
+def test_events_remember_their_source_and_local_only_skips_endpoint_ones():
+    s = run(None, [five(), week()], T0)
+    s = run(s, [five(), week(), opus()], T0 + 300)
+    assert s["events"][0]["source"] == "oauth"
+    assert recent(s, T0 + 600, BERLIN, local_only=True) == []
+    s = run(s, [five()], T0 + 900, source="statusline")
+    s = run(s, [five(), week()], T0 + 1200, source="statusline")
+    assert [e["kind"] for e in recent(s, T0 + 1500, BERLIN, local_only=True)] == ["new"]
+
+
+def test_events_without_a_source_count_as_endpoint_data():
+    s = run(None, [five()], T0, source="statusline")
+    s = run(s, [five(), week()], T0 + 300, source="statusline")
+    del s["events"][0]["source"]        # written by a collector before events remembered their source
+    assert recent(s, T0 + 600, BERLIN, local_only=True) == []
+    assert [e["kind"] for e in recent(s, T0 + 600, BERLIN)] == ["new"]

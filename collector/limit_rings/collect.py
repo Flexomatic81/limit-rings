@@ -310,8 +310,34 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
             entries[key]["limits_next_request_at"] = entries[key]["limits_paused_until"] = None
     for key, limits in with_forecasts.items():
         entries[key]["limits"] = limits
-        entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz)
+        entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz,
+                                                local_only=key not in login)
     return entries
+
+
+def withhold_login_data(stats: dict | None, login) -> dict | None:
+    """A stats.json written by another pass, for a widget that has the login off for some providers.
+
+    Their entries lose what came from the usage endpoint (limits, extra, plan), the login state and the changes;
+    tokens, history and session-log limits stay."""
+    if not isinstance(stats, dict):
+        return stats
+    entries = [(key, e) for key, e in (stats.get("providers") or {}).items()]
+    entries += [(e.get("provider"), e) for e in (stats.get("accounts") or {}).values()]
+    for provider, entry in entries:
+        if provider in login or not isinstance(entry, dict):
+            continue
+        if entry.get("limits_source") == "oauth":
+            entry.update(limits=[], limits_source=None, limits_updated_at=None, extra=None)
+            entry["plan"] = None
+        if provider == "claude":
+            entry["plan"] = None   # the Claude plan name always comes from the login file
+        if "auth" in entry:
+            entry["auth"] = None
+        entry["limits_next_request_at"] = entry["limits_paused_until"] = None
+        entry["changes"] = []
+        entry["login"] = False
+    return stats
 
 
 def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = True) -> dict:
