@@ -87,6 +87,53 @@ install_uebersicht() {
     say "installed Übersicht in $USER_APPS (signature checked)"
 }
 
+install_widget() {
+    base="$RELEASES/latest/download"
+    if [ -n "$version" ]; then base="$RELEASES/download/$version"; fi
+    say "downloading the widget from $base"
+    curl -fsSL -o "$tmp/limit-rings-macos.zip" "$base/limit-rings-macos.zip" \
+        || fail "the download of the widget failed – nothing changed"
+    curl -fsSL -o "$tmp/limit-rings-macos.zip.sha256" "$base/limit-rings-macos.zip.sha256" \
+        || fail "the download of the widget's checksum failed – nothing changed"
+    (cd "$tmp" && shasum -a 256 -c limit-rings-macos.zip.sha256 >/dev/null 2>&1) \
+        || fail "the checksum of the widget does not match – nothing changed"
+    mkdir "$tmp/widget"
+    ditto -x -k "$tmp/limit-rings-macos.zip" "$tmp/widget" || fail "could not unpack the widget – nothing changed"
+    [ -f "$tmp/widget/$WIDGET/index.jsx" ] || fail "the widget download has unexpected content – nothing changed"
+    mkdir -p "$WIDGETS"
+    # Stage next to the widgets folder (same volume, so the moves are renames; Übersicht does not scan it).
+    rm -rf "$STAGING/new"
+    mkdir -p "$STAGING"
+    mv "$tmp/widget/$WIDGET" "$STAGING/new" || fail "could not stage the widget – nothing changed"
+    updated=0
+    if [ -e "$WIDGETS/$WIDGET" ]; then
+        updated=1
+        # the user's settings (e.g. login off) survive the update
+        if [ -f "$WIDGETS/$WIDGET/settings.json" ]; then
+            cp -p "$WIDGETS/$WIDGET/settings.json" "$STAGING/new/settings.json" \
+                || fail "could not keep your settings.json – nothing changed"
+        fi
+        rm -rf "$STAGING/previous"
+        mv "$WIDGETS/$WIDGET" "$STAGING/previous" || fail "could not move the old widget aside – nothing changed"
+    fi
+    if ! mv "$STAGING/new" "$WIDGETS/$WIDGET"; then
+        if [ "$updated" = 1 ] && mv "$STAGING/previous" "$WIDGETS/$WIDGET"; then
+            fail "could not put the new widget into $WIDGETS – the old one is back in place"
+        fi
+        fail "could not put the widget into $WIDGETS – the previous one is kept in $STAGING/previous"
+    fi
+    rm -rf "$STAGING"
+    if [ "$updated" = 1 ]; then say "updated the widget in $WIDGETS"; else say "installed the widget in $WIDGETS"; fi
+}
+
+check_python() {
+    if py="$(sh "$WIDGETS/$WIDGET/run.sh" --which 2>/dev/null)"; then
+        say "found Python 3.10 or newer: $py"
+    else
+        say "no Python 3.10 or newer found – install one from https://www.python.org/downloads/macos/ (the card reminds you until then)"
+    fi
+}
+
 main() {
 uninstall=0
 login_item=1
@@ -114,6 +161,8 @@ tmp="$(mktemp -d "${TMPDIR:-/tmp}/limit-rings.XXXXXX")"
 
 app="$(find_uebersicht)"
 if [ -n "$app" ]; then say "found Übersicht at $app"; else install_uebersicht; fi
+install_widget
+check_python
 say "done"
 }
 

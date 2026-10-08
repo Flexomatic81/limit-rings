@@ -200,3 +200,92 @@ def test_existing_system_uebersicht_is_kept(env):
     assert res.returncode == 0, res.stderr
     assert not user_app(env).exists()
     assert not any("tracesof" in c or "uebersicht/" in c for c in calls(env))
+
+
+def test_widget_is_installed_from_the_latest_release(env):
+    res = install(env)
+    assert res.returncode == 0, res.stderr
+    assert (widgets(env) / "limit-rings.widget" / "index.jsx").is_file()
+    assert "curl https://example.invalid/releases/latest/download/limit-rings-macos.zip" in calls(env)
+
+
+def test_version_option_picks_that_release(env):
+    install(env, "--version", "v0.7.0")
+    assert "curl https://example.invalid/releases/download/v0.7.0/limit-rings-macos.zip" in calls(env)
+
+
+def _old_widget(env) -> Path:
+    old = widgets(env) / "limit-rings.widget"
+    old.mkdir(parents=True)
+    (old / "index.jsx").write_text("old")
+    return old
+
+
+def test_checksum_mismatch_keeps_the_old_widget(env):
+    old = _old_widget(env)
+    Path(env["FIXTURES"], "limit-rings-macos.zip.sha256").write_text("0" * 64 + "  limit-rings-macos.zip\n")
+    res = install(env)
+    assert res.returncode == 1 and "checksum" in res.stderr
+    assert (old / "index.jsx").read_text() == "old"
+
+
+def test_download_failure_keeps_the_old_widget(env):
+    old = _old_widget(env)
+    Path(env["FIXTURES"], "limit-rings-macos.zip").unlink()
+    res = install(env)
+    assert res.returncode == 1 and (old / "index.jsx").read_text() == "old"
+
+
+def test_update_replaces_the_widget_folder(env):
+    old = _old_widget(env)
+    (old / "stale.txt").write_text("x")
+    res = install(env)
+    assert res.returncode == 0, res.stderr
+    assert (old / "index.jsx").read_text() != "old" and not (old / "stale.txt").exists()
+    assert "updated" in res.stdout
+
+
+def test_update_keeps_the_settings(env):
+    old = _old_widget(env)
+    (old / "settings.json").write_text('{"login": []}\n')
+    res = install(env)
+    assert res.returncode == 0, res.stderr
+    assert (old / "settings.json").read_text() == '{"login": []}\n'
+
+
+def test_failed_move_restores_the_old_widget(env, tmp_path):
+    # a mv that refuses to move the staged widget into place (the first two moves still work)
+    stubs = Path(env["PATH"].split(":")[0])
+    (stubs / "mv").write_text('#!/bin/sh\ncase "$1" in *limit-rings-staging/new) exit 1;; esac\nexec /bin/mv "$@"\n')
+    (stubs / "mv").chmod(0o755)
+    old = _old_widget(env)
+    res = install(env)
+    assert res.returncode == 1 and "back in place" in res.stderr
+    assert (old / "index.jsx").read_text() == "old"
+
+
+def test_leftover_previous_is_restored_even_when_the_download_fails(env):
+    staging = Path(env["HOME"]) / "Library" / "Application Support" / "Übersicht" / "limit-rings-staging"
+    (staging / "previous").mkdir(parents=True)
+    (staging / "previous" / "index.jsx").write_text("old")
+    Path(env["FIXTURES"], "limit-rings-macos.zip").unlink()
+    res = install(env)
+    assert res.returncode == 1
+    assert (widgets(env) / "limit-rings.widget" / "index.jsx").read_text() == "old"
+
+
+def test_leftover_previous_from_an_interrupted_run_is_restored(env):
+    staging = Path(env["HOME"]) / "Library" / "Application Support" / "Übersicht" / "limit-rings-staging"
+    (staging / "previous").mkdir(parents=True)
+    (staging / "previous" / "index.jsx").write_text("old")
+    (staging / "previous" / "settings.json").write_text('{"login": []}\n')
+    res = install(env)
+    assert res.returncode == 0, res.stderr
+    assert (widgets(env) / "limit-rings.widget" / "settings.json").read_text() == '{"login": []}\n'
+    assert not staging.exists()
+
+
+def test_missing_python_is_a_warning_not_a_failure(env):
+    res = install(env, STUB_PY="127")
+    assert res.returncode == 0
+    assert "python.org" in res.stdout + res.stderr
