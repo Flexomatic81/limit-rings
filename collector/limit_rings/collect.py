@@ -177,7 +177,7 @@ def _backfill_hourly(section: dict, paths, now_ts: float, resolver) -> None:
     section["hourly_backfill"] = False
 
 
-def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[list[dict], str | None]:
+def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[list[dict], str | None]:
     section = state["claude"]
     errors = []
     resolver = breakdown.ProjectResolver()
@@ -197,6 +197,9 @@ def _process_claude(state, paths, now_ts, tz, fetch) -> tuple[list[dict], str | 
         section.update(snapshot)
         errors.append(dict(LOGS_FAILED))
 
+    if not use_login:  # neither the login file nor the endpoint; the throttle state stays as it is
+        section["limits"] = claude_limits.resolve_local(section["limits"], paths.statusline_cache)
+        return errors, None
     plan = None
     try:
         rec, attempt, plan = claude_limits.resolve(
@@ -265,7 +268,7 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
 
     claude_errors, claude_plan = [], None
     if "claude" in providers:
-        claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch)
+        claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
     codex_errors = _process_codex(state, paths, now.timestamp(), tz, codex_fetch) if "codex" in providers else []
     _update_history(state)
     _update_changes(state, providers, now.timestamp())
@@ -286,7 +289,8 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
         "claude": {**_provider(claude, today, tz, now.timestamp(),
                                _limits_source("claude", claude["limits"]),
                                claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
-                   "auth": _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers else None,
+                   "auth": (_auth(paths.credentials, now.timestamp(), tz)
+                            if "claude" in providers and "claude" in login else None),
                    "breakdown": _breakdown(claude, now.timestamp(), tz)},
         "codex": _provider(codex, today, tz, now.timestamp(),
                            _limits_source("codex", codex["limits"]),

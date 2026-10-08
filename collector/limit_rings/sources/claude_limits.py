@@ -106,3 +106,12 @@ def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Pa
     candidates = [c for c in (previous, _read_statusline(statusline_cache)) if c]
     best = max(candidates, key=lambda c: c["updated_at"], default=None)
     return best, last_attempt, plan
+
+
+def resolve_local(previous, statusline_cache: Path | None):
+    """Without login: the newer of a stored local record and the status line copy.
+
+    A record from the usage endpoint is dropped, so nothing fetched with the login stays on show.
+    """
+    candidates = [c for c in (previous, _read_statusline(statusline_cache)) if c and c.get("source") != "oauth"]
+    return max(candidates, key=lambda c: c["updated_at"], default=None)

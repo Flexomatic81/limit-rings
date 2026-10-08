@@ -740,3 +740,58 @@ def test_entries_say_whether_the_login_is_used(tmp_path):
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, accounts=[work])
     assert stats["providers"]["claude"]["login"] is True and stats["providers"]["codex"]["login"] is True
     assert stats["accounts"]["k7f3a2"]["login"] is True
+
+
+def write_statusline(p, pct=33.0):
+    p.statusline_cache.parent.mkdir(parents=True, exist_ok=True)
+    p.statusline_cache.write_text(json.dumps({"written_at": NOW.timestamp() + 60, "rate_limits": {
+        "five_hour": {"used_percentage": pct, "resets_at": None},
+        "seven_day": {"used_percentage": 10.0, "resets_at": None}}}))
+
+
+def test_claude_without_login_never_opens_the_login_and_uses_the_status_line(tmp_path, monkeypatch):
+    import limit_rings.collect as collect_mod
+    p = make_paths(tmp_path)
+    run(p, NOW, BERLIN, fetch=lambda t, timeout=10.0: {**ok_fetch(t), "extra_usage": {
+        "is_enabled": True, "used_credits": 1234, "monthly_limit": 5000, "utilization": 24.68, "currency": "USD"}})
+    before = json.loads(p.state_file.read_text())["claude"]
+    write_statusline(p)
+
+    def forbidden(*a, **k):
+        raise AssertionError("the login must not be touched")
+    for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
+        monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
+    later = NOW + timedelta(minutes=10)
+    stats = run(p, later, BERLIN, fetch=forbidden, login={"codex"})
+    c = stats["providers"]["claude"]
+    assert c["login"] is False and c["auth"] is None and c["plan"] is None
+    assert c["limits_source"] == "statusline" and c["extra"] is None
+    assert [l["used_percent"] for l in c["limits"]] == [33.0, 10.0]
+    after = json.loads(p.state_file.read_text())["claude"]
+    assert after["oauth_last_attempt"] == before["oauth_last_attempt"]   # switching back on is unaffected
+    assert after["oauth_pause"] == before["oauth_pause"]
+
+
+def test_claude_without_login_and_without_status_line_has_no_limits(tmp_path):
+    p = make_paths(tmp_path)
+    run(p, NOW, BERLIN, fetch=ok_fetch)
+
+    def forbidden(*a, **k):
+        raise AssertionError("must not fetch")
+    stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=forbidden, login=set())
+    assert stats["providers"]["claude"]["limits"] == []
+    assert stats["providers"]["claude"]["limits_source"] is None
+
+
+def test_claude_account_without_login_reads_no_credentials(tmp_path, monkeypatch):
+    import limit_rings.collect as collect_mod
+    p = make_paths(tmp_path)
+    work, _ = make_account(tmp_path)
+
+    def forbidden(*a, **k):
+        raise AssertionError("no Claude login may be touched, neither the main nor the account one")
+    for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
+        monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
+    stats = run(p, NOW, BERLIN, fetch=forbidden, accounts=[work], login={"codex"})
+    acc = stats["accounts"]["k7f3a2"]
+    assert acc["login"] is False and acc["limits"] == [] and acc["auth"] is None

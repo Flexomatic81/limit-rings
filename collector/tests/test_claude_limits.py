@@ -295,3 +295,16 @@ def test_single_windows_and_a_model_limit_without_a_general_weekly_limit():
 def test_no_status_line_cache_for_additional_accounts(tmp_path):
     rec, _, _ = resolve(None, None, NOW, tmp_path / "missing", None)
     assert rec is None
+
+
+def test_resolve_local_drops_endpoint_data_and_takes_the_status_line(tmp_path):
+    from limit_rings.sources.claude_limits import resolve_local
+    oauth = {"limits": [], "source": "oauth", "updated_at": 2000.0, "extra": {"kind": "extra_usage"}}
+    copy = statusline(tmp_path, 1000.0)
+    rec = resolve_local(oauth, copy)
+    assert rec["source"] == "statusline" and rec["updated_at"] == 1000.0
+    assert resolve_local(oauth, None) is None
+    older = {"limits": [], "source": "statusline", "updated_at": 500.0}
+    assert resolve_local(older, copy)["updated_at"] == 1000.0
+    newer = {"limits": [], "source": "statusline", "updated_at": 3000.0}
+    assert resolve_local(newer, copy) is newer
