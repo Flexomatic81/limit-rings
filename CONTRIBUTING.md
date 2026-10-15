@@ -46,8 +46,8 @@ With [uv](https://docs.astral.sh/uv/) installed, the Python tools run in the ver
 `tools/requirements-dev.txt`; without uv, install them with `python3 -m pip install -r tools/requirements-dev.txt`.
 `qmllint` and `qmltestrunner` come with Qt 6's QML tools; without them the QML steps are skipped locally.
 
-CI runs the collector tests on Python 3.10 and on the newest Python release, and fails if their coverage drops
-below 97 %. Please add tests for new behaviour and for bug fixes.
+CI runs the collector tests on Python 3.10 and on the newest Python release, and fails if their coverage of
+statements and branches drops below 98 %. Please add tests for new behaviour and for bug fixes.
 
 Python code is formatted with `ruff format` (line length 120). One commit reformatted the whole code base; to
 keep it out of `git blame`:

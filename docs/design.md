@@ -71,14 +71,17 @@ Decisions:
 | `sources/codex_limits.py` | Queries the Codex usage endpoint (`chatgpt.com/backend-api/wham/usage`) with the ChatGPT login from `~/.codex/auth.json` (no redirects, at most every 5 min). Needed because Codex via the Claude Code plugin uses ephemeral sessions without a session log. On error, the last state (including from the session log) is kept. | HTTP (urllib), file system |
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
 | `sources/backoff.py` | Pause after 429/503 from a usage endpoint: reads `Retry-After` (seconds or HTTP date), otherwise growing pauses; used by both limit sources, pause state in `state.json`. | – |
-| `accounts.py` | Additional accounts: `parse_accounts` (validates `LIMIT_RINGS_ACCOUNTS`, canonical directories, at most 8), `account_paths` (state file and directories of one account), `prune_account_states` (removes state files of accounts not shown after 30 days). | `collect` |
+| `accounts.py` | Additional accounts: `parse_accounts` (validates `LIMIT_RINGS_ACCOUNTS`, canonical directories, at most 8), `account_paths` (state file and directories of one account), `prune_account_states` (removes state files of accounts not shown after 30 days). | `paths` |
 | `changes.py` | Changes to the limit structure: compares each new limits record of a provider with the windows seen before (same source only) and notes new, returning, vanished, re-sized and early-reset windows (`structure` in `state.json`). | `limits` |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free series of 30 days, 13 weeks (from Monday) and 12 months. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
-| `collect.py` | Orchestrates a run, writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
-| `status.py` | `run.py --status [--waybar]`: turns the last `stats.json` into the versioned status format for scripts and bars (format in the README). Reads nothing else, writes nothing. | `collect`, `notify` |
+| `paths.py` | `Paths` (where a pass reads and writes) and `local_zone` (the local time zone from `TZ`, `/etc/localtime` or the system offset). | – |
+| `process.py` | Reads each provider into the state: new log lines into the daily and hourly buckets, limits from the usage endpoint or local copies; a failure of one provider leaves the others untouched. | `sources/*`, `aggregate`, `breakdown`, `paths` |
+| `entries.py` | Builds the provider entries of `stats.json` from the state (limits with forecasts, token series, breakdown, auth status) and removes login data for providers without login. | `aggregate`, `breakdown`, `forecast`, `limits`, `sources/*` |
+| `collect.py` | Orchestrates a pass per account (state, notifications, structure changes), writes `stats.json` atomically; `run_safely` quarantines a broken `state.json`. | all of the above |
+| `status.py` | `run.py --status [--waybar]`: turns the last `stats.json` into the versioned status format for scripts and bars (format in the README). Reads nothing else, writes nothing. | `paths`, `notify` |
 | `export.py` | `run.py --export [--json]`: the daily buckets of `state.json` and of the accounts listed in `stats.json` as CSV or versioned JSON (format in the README). Reads only the cache, writes nothing. | `accounts`, `state` |
-| `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect` |
+| `widget.py` | Entry point for the widget: lock, log file, JSON envelope `{envelope, stats, notices}` on stdout. | `collect`, `entries`, `paths` |
 | `run.py` | Checks Python ≥ 3.10, then calls `widget.main`. | `widget` |
 | Plasmoid `io.github.flexomatic81.limitrings` | Presentation, notifications, update check; starts the collector. | collector output |
 | Status line addition | One line in `statusline-command.sh`: writes `.rate_limits` to `~/.cache/limit-rings/claude-statusline-limits.json`. | — |
@@ -430,7 +433,7 @@ independent `jq` count.
 limit-rings/
   collector/
     run.py
-    limit_rings/  collect.py  widget.py  notify.py  aggregate.py  state.py  …  sources/
+    limit_rings/  collect.py  process.py  entries.py  paths.py  widget.py  notify.py  state.py  …  sources/
     tests/
   plasmoid/io.github.flexomatic81.limitrings/
     metadata.json
