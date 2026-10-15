@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from ..limits import normalize_codex
 from ..models import JsonDict, TokenEvent, parse_ts
@@ -65,33 +66,39 @@ def read_events(root: Path, files: JsonDict, sessions: JsonDict) -> CodexResult:
         session = (old or {}).get("session")
         for line in lines:
             try:
-                d = json.loads(line)
-                if not isinstance(d, dict):
-                    continue
-                payload = d.get("payload")
-                if d.get("type") == "session_meta" and isinstance(payload, dict):
-                    session = payload.get("id") or payload.get("session_id") or session
-                    continue
-                if d.get("type") != "event_msg":
-                    continue
-                if not isinstance(payload, dict) or payload.get("type") != "token_count":
-                    continue
-                ts = parse_ts(d.get("timestamp"))
-                info = payload.get("info")
-                if isinstance(info, dict):
-                    total = _int(info.get("total_token_usage") or {}, "total_tokens")
-                    key = session or name
-                    if total > sessions.get(key, {}).get("total", 0):
-                        res.events.append(_event_from_usage(ts, info.get("last_token_usage") or {}))
-                        sessions[key] = {"total": total, "day": ts.date().isoformat()}
-                rl = payload.get("rate_limits")
-                if isinstance(rl, dict) and (res.limits_ts is None or ts > res.limits_ts):
-                    res.limits = normalize_codex(rl)
-                    res.plan = rl.get("plan_type")
-                    res.limits_ts = ts
+                session = _read_line(line, session, name, sessions, res)
             except Exception:  # a broken line (RecursionError, OverflowError …) must not block the provider
                 res.invalid += 1
         entry["session"] = session
         files[name] = entry
     prune_missing(files, present, failed)
     return res
+
+
+def _read_line(line: str, session: Any, name: str, sessions: JsonDict, res: CodexResult) -> Any:
+    """One log line: a session_meta line names the session, a token_count event adds usage and limits.
+
+    Returns the session the following lines belong to (unchanged unless this is a session_meta line).
+    """
+    d = json.loads(line)
+    if not isinstance(d, dict):
+        return session
+    payload = d.get("payload")
+    if d.get("type") == "session_meta" and isinstance(payload, dict):
+        return payload.get("id") or payload.get("session_id") or session
+    if d.get("type") != "event_msg" or not isinstance(payload, dict) or payload.get("type") != "token_count":
+        return session
+    ts = parse_ts(d.get("timestamp"))
+    info = payload.get("info")
+    if isinstance(info, dict):
+        total = _int(info.get("total_token_usage") or {}, "total_tokens")
+        key = session or name
+        if total > sessions.get(key, {}).get("total", 0):
+            res.events.append(_event_from_usage(ts, info.get("last_token_usage") or {}))
+            sessions[key] = {"total": total, "day": ts.date().isoformat()}
+    rl = payload.get("rate_limits")
+    if isinstance(rl, dict) and (res.limits_ts is None or ts > res.limits_ts):
+        res.limits = normalize_codex(rl)
+        res.plan = rl.get("plan_type")
+        res.limits_ts = ts
+    return session

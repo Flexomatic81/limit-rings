@@ -240,3 +240,14 @@ def test_entries_of_providers_not_given_are_kept():
     notified = {"codex:primary": {"level": 80, "resets_at": None, "minutes": 10080}}
     update_notices({"Claude": [limit(pct=10.0)]}, notified, NOW)
     assert "codex:primary" in notified
+
+
+def test_a_repeated_limit_id_leaves_what_the_last_entry_says():
+    # Two entries with one id in a single pass: the first crosses 80 %, the second is a new window below every
+    # threshold. Both notices go out, and the second entry drops the key the first one recorded.
+    notified = {}
+    first = limit(pct=85.0, resets_at=2000)
+    second = limit(pct=10.0, resets_at=20000)
+    notices = update_notices({"Claude": [first, second]}, notified, 1000.0, reset_notice=True)
+    assert [n.level for n in notices] == [80, -1]
+    assert notified == {}

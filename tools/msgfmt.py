@@ -54,49 +54,67 @@ def _add(catalog: dict[bytes, bytes], entry: dict) -> None:
     catalog[key.encode("utf-8")] = value.encode("utf-8")
 
 
+def _is_keyword(keyword: str) -> bool:
+    return keyword in KEYWORDS or (keyword.startswith("msgstr[") and keyword.endswith("]") and keyword[7:-1].isdigit())
+
+
+def _check_charset(catalog: dict[bytes, bytes]) -> None:
+    header = catalog.get(b"", b"").decode("utf-8").lower()
+    if "charset=" in header and "charset=utf-8" not in header:
+        raise PoError("only UTF-8 catalogs are supported")
+
+
+class _Parser:
+    """The entry being read: its fields, its flags and the field a continuation string belongs to."""
+
+    def __init__(self) -> None:
+        self.catalog: dict[bytes, bytes] = {}
+        self.entry: dict[str, str] = {}
+        self.flags: set[str] = set()
+        self.field: str | None = None
+
+    def finish(self) -> None:
+        if "fuzzy" not in self.flags:
+            _add(self.catalog, self.entry)
+        self.entry, self.flags, self.field = {}, set(), None
+
+    def comment(self, line: str) -> None:
+        if _has_msgstr(self.entry):  # a comment after a translation starts the next entry
+            self.finish()
+        if line.startswith("#,"):
+            self.flags.update(f.strip() for f in line[2:].split(","))
+
+    def continuation(self, line: str, lineno: int) -> None:
+        if self.field is None:
+            raise PoError(f"line {lineno}: string without keyword")
+        self.entry[self.field] += _string(line, lineno)
+
+    def keyword_line(self, line: str, lineno: int) -> None:
+        keyword, _, rest = line.partition(" ")
+        if not _is_keyword(keyword):
+            raise PoError(f"line {lineno}: unknown keyword {keyword!r}")
+        if keyword in ("msgctxt", "msgid") and _has_msgstr(self.entry):
+            self.finish()
+        self.field = keyword
+        self.entry[keyword] = _string(rest.strip(), lineno)
+
+
 def parse(text: str) -> dict[bytes, bytes]:
     """Return {key: translation} as stored in a .mo file (context and plural forms joined like msgfmt)."""
-    catalog: dict[bytes, bytes] = {}
-    entry: dict[str, str] = {}
-    flags: set[str] = set()
-    field = None
-
-    def finish() -> None:
-        nonlocal entry, flags, field
-        if "fuzzy" not in flags:
-            _add(catalog, entry)
-        entry, flags, field = {}, set(), None
-
+    parser = _Parser()
     for lineno, raw in enumerate(text.splitlines(), 1):
         line = raw.strip()
         if not line or line.startswith("#~"):  # blank line or obsolete entry
             continue
         if line.startswith("#"):
-            if _has_msgstr(entry):
-                finish()
-            if line.startswith("#,"):
-                flags.update(f.strip() for f in line[2:].split(","))
-            continue
-        if line.startswith('"'):
-            if field is None:
-                raise PoError(f"line {lineno}: string without keyword")
-            entry[field] += _string(line, lineno)
-            continue
-        keyword, _, rest = line.partition(" ")
-        if keyword not in KEYWORDS and not (
-            keyword.startswith("msgstr[") and keyword.endswith("]") and keyword[7:-1].isdigit()
-        ):
-            raise PoError(f"line {lineno}: unknown keyword {keyword!r}")
-        if keyword in ("msgctxt", "msgid") and _has_msgstr(entry):
-            finish()
-        field = keyword
-        entry[field] = _string(rest.strip(), lineno)
-    finish()
-
-    header = catalog.get(b"", b"").decode("utf-8").lower()
-    if "charset=" in header and "charset=utf-8" not in header:
-        raise PoError("only UTF-8 catalogs are supported")
-    return catalog
+            parser.comment(line)
+        elif line.startswith('"'):
+            parser.continuation(line, lineno)
+        else:
+            parser.keyword_line(line, lineno)
+    parser.finish()
+    _check_charset(parser.catalog)
+    return parser.catalog
 
 
 def mo_bytes(catalog: dict[bytes, bytes]) -> bytes:

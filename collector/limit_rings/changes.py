@@ -68,29 +68,41 @@ def update(structure: JsonDict | None, rec: JsonDict | None, source: str | None,
         return _prune(structure, now)
     if at <= structure["updated_at"]:
         return structure
-    windows, gone = structure["windows"], structure["gone"]
-    present = set()
+    present = {limit["id"] for limit in rec["limits"]}
     for limit in rec["limits"]:
-        lid = limit["id"]
-        present.add(lid)
-        prev = windows.get(lid)
-        if prev is not None:
-            if prev["minutes"] is not None and limit.get("window_minutes") not in (None, prev["minutes"]):
-                events.append(_event("length", limit, at, structure["source"], previous_minutes=prev["minutes"]))
-            elif _reset_early(prev, limit, at):
-                events.append(_event("early_reset", limit, at, structure["source"]))
-        elif lid in gone:
-            events.append(_event("back", limit, at, structure["source"]))
-            del gone[lid]
-        else:
-            events.append(_event("new", limit, at, structure["source"]))
-        windows[lid] = _window(limit, at)
+        _note_present(structure, limit, at)
+    _note_missing(structure, present, at)
+    structure["updated_at"] = at
+    return _prune(structure, now)
+
+
+def _note_present(structure: JsonDict, limit: JsonDict, at: float) -> None:
+    """A window in the record: note a changed length, an early reset, a return or a new window, then keep it."""
+    windows, gone, events, source = structure["windows"], structure["gone"], structure["events"], structure["source"]
+    lid = limit["id"]
+    prev = windows.get(lid)
+    if prev is not None:
+        if prev["minutes"] is not None and limit.get("window_minutes") not in (None, prev["minutes"]):
+            events.append(_event("length", limit, at, source, previous_minutes=prev["minutes"]))
+        elif _reset_early(prev, limit, at):
+            events.append(_event("early_reset", limit, at, source))
+    elif lid in gone:
+        events.append(_event("back", limit, at, source))
+        del gone[lid]
+    else:
+        events.append(_event("new", limit, at, source))
+    windows[lid] = _window(limit, at)
+
+
+def _note_missing(structure: JsonDict, present: set[str], at: float) -> None:
+    """Windows missing from the record count as gone once they have been missing for GONE_AFTER."""
+    windows, gone = structure["windows"], structure["gone"]
     for lid in [k for k in windows if k not in present]:
         win = windows[lid]
         if win["missing"] is None:
             win["missing"] = at
         if at - win["missing"] >= GONE_AFTER:
-            events.append(
+            structure["events"].append(
                 {
                     "kind": "gone",
                     "id": lid,
@@ -102,8 +114,6 @@ def update(structure: JsonDict | None, rec: JsonDict | None, source: str | None,
             )
             gone[lid] = {"at": win["missing"]}
             del windows[lid]
-    structure["updated_at"] = at
-    return _prune(structure, now)
 
 
 def _prune(structure: JsonDict, now: float) -> JsonDict:

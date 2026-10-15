@@ -23,7 +23,7 @@ ignore = [
 allowed-confusables = ["–", "−"]
 
 [lint.mccabe]
-max-complexity = 13  # the most complex functions today; to be lowered to 10 once they are split
+max-complexity = 10  # mccabe: at most 10 decision points per function
 
 [lint.per-file-ignores]
 # The version guard has to run, and report, on any Python 3 before anything newer is imported.

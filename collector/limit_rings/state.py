@@ -177,15 +177,8 @@ def _pause_ok(pause: object) -> bool:
 
 
 def load_state(path: Path) -> JsonDict:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return new_state()
-    except (OSError, ValueError) as e:
-        log.warning("state unreadable (%s), re-reading everything", type(e).__name__)
-        return new_state()
-    if not isinstance(data, dict) or data.get("version") != STATE_VERSION:
-        log.warning("state has unknown format, re-reading everything")
+    data = _read_state(path)
+    if data is None:
         return new_state()
     fresh = new_state()
     claude = data.get("claude")
@@ -193,14 +186,8 @@ def load_state(path: Path) -> JsonDict:
         # State from before the project/model breakdown: backfill the hourly counts once –
         # only if files have already been read (otherwise the next run re-reads everything anyway)
         claude["hourly"], claude["hourly_backfill"] = {}, bool(claude.get("files"))
-    for provider in ("claude", "codex"):
-        section = data.get(provider)
-        if not isinstance(section, dict):
-            return fresh
-        for key, default in fresh[provider].items():
-            section.setdefault(key, default)
-    data.setdefault("notified", {})
-    data.setdefault("history", {})
+    if not _fill_defaults(data, fresh):
+        return fresh
     for provider in ("claude", "codex"):
         if not _structure_ok(data[provider]["structure"]):  # only a hint in the card: start it afresh
             log.warning("%s: limit structure has unexpected shape, starting it afresh", provider)
@@ -209,6 +196,34 @@ def load_state(path: Path) -> JsonDict:
         log.warning("state has unexpected shape, re-reading everything")
         return fresh
     return data
+
+
+def _read_state(path: Path) -> JsonDict | None:
+    """The stored state; None when it is missing, unreadable or of another version."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as e:
+        log.warning("state unreadable (%s), re-reading everything", type(e).__name__)
+        return None
+    if not isinstance(data, dict) or data.get("version") != STATE_VERSION:
+        log.warning("state has unknown format, re-reading everything")
+        return None
+    return data
+
+
+def _fill_defaults(data: JsonDict, fresh: JsonDict) -> bool:
+    """Missing keys get their defaults; False when a provider section is not an object."""
+    for provider in ("claude", "codex"):
+        section = data.get(provider)
+        if not isinstance(section, dict):
+            return False
+        for key, default in fresh[provider].items():
+            section.setdefault(key, default)
+    data.setdefault("notified", {})
+    data.setdefault("history", {})
+    return True
 
 
 def save_state(path: Path, state: JsonDict) -> None:

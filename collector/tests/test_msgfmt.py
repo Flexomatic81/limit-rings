@@ -85,3 +85,19 @@ def test_same_catalog_as_gnu_msgfmt(po, tmp_path):
     # GNU msgfmt drops POT-Creation-Date from the header; every message and the plural rule must match.
     assert {k: v for k, v in ours_t._catalog.items() if k != ""} == {k: v for k, v in gnu_t._catalog.items() if k != ""}
     assert ours_t.plural(1) == gnu_t.plural(1) and ours_t.plural(5) == gnu_t.plural(5)
+
+
+def test_a_string_without_keyword_names_the_line():
+    with pytest.raises(msgfmt.PoError, match="line 2: string without keyword"):
+        msgfmt.parse('# comment\n"orphan"\n')
+
+
+def test_comments_before_and_between_entries_are_skipped():
+    text = (
+        "# translator comment, before any entry\n"
+        'msgid ""\nmsgstr "Content-Type: text/plain; charset=UTF-8\\n"\n\n'
+        "#: ui/main.qml:12\n"
+        "# a plain comment, no flags\n"
+        'msgid "Week"\nmsgstr "Woche"\n'
+    )
+    assert msgfmt.parse(text)[b"Week"] == b"Woche"

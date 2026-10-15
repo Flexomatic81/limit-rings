@@ -97,57 +97,103 @@ def update_notices(
     labels maps the provider name to the name shown (an additional account: "Claude (Work)");
     the keys in notified keep the provider name.
     """
-    notices = []
-    current = set()
+    notices: list[Notice] = []
+    current: set[str] = set()
     for name, limits in providers.items():
         shown = (labels or {}).get(name, name)
         for limit in limits:
             key = f"{name.lower()}:{limit['id']}"
-            resets_at = limit.get("resets_at")
-            minutes = limit.get("window_minutes")
-            expired = resets_at is not None and resets_at <= now
-            pct = 0.0 if expired else limit["used_percent"]
-            level = max((t for t in thresholds if pct >= t), default=None)
-            entry = notified.get(key)
-            if entry is not None and not same_limit_window(entry, limit):
-                if reset_notice:
-                    notices.append(_reset_notice(key, shown, limit))
-                entry = None  # new window
-            if expired:
-                if entry is not None and reset_notice:
-                    notices.append(_reset_notice(key, shown, limit))
-                notified.pop(key, None)
-                continue
-            current.add(key)
-            if level is None:
-                if entry is not None:
-                    entry.update(resets_at=resets_at, minutes=minutes)
-                elif _early_warning_due(limit, now):
-                    notified[key] = {"level": EARLY_LEVEL, "resets_at": resets_at, "minutes": minutes}
-                    notices.append(_early_notice(key, shown, limit, pct, now))
-                else:
-                    current.discard(key)
-                continue
-            if entry is not None and entry["level"] >= level:
-                entry.update(resets_at=resets_at, minutes=minutes)
-                continue
-            notified[key] = {"level": level, "resets_at": resets_at, "minutes": minutes}
-            summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
-                "provider": shown,
-                "limit": _limit_name(limit),
-                "percent": round(pct),
-            }
-            notices.append(
-                Notice(
-                    key=key,
-                    level=level,
-                    summary=summary,
-                    body=_countdown(resets_at, now),
-                    urgent=level >= thresholds[-1],
-                )
-            )
-    given = {name.lower() for name in providers}
-    for gone in set(notified) - current:
-        if gone.split(":", 1)[0] in given:  # a provider not given (hidden) keeps its entries
-            del notified[gone]
+            _check_limit(key, shown, limit, notified, now, thresholds, reset_notice, notices, current)
+    _drop_vanished(notified, current, {name.lower() for name in providers})
     return notices
+
+
+def _check_limit(
+    key: str,
+    shown: str,
+    limit: JsonDict,
+    notified: JsonDict,
+    now: float,
+    thresholds: tuple[int, int],
+    reset_notice: bool,
+    notices: list[Notice],
+    current: set[str],
+) -> None:
+    """One limit: update its entry in notified, add its due notices and keep current (the tracked keys) up to date."""
+    resets_at = limit.get("resets_at")
+    entry = _entry_of_this_window(key, shown, limit, notified, reset_notice, notices)
+    if resets_at is not None and resets_at <= now:  # the reset has passed: the window counts as 0 %
+        if entry is not None and reset_notice:
+            notices.append(_reset_notice(key, shown, limit))
+        notified.pop(key, None)
+        return
+    current.add(key)
+    pct = limit["used_percent"]
+    level = max((t for t in thresholds if pct >= t), default=None)
+    if level is None:
+        _below_thresholds(key, shown, limit, entry, notified, now, notices, current)
+    elif entry is not None and entry["level"] >= level:
+        entry.update(resets_at=resets_at, minutes=limit.get("window_minutes"))
+    else:
+        notified[key] = {"level": level, "resets_at": resets_at, "minutes": limit.get("window_minutes")}
+        notices.append(_threshold_notice(key, shown, limit, level, thresholds, now))
+
+
+def _entry_of_this_window(
+    key: str, shown: str, limit: JsonDict, notified: JsonDict, reset_notice: bool, notices: list[Notice]
+) -> JsonDict | None:
+    """The recorded entry if it belongs to the limit's current window; a new window says so (with reset_notice)."""
+    entry: JsonDict | None = notified.get(key)
+    if entry is not None and not same_limit_window(entry, limit):
+        if reset_notice:
+            notices.append(_reset_notice(key, shown, limit))
+        return None
+    return entry
+
+
+def _below_thresholds(
+    key: str,
+    shown: str,
+    limit: JsonDict,
+    entry: JsonDict | None,
+    notified: JsonDict,
+    now: float,
+    notices: list[Notice],
+    current: set[str],
+) -> None:
+    """Below every threshold: a recorded window is kept, an early warning goes out when due, else the key is dropped."""
+    if entry is not None:
+        entry.update(resets_at=limit.get("resets_at"), minutes=limit.get("window_minutes"))
+    elif _early_warning_due(limit, now):
+        notified[key] = {
+            "level": EARLY_LEVEL,
+            "resets_at": limit.get("resets_at"),
+            "minutes": limit.get("window_minutes"),
+        }
+        notices.append(_early_notice(key, shown, limit, limit["used_percent"], now))
+    else:
+        current.discard(key)
+
+
+def _threshold_notice(
+    key: str, shown: str, limit: JsonDict, level: int, thresholds: tuple[int, int], now: float
+) -> Notice:
+    summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
+        "provider": shown,
+        "limit": _limit_name(limit),
+        "percent": round(limit["used_percent"]),
+    }
+    return Notice(
+        key=key,
+        level=level,
+        summary=summary,
+        body=_countdown(limit.get("resets_at"), now),
+        urgent=level >= thresholds[-1],
+    )
+
+
+def _drop_vanished(notified: JsonDict, current: set[str], given: set[str]) -> None:
+    """Entries of windows not seen in this pass go; a provider not given (hidden) keeps its entries."""
+    for gone in set(notified) - current:
+        if gone.split(":", 1)[0] in given:
+            del notified[gone]
