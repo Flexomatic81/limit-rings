@@ -9,14 +9,15 @@ import check
 PINS = {"ruff": "1.0", "mypy": "2.0", "pytest": "9.0", "pytest-cov": "7.0", "shellcheck-py": "0.11"}
 
 
-def env(tmp_path, *, use_uv=False, in_ci=False, on_path=(), modules=()):
+def env(tmp_path, *, use_uv=False, in_ci=False, on_path=(), modules=(), qt_version="qmllint 6.12.0"):
     return check.Env(
         pins=PINS,
         use_uv=use_uv,
         in_ci=in_ci,
         which=lambda name: f"/bin/{name}" if name in on_path else None,
         has_module=lambda name: name in modules,
-        qt_bin=tmp_path,
+        qt_dirs=(tmp_path,),
+        qt_version=lambda tool: qt_version,
     )
 
 
@@ -181,3 +182,51 @@ def test_the_hook_runs_the_fast_checks():
     hook = check.ROOT / "tools" / "hooks" / "pre-commit"
     assert hook.stat().st_mode & 0o111
     assert "tools/check.py fast" in hook.read_text()
+
+
+def test_a_qt_tool_on_path_must_be_qt6(tmp_path):
+    e = env(tmp_path, on_path={"qmllint"})
+    e5 = check.Env(**{**e.__dict__, "qt_version": lambda tool: "qmllint 5.15.2"})
+    assert check.plan_step("qmllint", e5).command is None
+    e6 = check.Env(**{**e.__dict__, "qt_version": lambda tool: "qmllint 6.8.1"})
+    assert check.plan_step("qmllint", e6).command[0] == "/bin/qmllint"
+
+
+@pytest.mark.parametrize(
+    ("output", "qt6"),
+    [
+        ("qmllint 6.12.0\n", True),
+        ("qmllint 6.8\n", True),
+        ("qmllint 5.15.2\n", False),
+        ("qmllint 5.6.3\n", False),
+        ("", False),
+    ],
+)
+def test_only_major_version_6_counts(output, qt6):
+    assert check._is_qt6(output) is qt6
+
+
+def test_a_failing_version_probe_yields_nothing(tmp_path):
+    fails = tmp_path / "fails"
+    fails.write_text("#!/bin/sh\necho 'qmllint 6.8.1'\nexit 1\n")
+    fails.chmod(0o755)
+    works = tmp_path / "works"
+    works.write_text("#!/bin/sh\necho 'qmllint 6.8.1'\n")
+    works.chmod(0o755)
+    assert check._qt_version(str(fails)) == ""
+    assert check._qt_version(str(works)) == "qmllint 6.8.1\n"
+    assert check._qt_version(str(tmp_path / "missing")) == ""
+
+
+def test_a_plain_qmltestrunner_on_path_is_not_trusted(tmp_path):
+    assert check.plan_step("qmltest", env(tmp_path, on_path={"qmltestrunner"})).command is None
+    cmd = check.plan_step("qmltest", env(tmp_path, on_path={"qmltestrunner-qt6"})).command
+    assert cmd[0] == "/bin/qmltestrunner-qt6"
+
+
+def test_fedoras_qt6_directory_is_known():
+    assert Path("/usr/lib64/qt6/bin") in check.QT_DIRS
+
+
+def test_the_install_hint_works_on_externally_managed_pythons():
+    assert "virtual environment" in check.INSTALL_HINT

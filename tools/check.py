@@ -12,6 +12,7 @@ steps are skipped; in CI a missing tool fails the run.
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -22,16 +23,30 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PINS_FILE = ROOT / "tools" / "requirements-dev.txt"
 PACKAGE = ROOT / "plasmoid" / "io.github.flexomatic81.limitrings" / "contents"
-QT_BIN = Path("/usr/lib/qt6/bin")
+QT_DIRS = (Path("/usr/lib/qt6/bin"), Path("/usr/lib64/qt6/bin"))  # Arch/Debian/Ubuntu, Fedora/openSUSE
 STEPS = ("ruff", "format", "mypy", "shellcheck", "qmllint", "pytest", "qmltest")
 GROUPS = {"fast": ("ruff", "format", "mypy")}
 QT_STEPS = {"qmllint", "qmltest"}
 COVERAGE_FLOOR = 97
-INSTALL_HINT = "install uv, or: python3 -m pip install -r tools/requirements-dev.txt"
+INSTALL_HINT = "install uv, or in a virtual environment: python3 -m pip install -r tools/requirements-dev.txt"
 
 
 def _has_module(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
+
+
+def _qt_version(tool: str) -> str:
+    """The tool's --version output; "" if it cannot run, fails or times out."""
+    try:
+        return subprocess.run([tool, "--version"], capture_output=True, text=True, timeout=10, check=True).stdout
+    except (OSError, subprocess.SubprocessError):  # CalledProcessError and TimeoutExpired are SubprocessErrors
+        return ""
+
+
+def _is_qt6(version_output: str) -> bool:
+    """The first version number in the output has major version 6 ("qmllint 6.12.0"; not "qmllint 5.6.3")."""
+    match = re.search(r"(?<![\d.])(\d+)\.\d+", version_output)
+    return match is not None and match.group(1) == "6"
 
 
 @dataclass(frozen=True)
@@ -41,7 +56,8 @@ class Env:
     in_ci: bool
     which: Callable[[str], str | None] = shutil.which
     has_module: Callable[[str], bool] = _has_module
-    qt_bin: Path = QT_BIN
+    qt_dirs: tuple[Path, ...] = QT_DIRS
+    qt_version: Callable[[str], str] = _qt_version
 
 
 @dataclass(frozen=True)
@@ -97,13 +113,19 @@ def _python_tool(tool: str, package: str, env: Env) -> list[str] | None:
 
 
 def _qt_tool(name: str, env: Env) -> str | None:
-    """Qt's own bin directory first (the plain names there are Qt 6), then the names distributions put on PATH."""
-    if (env.qt_bin / name).is_file():
-        return str(env.qt_bin / name)
-    for candidate in (f"{name}6", f"{name}-qt6", name):
+    """Qt 6's own bin directories first, then the Qt 6 names distributions put on PATH, then a plain qmllint
+    that says it is Qt 6 (a plain one may be Qt 5's, which knows neither --max-warnings nor the Qt 6 modules)."""
+    for directory in env.qt_dirs:
+        if (directory / name).is_file():
+            return str(directory / name)
+    for candidate in (f"{name}6", f"{name}-qt6"):
         found = env.which(candidate)
         if found:
             return found
+    found = env.which(name)
+    # only qmllint can tell its version; a plain qmltestrunner may be Qt 5's
+    if found and name == "qmllint" and _is_qt6(env.qt_version(found)):
+        return found
     return None
 
 

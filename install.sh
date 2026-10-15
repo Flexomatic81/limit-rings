@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016 # awk programs and literal grep patterns are single-quoted on purpose
 # Installs the Limit Rings widget – it brings and runs its own collector – from this checkout. Safe to run repeatedly.
 # --statusline: insert the status line hook without asking.
 # --migrate-widgets: switch placed "Agent Stats" widgets to Limit Rings without asking (restarts the Plasma shell).
@@ -71,6 +70,7 @@ replace_file() {
 
 # Points placed widgets at the new plugin ID. Position and settings stay: they are keyed by applet, not by plugin.
 switch_widgets() {
+    # shellcheck disable=SC2016 # the awk program is single-quoted on purpose
     replace_file "$appletsrc" "$appletsrc.bak-limit-rings" \
         awk -v old="plugin=$old_id" -v new="plugin=$id" '$0 == old { $0 = new } { print }' "$appletsrc" || return 1
     kpackagetool6 -t Plasma/Applet --remove "$old_id" >/dev/null 2>&1 || true
@@ -152,6 +152,7 @@ elif kpackagetool6 -t Plasma/Applet --show "$old_id" >/dev/null 2>&1; then
 fi
 
 echo "→ Status line (fallback for Claude limits)"
+# shellcheck disable=SC2016 # awk programs and the literal grep pattern are single-quoted on purpose
 if [[ ! -f "$statusline" ]]; then
     echo "  $statusline not found – skipped."
 elif grep -qF -e "$old_marker" -e "$old_marker_de" "$statusline"; then
