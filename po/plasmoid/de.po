@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 13:47+0200\n"
+"POT-Creation-Date: 2026-10-15 21:59+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -267,6 +267,10 @@ msgstr "zurückgesetzt"
 #, kde-format
 msgid "Reset in %1"
 msgstr "Reset in %1"
+
+#, kde-format
+msgid "Only Codex sessions run in a terminal are counted"
+msgstr "Gezählt werden nur Codex-Sitzungen im Terminal"
 
 #, kde-format
 msgid "start codex with this CODEX_HOME"

@@ -85,6 +85,33 @@ TestCase {
         full.stats = stats
     }
 
+    function test_codex_card_explains_missing_token_counts() {
+        const saved = {providers: full.providers, stats: full.stats}
+        const stats = JSON.parse(JSON.stringify(full.stats))
+        const zeros = JSON.parse(JSON.stringify(stats.providers.claude))
+        for (const range of ["today", "week", "month"])
+            zeros.tokens[range] = {input: 0, output: 0, cache_read: 0, cache_write: 0, total: 0}
+        delete zeros.breakdown
+        try {
+            stats.providers = {codex: zeros}
+            full.stats = stats
+            full.providers = [{key: "codex", name: "Codex", short: "X"}]
+            waitForRendering(full)
+            const hint = findChild(full, "tokenHint")
+            verify(hint !== null)
+            verify(hint.visible)
+            compare(hint.text, "Only Codex sessions run in a terminal are counted")
+            stats.providers = {claude: zeros}   // the same zeros on the Claude card need no explanation
+            full.stats = JSON.parse(JSON.stringify(stats))
+            full.providers = saved.providers
+            waitForRendering(full)
+            verify(!findChild(full, "tokenHint").visible)
+        } finally {
+            full.providers = saved.providers
+            full.stats = saved.stats
+        }
+    }
+
     function test_limit_changes_appear_and_take_space() {
         waitForRendering(full)
         const line = findChild(full, "limitChanges")

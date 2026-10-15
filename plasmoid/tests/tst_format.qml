@@ -588,6 +588,20 @@ TestCase {
         compare(F.errorText([{code: "account_invalid"}]), "Account settings are invalid – check the directory")
     }
 
+    function test_tokenHint_only_for_codex_without_counted_tokens() {
+        const none = {tokens: {month: {total: 0}}}
+        const some = {tokens: {month: {total: 42}}}
+        const hint = "Only Codex sessions run in a terminal are counted"
+        compare(F.tokenHint(none, {key: "codex"}), hint)
+        compare(F.tokenHint(none, {account: true, provider: "codex", dir: "~/.codex-b"}), hint)
+        compare(F.tokenHint(some, {key: "codex"}), "")
+        compare(F.tokenHint(none, {key: "claude"}), "")
+        compare(F.tokenHint(none, {account: true, provider: "claude", dir: "~/.claude-a"}), "")
+        compare(F.tokenHint(undefined, {key: "codex"}), "")
+        compare(F.tokenHint({}, {key: "codex"}), "")
+        compare(F.tokenHint(none, null), "")
+    }
+
     function test_tooltip_names_additional_accounts() {
         const stats = {providers: {}, accounts: {k7f3a2: {provider: "claude", dir: "~/.c",
                                                           limits: [{window_minutes: 300, used_percent: 42, resets_at: null}],

@@ -123,6 +123,17 @@ ColumnLayout {
         }
     }
 
+    PlasmaComponents.Label {
+        objectName: "tokenHint"
+        readonly property string hint: Format.tokenHint(card.provider, card.entry)
+        visible: hint !== ""
+        text: hint
+        opacity: 0.7
+        font.pointSize: Kirigami.Theme.smallFont.pointSize
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
+    }
+
     RowLayout {
         visible: !!card.provider
         Layout.fillWidth: true

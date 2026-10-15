@@ -630,6 +630,15 @@ function limitLine(name, limit, nowSec, remaining) {
         + (fc ? " · " + fc : "")
 }
 
+// Codex token counts come from session logs, which only terminal sessions write: without any this month,
+// say so instead of leaving bare zeros.
+function tokenHint(provider, entry) {
+    const key = entry && entry.account ? entry.provider : (entry ? entry.key : "")
+    const month = provider && provider.tokens ? provider.tokens.month : null
+    if (key !== "codex" || !month || month.total !== 0) return ""
+    return i18n("Only Codex sessions run in a terminal are counted")
+}
+
 function authHint(auth, entry) {
     if (!auth || auth.status === "ok") return ""
     if (entry && entry.account) {
