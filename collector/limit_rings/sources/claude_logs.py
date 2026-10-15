@@ -86,7 +86,10 @@ def read_events(root: Path, files: dict, seen: dict) -> ReadResult:
             delta = [max(0, new - old) for new, old in zip(usage, known["u"], strict=True)]
             if any(delta):
                 known["u"] = [max(new, old) for new, old in zip(usage, known["u"], strict=True)]
-                res.events.append(TokenEvent(parse_ts(known["ts"]), *delta, model=ev.model, project=ev.project))
+                d_in, d_out, d_read, d_write = delta
+                res.events.append(
+                    TokenEvent(parse_ts(known["ts"]), d_in, d_out, d_read, d_write, model=ev.model, project=ev.project)
+                )
     prune_missing(files, present, failed)
     if res.invalid:
         log.debug("skipped %d invalid lines in Claude transcripts", res.invalid)

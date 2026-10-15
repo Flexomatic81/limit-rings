@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .accounts import parse_accounts
 from .collect import PROVIDERS, Paths, local_zone, run_safely, withhold_login_data
-from .notify import THRESHOLDS
+from .notify import THRESHOLDS, Notice
 
 ENVELOPE = 1
 LOG_BYTES = 256 * 1024
@@ -127,7 +127,7 @@ def collect_once(
 
     A pass that waited while uninstall.sh deleted the cache holds the deleted lock file: it does nothing (stats
     null, exit 0) and writes nothing, so the deleted directory is not recreated."""
-    notices = []
+    notices: list[Notice] = []
     code = 0
     fd = os.open(lock_file, os.O_CREAT | os.O_RDWR, 0o600)
     try:

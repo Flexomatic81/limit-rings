@@ -28,6 +28,8 @@ def _iso(epoch) -> str | None:
 
 
 def _age(iso: str | None, now: float) -> float | None:
+    if iso is None:
+        return None
     try:
         return now - datetime.fromisoformat(iso).timestamp()
     except (TypeError, ValueError):
@@ -61,7 +63,8 @@ def _entry(entry_id: str, provider: str, entry: dict, now: float, account: dict 
     name = NAMES.get(provider, provider)
     if account is not None:
         name = f"{name} ({account['name']})"
-    limits = entry.get("limits") if isinstance(entry.get("limits"), list) else []
+    raw_limits = entry.get("limits")
+    limits = raw_limits if isinstance(raw_limits, list) else []
     return {
         "id": entry_id,
         "provider": provider,

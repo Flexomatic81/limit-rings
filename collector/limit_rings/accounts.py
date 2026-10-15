@@ -33,7 +33,7 @@ class Account:
 
     @property
     def label(self) -> str:
-        return f"{PROVIDER_NAMES.get(self.provider, '?')} ({self.name})"
+        return f"{PROVIDER_NAMES.get(self.provider or '', '?')} ({self.name})"
 
     @property
     def state_key(self) -> str:
@@ -79,26 +79,26 @@ def parse_accounts(text: str | None, home: Path) -> list[Account]:
         ):
             continue
         ids.add(item["id"])
-        provider = (
-            item["provider"] if isinstance(item.get("provider"), str) and item["provider"] in PROVIDER_NAMES else None
-        )
-        dir_text = item.get("dir") if isinstance(item.get("dir"), str) else ""
-        name = item.get("name").strip() if isinstance(item.get("name"), str) else ""
+        raw_provider, raw_dir, raw_name = item.get("provider"), item.get("dir"), item.get("name")
+        provider = raw_provider if isinstance(raw_provider, str) and raw_provider in PROVIDER_NAMES else None
+        dir_text = raw_dir if isinstance(raw_dir, str) else ""
+        name = raw_name.strip() if isinstance(raw_name, str) else ""
         if not name:
-            name = f"{PROVIDER_NAMES.get(provider, 'Account')} 2"
+            name = f"{PROVIDER_NAMES.get(provider or '', 'Account')} 2"
         path = _resolve(dir_text, home)
         main = _resolve(str(home / MAIN_DIRS[provider]), home) if provider else None
-        valid = provider is not None and path is not None and path != main and (provider, path) not in dirs
-        if valid:
+        if provider is not None and path is not None and path != main and (provider, path) not in dirs:
             dirs.add((provider, path))
-        out.append(
-            Account(item["id"], provider, path if valid else None, dir_text, name, None if valid else "account_invalid")
-        )
+            out.append(Account(item["id"], provider, path, dir_text, name))
+        else:
+            out.append(Account(item["id"], provider, None, dir_text, name, "account_invalid"))
     return out
 
 
 def account_paths(account: Account, cache: Path) -> Paths:
     d = account.dir
+    if d is None:
+        raise ValueError(f"account {account.id} has no valid directory")
     return Paths(
         claude_root=d / "projects",
         codex_root=d / "sessions",

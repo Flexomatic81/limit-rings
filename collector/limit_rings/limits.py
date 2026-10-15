@@ -209,10 +209,11 @@ def normalize_codex_credits(resp) -> dict | None:
     if not isinstance(credits, dict):
         return None
     unlimited = credits.get("unlimited") is True
+    raw = credits.get("balance")
     try:
-        balance = float(credits.get("balance"))
+        balance = float(raw) if raw is not None else math.nan
     except (TypeError, ValueError):
-        balance = None
+        balance = math.nan
     if not _amount(balance):
         if not unlimited:
             return None

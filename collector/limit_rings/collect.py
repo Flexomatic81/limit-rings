@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, tzinfo
+from datetime import datetime, timezone, tzinfo
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -59,7 +59,7 @@ def local_zone() -> tzinfo:
                 return ZoneInfo(key)
             except (ZoneInfoNotFoundError, ValueError):
                 continue
-    return datetime.now().astimezone().tzinfo
+    return datetime.now().astimezone().tzinfo or timezone.utc
 
 
 def _iso(epoch: float | None, tz: tzinfo) -> str | None:
@@ -308,7 +308,8 @@ def _pass(
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
 
-    claude_errors, claude_plan = [], None
+    claude_errors: list[dict] = []
+    claude_plan: str | None = None
     if "claude" in providers:
         claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
     codex_errors = (

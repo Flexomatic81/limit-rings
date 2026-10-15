@@ -57,7 +57,8 @@ def _countdown(resets_at, now: float) -> str:
 
 def _early_warning_due(limit: dict, now: float) -> bool:
     fc = limit.get("forecast")
-    span = EARLY_WARNING_SPANS.get(limit.get("window_minutes"))
+    minutes = limit.get("window_minutes")
+    span = EARLY_WARNING_SPANS.get(minutes) if isinstance(minutes, int) else None
     return span is not None and isinstance(fc, dict) and fc.get("status") == "full" and fc["eta"] - now <= span
 
 

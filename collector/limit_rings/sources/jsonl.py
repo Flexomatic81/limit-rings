@@ -41,7 +41,7 @@ def list_jsonl(root: Path) -> tuple[list[Path], list[Path]]:
         if not isinstance(err, FileNotFoundError):
             failed.append(Path(err.filename))
 
-    found = []
+    found: list[Path] = []
     for dirpath, _dirs, names in os.walk(root, onerror=onerror):
         found.extend(Path(dirpath) / n for n in names if n.endswith(".jsonl"))
     return sorted(found), sorted(failed)

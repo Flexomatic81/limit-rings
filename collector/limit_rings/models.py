@@ -17,7 +17,7 @@ class TokenEvent:
     project: str | None = None  # working directory (Claude only)
 
 
-def parse_ts(value: str) -> datetime:
+def parse_ts(value: object) -> datetime:
     """ISO 8601 timestamp (with 'Z' or offset) → tz-aware datetime."""
     if not isinstance(value, str):
         raise ValueError("timestamp missing")

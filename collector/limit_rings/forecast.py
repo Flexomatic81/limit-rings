@@ -35,7 +35,8 @@ def update_history(history: dict, providers: dict[str, tuple[list[dict], float |
     current = set()
     for name, (limits, updated_at) in providers.items():
         for limit in limits:
-            profile = PROFILES.get(limit.get("window_minutes"))
+            minutes = limit.get("window_minutes")
+            profile = PROFILES.get(minutes) if isinstance(minutes, int) else None
             if profile is None:
                 continue
             key = f"{name.lower()}:{limit['id']}"
@@ -57,9 +58,9 @@ def update_history(history: dict, providers: dict[str, tuple[list[dict], float |
         del history[gone]
 
 
-def forecast(entry: dict, resets_at, now: float, window_minutes: int = 300) -> dict | None:
+def forecast(entry: dict, resets_at, now: float, window_minutes: int | None = 300) -> dict | None:
     """{"status": "full", "eta": epoch} | {"status": "enough"} | None (too little or stale data)."""
-    profile = PROFILES.get(window_minutes)
+    profile = PROFILES.get(window_minutes) if window_minutes is not None else None
     points = entry["points"]
     if profile is None or not points or (resets_at is not None and resets_at <= now):
         return None

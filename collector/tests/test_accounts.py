@@ -1,7 +1,9 @@
 import json
 import os
 
-from limit_rings.accounts import MAX_ACCOUNTS, account_paths, parse_accounts, prune_account_states
+import pytest
+
+from limit_rings.accounts import MAX_ACCOUNTS, Account, account_paths, parse_accounts, prune_account_states
 
 NOW = 1_791_300_000.0
 
@@ -148,3 +150,9 @@ def test_malformed_values_never_raise(tmp_path):
     ]
     assert accounts[1].provider is None and accounts[2].provider is None
     assert accounts[3].name == "Claude 2"
+
+
+def test_account_paths_refuses_an_account_without_a_directory(tmp_path):
+    invalid = Account("k7f3a2", None, None, "", "Claude 2", "account_invalid")
+    with pytest.raises(ValueError, match="k7f3a2"):
+        account_paths(invalid, tmp_path)
