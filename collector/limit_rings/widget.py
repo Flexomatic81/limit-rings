@@ -17,7 +17,8 @@ from datetime import datetime, tzinfo
 from pathlib import Path
 
 from .accounts import Account, parse_accounts
-from .collect import PROVIDERS, run_safely, withhold_login_data
+from .collect import PROVIDERS, run_safely
+from .entries import withhold_login_data
 from .models import JsonDict
 from .notify import THRESHOLDS, Notice
 from .paths import Paths, local_zone

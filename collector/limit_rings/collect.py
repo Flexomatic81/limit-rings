@@ -6,17 +6,16 @@ import json
 import logging
 import os
 from collections.abc import Callable, Collection, Iterable, Sequence
-from datetime import date, datetime, tzinfo
+from datetime import datetime, tzinfo
 from pathlib import Path
 from typing import Any
 
 from . import accounts as accounts_mod
-from . import aggregate, breakdown, changes, forecast, notify
+from . import aggregate, breakdown, changes, entries, forecast, notify
 from .fsutil import write_json_atomic
-from .limits import public_limit
 from .models import JsonDict, TokenEvent
 from .paths import Paths
-from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs
+from .sources import claude_limits, claude_logs, codex_limits, codex_logs
 from .state import load_state, prune_state, save_state
 
 log = logging.getLogger("limit_rings")
@@ -25,60 +24,6 @@ Fetch = Callable[..., Any]  # usage endpoint request: (token, [account,] timeout
 Notifier = Callable[[notify.Notice], None]
 
 SCHEMA = 2
-
-
-def _iso(epoch: float | None, tz: tzinfo) -> str | None:
-    if epoch is None:
-        return None
-    return datetime.fromtimestamp(epoch, tz).isoformat(timespec="seconds")
-
-
-def _next_request(section: JsonDict, interval: float, now_ts: float) -> float | None:
-    """When the usage endpoint will be asked next: after the regular interval and any running pause."""
-    last = section["oauth_last_attempt"]
-    if last is None:
-        return None
-    candidates: list[float] = [last + interval, backoff.blocked_until(section["oauth_pause"], now_ts) or 0]
-    return max(candidates)
-
-
-def _provider(
-    section: JsonDict,
-    today: date,
-    tz: tzinfo,
-    now_ts: float,
-    limits_source: str | None,
-    plan: str | None,
-    errors: list[JsonDict],
-    interval: float,
-) -> JsonDict:
-    rec = section["limits"]
-    return {
-        "limits": rec["limits"] if rec else [],
-        "limits_source": limits_source if rec else None,
-        "limits_updated_at": _iso(rec["updated_at"], tz) if rec else None,
-        "limits_paused_until": _iso(backoff.blocked_until(section["oauth_pause"], now_ts), tz),
-        "limits_next_request_at": _iso(_next_request(section, interval, now_ts), tz),
-        "extra": rec.get("extra") if rec else None,
-        "plan": plan,
-        "tokens": aggregate.summarize(section["buckets"], today),
-        **_series(section["buckets"], today),
-        "errors": errors,
-    }
-
-
-def _series(buckets: JsonDict, today: date) -> JsonDict:
-    """The chart's three ranges: 30 days, 13 weeks and 12 months."""
-    return {
-        "daily": aggregate.daily_series(buckets, today),
-        "weekly": aggregate.weekly_series(buckets, today),
-        "monthly": aggregate.monthly_series(buckets, today),
-    }
-
-
-def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> JsonDict:
-    status, expires_at = claude_limits.credential_status(credentials, now_ts)
-    return {"status": status, "expires_at": _iso(expires_at, tz)}
 
 
 def _notify(
@@ -107,45 +52,14 @@ def _update_history(state: JsonDict) -> None:
     forecast.update_history(state["history"], providers)
 
 
-def _limits_source(key: str, rec: JsonDict | None) -> str | None:
-    if rec is None:
-        return None
-    source: str | None = rec["source"] if key == "claude" else rec.get("source", "session_log")
-    return source
-
-
 def _update_changes(state: JsonDict, providers: Collection[str], now_ts: float) -> None:
     """Note changes to the limit structure of each shown provider (a hidden one is not compared)."""
     for key in ("claude", "codex"):
         if key in providers:
             section = state[key]
             section["structure"] = changes.update(
-                section["structure"], section["limits"], _limits_source(key, section["limits"]), now_ts
+                section["structure"], section["limits"], entries.limits_source(key, section["limits"]), now_ts
             )
-
-
-def _with_forecasts(limits: list[JsonDict], name: str, history: JsonDict, now_ts: float) -> list[JsonDict]:
-    out = []
-    for limit in map(public_limit, limits):
-        entry = history.get(f"{name.lower()}:{limit['id']}")
-        result = (
-            forecast.forecast(entry, limit.get("resets_at"), now_ts, limit.get("window_minutes")) if entry else None
-        )
-        out.append({**limit, "forecast": result} if result else limit)
-    return out
-
-
-def _breakdown(section: JsonDict, now_ts: float, tz: tzinfo) -> JsonDict:
-    """Breakdown since the start of the Claude weekly window (reset − 7 days), otherwise of the last 7 days."""
-    rec = section["limits"]
-    resets = next(
-        (lim.get("resets_at") for lim in (rec["limits"] if rec else []) if lim.get("id") == "seven_day"), None
-    )
-    if resets is not None and resets - 7 * 86400 <= now_ts:
-        since, basis = resets - 7 * 86400, "window"
-    else:
-        since, basis = now_ts - 7 * 86400, "7d"
-    return {"since": _iso(since, tz), "basis": basis, **breakdown.summarize(section["hourly"], since)}
 
 
 def _unreadable_error(count: int) -> JsonDict:
@@ -305,7 +219,9 @@ def _pass(
     _update_history(state)
     _update_changes(state, providers, now.timestamp())
     with_forecasts = {
-        key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
+        key: entries.with_forecasts(
+            (state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp()
+        )
         for name, key in (("Claude", "claude"), ("Codex", "codex"))
     }
     shown = {name: with_forecasts[key] for name, key in (("Claude", "claude"), ("Codex", "codex")) if key in providers}
@@ -317,99 +233,48 @@ def _pass(
 
     claude = state["claude"]
     codex = state["codex"]
-    entries = {
+    provider_entries = {
         "claude": {
-            **_provider(
+            **entries.provider_entry(
                 claude,
                 today,
                 tz,
                 now.timestamp(),
-                _limits_source("claude", claude["limits"]),
+                entries.limits_source("claude", claude["limits"]),
                 claude_plan,
                 claude_errors,
                 claude_limits.OAUTH_MIN_INTERVAL,
             ),
             "auth": (
-                _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers and "claude" in login else None
+                entries.auth_entry(paths.credentials, now.timestamp(), tz)
+                if "claude" in providers and "claude" in login
+                else None
             ),
-            "breakdown": _breakdown(claude, now.timestamp(), tz),
+            "breakdown": entries.breakdown_entry(claude, now.timestamp(), tz),
         },
-        "codex": _provider(
+        "codex": entries.provider_entry(
             codex,
             today,
             tz,
             now.timestamp(),
-            _limits_source("codex", codex["limits"]),
+            entries.limits_source("codex", codex["limits"]),
             codex["limits"]["plan"] if codex["limits"] else None,
             codex_errors,
             codex_limits.MIN_INTERVAL,
         ),
     }
     for key in ("claude", "codex"):
-        entries[key]["login"] = key in login
+        provider_entries[key]["login"] = key in login
         if key not in login:  # no request will follow, so none is announced (the throttle state stays as it is)
-            entries[key]["limits_next_request_at"] = entries[key]["limits_paused_until"] = None
+            provider_entries[key]["limits_next_request_at"] = provider_entries[key]["limits_paused_until"] = None
     for key, limits in with_forecasts.items():
-        entries[key]["limits"] = limits
-        entries[key]["changes"] = changes.recent(
+        provider_entries[key]["limits"] = limits
+        provider_entries[key]["changes"] = changes.recent(
             state[key]["structure"], now.timestamp(), tz, local_only=key not in login
         )
         if key not in login:  # also a hidden provider, whose state may still hold endpoint data
-            _strip_login_data(key, entries[key])
-    return entries
-
-
-def _strip_login_data(provider: str, entry: JsonDict) -> None:
-    """Remove what came from the usage endpoint or the login file from a provider entry (not the changes)."""
-    if entry.get("limits_source") == "oauth":
-        entry.update(limits=[], limits_source=None, limits_updated_at=None, extra=None)
-        entry["plan"] = None
-    if provider == "claude":
-        entry["plan"] = None  # the Claude plan name always comes from the login file
-    if "auth" in entry:
-        entry["auth"] = None
-    entry["limits_next_request_at"] = entry["limits_paused_until"] = None  # no request will follow
-    entry["login"] = False
-
-
-def withhold_login_data(stats: JsonDict | None, login: Collection[str]) -> JsonDict | None:
-    """A stats.json written by another pass, for a widget that has the login off for some providers.
-
-    Their entries lose what came from the usage endpoint (limits, extra, plan), the login state and the changes;
-    tokens, history and session-log limits stay."""
-    if not isinstance(stats, dict):
-        return stats
-    providers, accounts = stats.get("providers"), stats.get("accounts")
-    entries = list(providers.items()) if isinstance(providers, dict) else []
-    if isinstance(accounts, dict):
-        entries += [(e.get("provider"), e) for e in accounts.values() if isinstance(e, dict)]
-    for provider, entry in entries:
-        if provider in login or not isinstance(entry, dict):
-            continue
-        _strip_login_data(provider, entry)
-        entry["changes"] = []
-    return stats
-
-
-def _empty_entry(provider: str | None, today: date, errors: list[JsonDict], login: bool = True) -> JsonDict:
-    """Card data for an account without results (invalid entry, failed pass)."""
-    entry = {
-        "limits": [],
-        "limits_source": None,
-        "limits_updated_at": None,
-        "limits_paused_until": None,
-        "limits_next_request_at": None,
-        "extra": None,
-        "plan": None,
-        "changes": [],
-        "tokens": aggregate.summarize({}, today),
-        **_series({}, today),
-        "errors": errors,
-        "login": login,
-    }
-    if provider == "claude":
-        entry.update(auth=None, breakdown=None)
-    return entry
+            entries.strip_login_data(key, provider_entries[key])
+    return provider_entries
 
 
 def _accounts(
@@ -430,7 +295,9 @@ def _accounts(
         head = {"provider": account.provider, "name": account.name, "dir": account.dir_text}
         if account.error:
             out[account.id] = {
-                **_empty_entry(account.provider, today, [{"code": account.error}], login=account.provider in login),
+                **entries.empty_entry(
+                    account.provider, today, [{"code": account.error}], login=account.provider in login
+                ),
                 **head,
             }
             continue
@@ -456,7 +323,7 @@ def _accounts(
             log.error("account %s: run aborted: %s", account.id, type(e).__name__)
             with contextlib.suppress(OSError):
                 os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
-            entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)], login=account.provider in login)
+            entry = entries.empty_entry(account.provider, today, [dict(LOGS_FAILED)], login=account.provider in login)
         if account.provider == "codex":
             if account.provider in login:
                 token, _ = codex_limits.read_auth(paths.codex_auth)

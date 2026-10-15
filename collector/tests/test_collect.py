@@ -1039,7 +1039,7 @@ def test_changes_noticed_via_the_login_go_when_it_is_switched_off(tmp_path):
 
 
 def test_withhold_login_data_hides_endpoint_data_of_providers_without_login():
-    from limit_rings.collect import withhold_login_data
+    from limit_rings.entries import withhold_login_data
 
     oauth = {
         "limits": [{"id": "five_hour"}],
