@@ -1,0 +1,6 @@
+# Development tools in fixed versions: tools/check.py runs them through uv, CI installs them with pip.
+mypy==2.4.0
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.10
+shellcheck-py==0.11.0.1
