@@ -20,25 +20,57 @@ def make_paths(tmp_path):
     )
     p.claude_root.mkdir(parents=True)
     p.codex_root.mkdir(parents=True)
-    p.credentials.write_text(json.dumps({"claudeAiOauth": {
-        "accessToken": "top-secret", "expiresAt": int((NOW.timestamp() + 3600) * 1000),
-        "subscriptionType": "pro"}}))
+    p.credentials.write_text(
+        json.dumps(
+            {
+                "claudeAiOauth": {
+                    "accessToken": "top-secret",
+                    "expiresAt": int((NOW.timestamp() + 3600) * 1000),
+                    "subscriptionType": "pro",
+                }
+            }
+        )
+    )
     return p
 
 
 def claude_line(msg_id, ts, out=10):
-    return json.dumps({"timestamp": ts, "requestId": "r", "message": {
-        "id": msg_id, "usage": {"input_tokens": 1, "output_tokens": out,
-                                "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}}})
+    return json.dumps(
+        {
+            "timestamp": ts,
+            "requestId": "r",
+            "message": {
+                "id": msg_id,
+                "usage": {
+                    "input_tokens": 1,
+                    "output_tokens": out,
+                    "cache_read_input_tokens": 0,
+                    "cache_creation_input_tokens": 0,
+                },
+            },
+        }
+    )
 
 
 def codex_line(ts, total):
-    return json.dumps({"timestamp": ts, "type": "event_msg", "payload": {
-        "type": "token_count",
-        "info": {"total_token_usage": {"total_tokens": total},
-                 "last_token_usage": {"input_tokens": total, "cached_input_tokens": 0, "output_tokens": 0}},
-        "rate_limits": {"primary": {"used_percent": 8.0, "window_minutes": 10080, "resets_at": 1791280728},
-                        "secondary": None, "plan_type": "plus"}}})
+    return json.dumps(
+        {
+            "timestamp": ts,
+            "type": "event_msg",
+            "payload": {
+                "type": "token_count",
+                "info": {
+                    "total_token_usage": {"total_tokens": total},
+                    "last_token_usage": {"input_tokens": total, "cached_input_tokens": 0, "output_tokens": 0},
+                },
+                "rate_limits": {
+                    "primary": {"used_percent": 8.0, "window_minutes": 10080, "resets_at": 1791280728},
+                    "secondary": None,
+                    "plan_type": "plus",
+                },
+            },
+        }
+    )
 
 
 def hot(token, timeout=10.0):
@@ -46,15 +78,18 @@ def hot(token, timeout=10.0):
 
 
 def ok_fetch(token, timeout=10.0):
-    return {"five_hour": {"utilization": 42.0, "resets_at": None},
-            "seven_day": {"utilization": 18.0, "resets_at": None}}
+    return {
+        "five_hour": {"utilization": 42.0, "resets_at": None},
+        "seven_day": {"utilization": 18.0, "resets_at": None},
+    }
 
 
 def test_full_run_writes_valid_stats(tmp_path):
     p = make_paths(tmp_path)
     (p.claude_root / "proj").mkdir()
     (p.claude_root / "proj" / "s.jsonl").write_text(
-        claude_line("m1", "2026-10-03T10:00:00Z") + "\n" + claude_line("m1", "2026-10-03T10:00:00Z") + "\n")
+        claude_line("m1", "2026-10-03T10:00:00Z") + "\n" + claude_line("m1", "2026-10-03T10:00:00Z") + "\n"
+    )
     (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-10-02T10:00:00Z", 500) + "\n")
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
@@ -109,14 +144,16 @@ def test_provider_failure_is_isolated(tmp_path, monkeypatch):
     (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-10-03T10:00:00Z", 500) + "\n")
 
     import limit_rings.collect as collect_mod
+
     def boom(*a, **k):
         raise RuntimeError("broken")
+
     monkeypatch.setattr(collect_mod.claude_logs, "read_events", boom)
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
     assert c["errors"] == [{"code": "logs_failed"}]
-    assert c["limits_source"] == "oauth"               # limits still work
+    assert c["limits_source"] == "oauth"  # limits still work
     assert x["errors"] == [] and x["tokens"]["today"]["total"] == 500
 
 
@@ -155,6 +192,7 @@ def test_unreadable_transcript_is_reported_but_rest_counts(tmp_path):
 
 def test_local_zone_prefers_tz_variable(monkeypatch):
     from limit_rings.collect import local_zone
+
     monkeypatch.setenv("TZ", "America/New_York")
     assert local_zone().key == "America/New_York"
     monkeypatch.setenv("TZ", "Does/Not_Exist")
@@ -164,8 +202,10 @@ def test_local_zone_prefers_tz_variable(monkeypatch):
 def test_unexpected_limits_failure_still_records_attempt(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
     import limit_rings.collect as collect_mod
+
     def boom(*a, **k):
         raise RuntimeError("broken")
+
     monkeypatch.setattr(collect_mod.claude_limits, "resolve", boom)
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
@@ -262,8 +302,10 @@ def test_five_hour_forecast_appears_after_enough_samples(tmp_path):
     values = iter([10.0, 15.0, 20.0])
 
     def rising(token, timeout=10.0):
-        return {"five_hour": {"utilization": next(values), "resets_at": "2026-10-03T21:00:00+00:00"},
-                "seven_day": {"utilization": 30.0, "resets_at": None}}
+        return {
+            "five_hour": {"utilization": next(values), "resets_at": "2026-10-03T21:00:00+00:00"},
+            "seven_day": {"utilization": 30.0, "resets_at": None},
+        }
 
     first = run(p, NOW, BERLIN, fetch=rising, notifier=lambda n: True)
     assert "forecast" not in first["providers"]["claude"]["limits"][0]
@@ -283,12 +325,18 @@ def codex_auth(p):
 
 
 def codex_api(token, account_id, timeout=10.0):
-    return {"plan_type": "plus", "rate_limit": {"primary_window": {
-        "used_percent": 7, "limit_window_seconds": 604800, "reset_at": 1791628596}, "secondary_window": None}}
+    return {
+        "plan_type": "plus",
+        "rate_limit": {
+            "primary_window": {"used_percent": 7, "limit_window_seconds": 604800, "reset_at": 1791628596},
+            "secondary_window": None,
+        },
+    }
 
 
 def test_codex_limits_come_from_api_when_logged_in(tmp_path):
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-09-29T10:00:00Z", 500) + "\n")
@@ -302,6 +350,7 @@ def test_codex_limits_come_from_api_when_logged_in(tmp_path):
 
 def test_codex_falls_back_to_session_log_without_api(tmp_path):
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-10-03T10:00:00Z", 500) + "\n")
@@ -315,13 +364,21 @@ def test_codex_falls_back_to_session_log_without_api(tmp_path):
 
 
 def week_fetch(token, timeout=10.0):
-    return {"five_hour": {"utilization": 5.0, "resets_at": None},
-            "seven_day": {"utilization": 30.0, "resets_at": "2026-10-06T04:00:00+00:00"}}
+    return {
+        "five_hour": {"utilization": 5.0, "resets_at": None},
+        "seven_day": {"utilization": 30.0, "resets_at": "2026-10-06T04:00:00+00:00"},
+    }
 
 
 def project_line(msg_id, ts, cwd, out=10, model="claude-opus-5"):
-    return json.dumps({"timestamp": ts, "requestId": "r", "cwd": cwd, "message": {
-        "id": msg_id, "model": model, "usage": {"input_tokens": 1, "output_tokens": out}}})
+    return json.dumps(
+        {
+            "timestamp": ts,
+            "requestId": "r",
+            "cwd": cwd,
+            "message": {"id": msg_id, "model": model, "usage": {"input_tokens": 1, "output_tokens": out}},
+        }
+    )
 
 
 def breakdown_setup(tmp_path):
@@ -330,20 +387,29 @@ def breakdown_setup(tmp_path):
     (repo / ".git").mkdir(parents=True)
     (repo / "frontend").mkdir()
     (p.claude_root / "proj").mkdir()
-    (p.claude_root / "proj" / "s.jsonl").write_text("\n".join([
-        project_line("m1", "2026-10-03T10:00:00Z", str(repo / "frontend")),
-        project_line("m2", "2026-09-28T10:00:00Z", str(repo)),               # before the weekly window
-        project_line("m3", "2026-10-02T10:00:00Z", str(tmp_path / "scratch"), model="claude-sonnet-5"),
-    ]) + "\n")
+    (p.claude_root / "proj" / "s.jsonl").write_text(
+        "\n".join(
+            [
+                project_line("m1", "2026-10-03T10:00:00Z", str(repo / "frontend")),
+                project_line("m2", "2026-09-28T10:00:00Z", str(repo)),  # before the weekly window
+                project_line("m3", "2026-10-02T10:00:00Z", str(tmp_path / "scratch"), model="claude-sonnet-5"),
+            ]
+        )
+        + "\n"
+    )
     return p
 
 
 def test_breakdown_covers_the_claude_week_window(tmp_path):
     p = breakdown_setup(tmp_path)
     b = run(p, NOW, BERLIN, fetch=week_fetch, notifier=lambda n: True)["providers"]["claude"]["breakdown"]
-    assert b == {"since": "2026-09-29T06:00:00+02:00", "basis": "window", "total": 22,
-                 "projects": [{"name": "scratch", "total": 11}, {"name": "website", "total": 11}],
-                 "models": [{"name": "Opus 5", "total": 11}, {"name": "Sonnet 5", "total": 11}]}
+    assert b == {
+        "since": "2026-09-29T06:00:00+02:00",
+        "basis": "window",
+        "total": 22,
+        "projects": [{"name": "scratch", "total": 11}, {"name": "website", "total": 11}],
+        "models": [{"name": "Opus 5", "total": 11}, {"name": "Sonnet 5", "total": 11}],
+    }
 
 
 def test_breakdown_falls_back_to_last_seven_days(tmp_path):
@@ -357,12 +423,12 @@ def test_backfill_for_existing_state_counts_once(tmp_path):
     p = breakdown_setup(tmp_path)
     run(p, NOW, BERLIN, fetch=week_fetch, notifier=lambda n: True)
     state = json.loads(p.state_file.read_text())
-    del state["claude"]["hourly"], state["claude"]["hourly_backfill"]   # state from before the update
+    del state["claude"]["hourly"], state["claude"]["hourly_backfill"]  # state from before the update
     p.state_file.write_text(json.dumps(state))
     stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=week_fetch, notifier=lambda n: True)
     c = stats["providers"]["claude"]
     assert c["breakdown"]["total"] == 22
-    assert c["tokens"]["today"]["total"] == 11          # daily totals not counted twice
+    assert c["tokens"]["today"]["total"] == 11  # daily totals not counted twice
     assert json.loads(p.state_file.read_text())["claude"]["hourly_backfill"] is False
 
 
@@ -385,29 +451,33 @@ def test_legacy_state_limits_are_published_with_model(tmp_path):
     p = make_paths(tmp_path)
     run(p, NOW, BERLIN, fetch=ok_fetch)
     state = json.loads(p.state_file.read_text())
-    state["claude"]["limits"]["limits"].append({"id": "seven_day_opus", "label": "Woche Opus", "used_percent": 3.0,
-                                                 "resets_at": None, "window_minutes": 10080})
+    state["claude"]["limits"]["limits"].append(
+        {"id": "seven_day_opus", "label": "Woche Opus", "used_percent": 3.0, "resets_at": None, "window_minutes": 10080}
+    )
     state["claude"]["oauth_last_attempt"] = NOW.timestamp()  # throttled: keeps the saved limits
     p.state_file.write_text(json.dumps(state))
 
     def no_fetch(*a, **k):
         raise AssertionError("must not fetch while throttled")
+
     stats = run(p, NOW, BERLIN, fetch=no_fetch)
     opus = [lim for lim in stats["providers"]["claude"]["limits"] if lim["id"] == "seven_day_opus"]
     assert opus and opus[0]["model"] == "Opus" and "label" not in opus[0]
-
 
 
 def test_rate_limit_pause_is_kept_between_runs_and_published(tmp_path):
     import io
     import urllib.error
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
 
     def limited(*a, **k):
-        raise urllib.error.HTTPError("https://example.invalid", 429, "Too Many Requests",
-                                     {"Retry-After": "1800"}, io.BytesIO(b""))
+        raise urllib.error.HTTPError(
+            "https://example.invalid", 429, "Too Many Requests", {"Retry-After": "1800"}, io.BytesIO(b"")
+        )
+
     stats = run(p, NOW, BERLIN, fetch=limited, codex_fetch=limited)
     until = (NOW + timedelta(seconds=1800)).isoformat(timespec="seconds")
     assert stats["providers"]["claude"]["limits_paused_until"] == until
@@ -415,6 +485,7 @@ def test_rate_limit_pause_is_kept_between_runs_and_published(tmp_path):
 
     def no_fetch(*a, **k):
         raise AssertionError("must not fetch during the pause")
+
     stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=no_fetch, codex_fetch=no_fetch)
     assert stats["providers"]["claude"]["limits_paused_until"] == until
 
@@ -426,6 +497,7 @@ def test_rate_limit_pause_is_kept_between_runs_and_published(tmp_path):
 
 def test_extra_usage_and_credits_are_published(tmp_path):
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
 
@@ -434,9 +506,15 @@ def test_extra_usage_and_credits_are_published(tmp_path):
 
     def codex_credits(token, account_id, timeout=10.0):
         return {**codex_api(token, account_id), "credits": {"has_credits": True, "unlimited": False, "balance": "7"}}
+
     providers = run(p, NOW, BERLIN, fetch=claude_extra, codex_fetch=codex_credits)["providers"]
-    assert providers["claude"]["extra"] == {"kind": "extra_usage", "used": 2.5, "limit": None, "percent": None,
-                                            "currency": "USD"}
+    assert providers["claude"]["extra"] == {
+        "kind": "extra_usage",
+        "used": 2.5,
+        "limit": None,
+        "percent": None,
+        "currency": "USD",
+    }
     assert providers["codex"]["extra"] == {"kind": "credits", "balance": 7.0, "unlimited": False}
 
     providers = run(make_paths(tmp_path / "plain"), NOW, BERLIN, fetch=ok_fetch)["providers"]
@@ -445,6 +523,7 @@ def test_extra_usage_and_credits_are_published(tmp_path):
 
 def test_codex_window_that_vanishes_and_returns_leaves_nothing_behind(tmp_path):
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     reset = int(NOW.timestamp())
@@ -454,6 +533,7 @@ def test_codex_window_that_vanishes_and_returns_leaves_nothing_behind(tmp_path):
     def answer(primary, secondary):
         def fetch(token, account_id, timeout=10.0):
             return {"plan_type": "plus", "rate_limit": {"primary_window": primary, "secondary_window": secondary}}
+
         return fetch
 
     def windows(stats):
@@ -475,8 +555,14 @@ def test_codex_window_that_vanishes_and_returns_leaves_nothing_behind(tmp_path):
 
     # and back again: the 5-hour window starts fresh and notifies again
     notices = []
-    stats = run(p, later + timedelta(minutes=10), BERLIN, fetch=ok_fetch, codex_fetch=answer(five, week),
-                notifier=lambda n: notices.append(n) or True)
+    stats = run(
+        p,
+        later + timedelta(minutes=10),
+        BERLIN,
+        fetch=ok_fetch,
+        codex_fetch=answer(five, week),
+        notifier=lambda n: notices.append(n) or True,
+    )
     assert windows(stats) == [("primary", 300), ("secondary", 10080)]
     state = json.loads(p.state_file.read_text())
     assert len(state["history"]["codex:primary"]["points"]) == 1
@@ -487,6 +573,7 @@ def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
     from dataclasses import replace
 
     import limit_rings.collect as collect_mod
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
@@ -496,6 +583,7 @@ def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
 
     def forbidden(*a, **k):
         raise AssertionError("hidden provider must not be touched")
+
     for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
         monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
     monkeypatch.setattr(collect_mod.claude_logs, "read_events", forbidden)
@@ -503,19 +591,21 @@ def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
     later = NOW + timedelta(minutes=10)
     stats = run(p, later, BERLIN, fetch=forbidden, codex_fetch=codex_api, providers={"codex"})
     claude = stats["providers"]["claude"]
-    assert claude["limits"] == claude_before          # last known values stay, nothing new is fetched
-    assert claude["tokens"]["today"]["total"] == 0    # the new transcript was not read
+    assert claude["limits"] == claude_before  # last known values stay, nothing new is fetched
+    assert claude["tokens"]["today"]["total"] == 0  # the new transcript was not read
     assert claude["auth"] is None and claude["plan"] is None
     assert stats["providers"]["codex"]["limits_updated_at"] == later.isoformat(timespec="seconds")
 
 
 def test_no_providers_means_no_requests_at_all(tmp_path):
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
 
     def forbidden(*a, **k):
         raise AssertionError("must not fetch")
+
     stats = run(p, NOW, BERLIN, fetch=forbidden, codex_fetch=forbidden, providers=set())
     assert stats["providers"]["claude"]["limits"] == [] and stats["providers"]["codex"]["limits"] == []
 
@@ -527,7 +617,9 @@ def test_notice_settings_reach_the_notifications(tmp_path):
     def at(pct):
         def fetch(token, timeout=10.0):
             return {"five_hour": {"utilization": pct, "resets_at": None}}
+
         return fetch
+
     run(p, NOW, BERLIN, fetch=at(55.0), notifier=notices.append, thresholds=(50, 75))
     assert [(n.key, n.level) for n in notices] == [("claude:five_hour", 50)]
 
@@ -536,6 +628,7 @@ def test_next_limit_request_is_published(tmp_path):
     import io
     import urllib.error
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
@@ -544,12 +637,15 @@ def test_next_limit_request_is_published(tmp_path):
     assert stats["providers"]["codex"]["limits_next_request_at"] == in_5
 
     def limited(*a, **k):
-        raise urllib.error.HTTPError("https://example.invalid", 429, "Too Many Requests",
-                                     {"Retry-After": "1800"}, io.BytesIO(b""))
+        raise urllib.error.HTTPError(
+            "https://example.invalid", 429, "Too Many Requests", {"Retry-After": "1800"}, io.BytesIO(b"")
+        )
+
     later = NOW + timedelta(minutes=6)
     stats = run(p, later, BERLIN, fetch=limited, codex_fetch=codex_api)
     assert stats["providers"]["claude"]["limits_next_request_at"] == (later + timedelta(minutes=30)).isoformat(
-        timespec="seconds")
+        timespec="seconds"
+    )
 
     fresh = run(make_paths(tmp_path / "fresh"), NOW, BERLIN, fetch=ok_fetch, providers=set())
     assert fresh["providers"]["claude"]["limits_next_request_at"] is None
@@ -557,25 +653,35 @@ def test_next_limit_request_is_published(tmp_path):
 
 def test_hidden_provider_does_not_notify_and_keeps_its_notified_entries(tmp_path):
     p = make_paths(tmp_path)
+
     def hot85(token, timeout=10.0):
         return {"five_hour": {"utilization": 85.0, "resets_at": None}}
 
     run(p, NOW, BERLIN, fetch=hot85)  # notifications off in this instance: nothing recorded
     notices = []
     run(p, NOW + timedelta(minutes=1), BERLIN, fetch=hot85, notifier=notices.append, providers={"codex"})
-    assert notices == []                                   # hidden: no warning from cached limits
+    assert notices == []  # hidden: no warning from cached limits
     run(p, NOW + timedelta(minutes=2), BERLIN, fetch=hot85, notifier=notices.append)
     assert [n.key for n in notices] == ["claude:five_hour"]  # shown again: the due warning comes once
     notices.clear()
     run(p, NOW + timedelta(minutes=3), BERLIN, fetch=hot85, notifier=notices.append, providers={"codex"})
     run(p, NOW + timedelta(minutes=10), BERLIN, fetch=hot85, notifier=notices.append)
-    assert notices == []                                   # entry survived the hidden pass: no repeat
+    assert notices == []  # entry survived the hidden pass: no repeat
 
 
 def test_pass_returns_the_provider_entries_without_writing_stats(tmp_path):
     p = make_paths(tmp_path)
-    out = collect._pass(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api, notifier=None,
-                        providers={"claude", "codex"}, thresholds=(80, 95), reset_notice=False)
+    out = collect._pass(
+        p,
+        NOW,
+        BERLIN,
+        fetch=ok_fetch,
+        codex_fetch=codex_api,
+        notifier=None,
+        providers={"claude", "codex"},
+        thresholds=(80, 95),
+        reset_notice=False,
+    )
     assert set(out) == {"claude", "codex"}
     assert out["claude"]["limits_source"] == "oauth"
     assert not p.stats_file.exists() and p.state_file.exists()
@@ -583,17 +689,27 @@ def test_pass_returns_the_provider_entries_without_writing_stats(tmp_path):
 
 def make_account(tmp_path, provider="claude", account_id="k7f3a2", name="Work"):
     from limit_rings.accounts import parse_accounts
+
     d = tmp_path / f"home-{account_id}"
     if provider == "claude":
         (d / "projects" / "proj").mkdir(parents=True)
-        (d / ".credentials.json").write_text(json.dumps({"claudeAiOauth": {
-            "accessToken": "other-secret", "expiresAt": int((NOW.timestamp() + 3600) * 1000),
-            "subscriptionType": "max"}}))
+        (d / ".credentials.json").write_text(
+            json.dumps(
+                {
+                    "claudeAiOauth": {
+                        "accessToken": "other-secret",
+                        "expiresAt": int((NOW.timestamp() + 3600) * 1000),
+                        "subscriptionType": "max",
+                    }
+                }
+            )
+        )
     else:
         (d / "sessions").mkdir(parents=True)
         (d / "auth.json").write_text(json.dumps({"tokens": {"access_token": "x", "account_id": "acc"}}))
-    (account,) = parse_accounts(json.dumps([{"id": account_id, "provider": provider, "dir": str(d),
-                                             "name": name}]), tmp_path)
+    (account,) = parse_accounts(
+        json.dumps([{"id": account_id, "provider": provider, "dir": str(d), "name": name}]), tmp_path
+    )
     return account, d
 
 
@@ -614,6 +730,7 @@ def test_additional_accounts_are_collected_separately(tmp_path):
     def fetch(token, timeout=10.0):
         tokens.append(token)
         return ok_fetch(token) if token == "top-secret" else {"five_hour": {"utilization": 77.0, "resets_at": None}}
+
     notices = []
     stats = run(p, NOW, BERLIN, fetch=fetch, codex_fetch=codex_api, notifier=notices.append, accounts=[work, cx])
     assert sorted(tokens) == ["other-secret", "top-secret"]
@@ -621,7 +738,7 @@ def test_additional_accounts_are_collected_separately(tmp_path):
     assert (acc["provider"], acc["name"], acc["dir"], acc["plan"]) == ("claude", "Work", str(work_dir), "max")
     assert [lim["used_percent"] for lim in acc["limits"]] == [77.0]
     assert acc["tokens"]["today"]["output"] == 99
-    assert stats["providers"]["claude"]["tokens"]["today"]["total"] == 0   # main account untouched
+    assert stats["providers"]["claude"]["tokens"]["today"]["total"] == 0  # main account untouched
     assert stats["accounts"]["c0d3x1"]["limits_source"] == "oauth"
     assert stats["accounts"]["c0d3x1"]["auth"]["status"] == "ok"
     assert (p.state_file.parent / "accounts" / f"{work.state_key}.json").exists()
@@ -630,39 +747,49 @@ def test_additional_accounts_are_collected_separately(tmp_path):
 
 def test_changed_directory_starts_with_fresh_state(tmp_path):
     from limit_rings.accounts import parse_accounts
+
     p = make_paths(tmp_path)
     work, work_dir = make_account(tmp_path)
     (work_dir / "projects" / "proj" / "s.jsonl").write_text(claude_line("w1", "2026-10-03T10:00:00Z", out=11) + "\n")
     run(p, NOW, BERLIN, fetch=ok_fetch, accounts=[work])
     _other, other_dir = make_account(tmp_path, account_id="zz9")
     (other_dir / "projects" / "proj" / "s.jsonl").write_text(claude_line("o1", "2026-10-03T11:00:00Z", out=99) + "\n")
-    (moved,) = parse_accounts(json.dumps([{"id": "k7f3a2", "provider": "claude", "dir": str(other_dir),
-                                           "name": "Work"}]), tmp_path)
+    (moved,) = parse_accounts(
+        json.dumps([{"id": "k7f3a2", "provider": "claude", "dir": str(other_dir), "name": "Work"}]), tmp_path
+    )
     stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=ok_fetch, accounts=[moved])
-    assert stats["accounts"]["k7f3a2"]["tokens"]["today"]["output"] == 99   # not 110
+    assert stats["accounts"]["k7f3a2"]["tokens"]["today"]["output"] == 99  # not 110
 
 
 def test_account_notices_name_the_account(tmp_path):
     p = make_paths(tmp_path)
     work, _ = make_account(tmp_path)
     notices = []
-    run(p, NOW, BERLIN, fetch=lambda token, timeout=10.0: {"five_hour": {"utilization": 85.0, "resets_at": None}},
-        notifier=notices.append, accounts=[work])
-    assert sorted(n.summary for n in notices) == ["Claude (Work): 5-hour limit at 85 %",
-                                                  "Claude: 5-hour limit at 85 %"]
+    run(
+        p,
+        NOW,
+        BERLIN,
+        fetch=lambda token, timeout=10.0: {"five_hour": {"utilization": 85.0, "resets_at": None}},
+        notifier=notices.append,
+        accounts=[work],
+    )
+    assert sorted(n.summary for n in notices) == ["Claude (Work): 5-hour limit at 85 %", "Claude: 5-hour limit at 85 %"]
 
 
 def test_rate_limit_in_an_account_pauses_only_that_account(tmp_path):
     import io
     import urllib.error
+
     p = make_paths(tmp_path)
     work, _ = make_account(tmp_path)
 
     def fetch(token, timeout=10.0):
         if token == "other-secret":
-            raise urllib.error.HTTPError("https://example.invalid", 429, "Too Many Requests",
-                                         {"Retry-After": "1800"}, io.BytesIO(b""))
+            raise urllib.error.HTTPError(
+                "https://example.invalid", 429, "Too Many Requests", {"Retry-After": "1800"}, io.BytesIO(b"")
+            )
         return ok_fetch(token)
+
     stats = run(p, NOW, BERLIN, fetch=fetch, accounts=[work])
     assert stats["accounts"]["k7f3a2"]["limits_paused_until"] is not None
     assert stats["providers"]["claude"]["limits_paused_until"] is None
@@ -670,17 +797,25 @@ def test_rate_limit_in_an_account_pauses_only_that_account(tmp_path):
 
 def test_broken_or_missing_accounts_do_not_disturb_the_others(tmp_path, monkeypatch):
     from limit_rings.accounts import parse_accounts
+
     p = make_paths(tmp_path)
     work, _ = make_account(tmp_path)
-    missing, invalid = parse_accounts(json.dumps([
-        {"id": "m1", "provider": "codex", "dir": str(tmp_path / "nowhere"), "name": "Gone"},
-        {"id": "i1", "provider": "gemini", "dir": "/x", "name": "Bad"}]), tmp_path)
+    missing, invalid = parse_accounts(
+        json.dumps(
+            [
+                {"id": "m1", "provider": "codex", "dir": str(tmp_path / "nowhere"), "name": "Gone"},
+                {"id": "i1", "provider": "gemini", "dir": "/x", "name": "Bad"},
+            ]
+        ),
+        tmp_path,
+    )
     real_pass = collect._pass
 
     def flaky(paths, *a, **k):
         if paths.state_file.name == f"{work.state_key}.json":
             raise RuntimeError("boom")
         return real_pass(paths, *a, **k)
+
     (p.state_file.parent / "accounts").mkdir(parents=True)
     (p.state_file.parent / "accounts" / f"{work.state_key}.json").write_text("{}")
     monkeypatch.setattr(collect, "_pass", flaky)
@@ -696,7 +831,7 @@ def test_broken_or_missing_accounts_do_not_disturb_the_others(tmp_path, monkeypa
 
 def test_failed_run_sets_the_account_states_aside_too(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
-    p.credentials.unlink()   # no logins: no network in run_safely's default fetchers
+    p.credentials.unlink()  # no logins: no network in run_safely's default fetchers
     work, work_dir = make_account(tmp_path)
     (work_dir / ".credentials.json").unlink()
     (work_dir / "projects" / "proj" / "s.jsonl").write_text(claude_line("w1", "2026-10-03T10:00:00Z") + "\n")
@@ -706,6 +841,7 @@ def test_failed_run_sets_the_account_states_aside_too(tmp_path, monkeypatch):
         if path == p.stats_file:
             raise OSError("disk full")
         return real(path, obj)
+
     monkeypatch.setattr(collect, "write_json_atomic", failing)
     assert collect.run_safely(p, NOW, BERLIN, None, accounts=[work]) is None
     folder = p.state_file.parent / "accounts"
@@ -715,6 +851,7 @@ def test_failed_run_sets_the_account_states_aside_too(tmp_path, monkeypatch):
 
 def test_hidden_account_states_are_pruned_after_30_days(tmp_path):
     import os
+
     p = make_paths(tmp_path)
     folder = p.state_file.parent / "accounts"
     folder.mkdir(parents=True)
@@ -737,8 +874,12 @@ def test_a_new_window_shows_up_as_a_change(tmp_path):
     later = NOW + timedelta(minutes=6)
     stats = run(p, later, BERLIN, fetch=fetch, notifier=lambda n: True)
     assert stats["providers"]["claude"]["changes"] == [
-        {"kind": "new", "limit": {"id": "seven_day_opus", "window_minutes": 10080, "model": "Opus"},
-         "at": "2026-10-03T19:48:00+02:00"}]
+        {
+            "kind": "new",
+            "limit": {"id": "seven_day_opus", "window_minutes": 10080, "model": "Opus"},
+            "at": "2026-10-03T19:48:00+02:00",
+        }
+    ]
 
 
 def test_entries_say_whether_the_login_is_used(tmp_path):
@@ -751,21 +892,44 @@ def test_entries_say_whether_the_login_is_used(tmp_path):
 
 def write_statusline(p, pct=33.0):
     p.statusline_cache.parent.mkdir(parents=True, exist_ok=True)
-    p.statusline_cache.write_text(json.dumps({"written_at": NOW.timestamp() + 60, "rate_limits": {
-        "five_hour": {"used_percentage": pct, "resets_at": None},
-        "seven_day": {"used_percentage": 10.0, "resets_at": None}}}))
+    p.statusline_cache.write_text(
+        json.dumps(
+            {
+                "written_at": NOW.timestamp() + 60,
+                "rate_limits": {
+                    "five_hour": {"used_percentage": pct, "resets_at": None},
+                    "seven_day": {"used_percentage": 10.0, "resets_at": None},
+                },
+            }
+        )
+    )
 
 
 def test_claude_without_login_never_opens_the_login_and_uses_the_status_line(tmp_path, monkeypatch):
     import limit_rings.collect as collect_mod
+
     p = make_paths(tmp_path)
-    run(p, NOW, BERLIN, fetch=lambda t, timeout=10.0: {**ok_fetch(t), "extra_usage": {
-        "is_enabled": True, "used_credits": 1234, "monthly_limit": 5000, "utilization": 24.68, "currency": "USD"}})
+    run(
+        p,
+        NOW,
+        BERLIN,
+        fetch=lambda t, timeout=10.0: {
+            **ok_fetch(t),
+            "extra_usage": {
+                "is_enabled": True,
+                "used_credits": 1234,
+                "monthly_limit": 5000,
+                "utilization": 24.68,
+                "currency": "USD",
+            },
+        },
+    )
     before = json.loads(p.state_file.read_text())["claude"]
     write_statusline(p)
 
     def forbidden(*a, **k):
         raise AssertionError("the login must not be touched")
+
     for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
         monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
     later = NOW + timedelta(minutes=10)
@@ -775,7 +939,7 @@ def test_claude_without_login_never_opens_the_login_and_uses_the_status_line(tmp
     assert c["limits_source"] == "statusline" and c["extra"] is None
     assert [lim["used_percent"] for lim in c["limits"]] == [33.0, 10.0]
     after = json.loads(p.state_file.read_text())["claude"]
-    assert after["oauth_last_attempt"] == before["oauth_last_attempt"]   # switching back on is unaffected
+    assert after["oauth_last_attempt"] == before["oauth_last_attempt"]  # switching back on is unaffected
     assert after["oauth_pause"] == before["oauth_pause"]
 
 
@@ -785,6 +949,7 @@ def test_claude_without_login_and_without_status_line_has_no_limits(tmp_path):
 
     def forbidden(*a, **k):
         raise AssertionError("must not fetch")
+
     stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=forbidden, login=set())
     assert stats["providers"]["claude"]["limits"] == []
     assert stats["providers"]["claude"]["limits_source"] is None
@@ -792,11 +957,13 @@ def test_claude_without_login_and_without_status_line_has_no_limits(tmp_path):
 
 def test_claude_account_without_login_reads_no_credentials(tmp_path, monkeypatch):
     import limit_rings.collect as collect_mod
+
     p = make_paths(tmp_path)
     work, _ = make_account(tmp_path)
 
     def forbidden(*a, **k):
         raise AssertionError("no Claude login may be touched, neither the main nor the account one")
+
     for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
         monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
     stats = run(p, NOW, BERLIN, fetch=forbidden, accounts=[work], login={"codex"})
@@ -808,6 +975,7 @@ def test_codex_without_login_drops_endpoint_data_and_uses_new_session_logs(tmp_p
     from dataclasses import replace
 
     import limit_rings.collect as collect_mod
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
@@ -815,11 +983,12 @@ def test_codex_without_login_drops_endpoint_data_and_uses_new_session_logs(tmp_p
 
     def forbidden(*a, **k):
         raise AssertionError("the Codex login must not be touched")
+
     monkeypatch.setattr(collect_mod.codex_limits, "read_auth", forbidden)
     later = NOW + timedelta(minutes=10)
     stats = run(p, later, BERLIN, fetch=ok_fetch, codex_fetch=forbidden, login={"claude"})
     x = stats["providers"]["codex"]
-    assert x["login"] is False and x["limits"] == [] and x["extra"] is None   # nothing from the endpoint stays
+    assert x["login"] is False and x["limits"] == [] and x["extra"] is None  # nothing from the endpoint stays
     (p.codex_root / "rollout-b.jsonl").write_text(codex_line("2026-10-03T17:50:00Z", 500) + "\n")
     stats = run(p, later + timedelta(minutes=1), BERLIN, fetch=ok_fetch, codex_fetch=forbidden, login={"claude"})
     x = stats["providers"]["codex"]
@@ -828,12 +997,14 @@ def test_codex_without_login_drops_endpoint_data_and_uses_new_session_logs(tmp_p
 
 def test_codex_account_without_login_reads_no_auth(tmp_path, monkeypatch):
     import limit_rings.collect as collect_mod
+
     p = make_paths(tmp_path)
     cx, cx_dir = make_account(tmp_path, "codex", "c0d3x1", "Team")
     (cx_dir / "sessions" / "rollout-a.jsonl").write_text(codex_line("2026-10-03T17:00:00Z", 300) + "\n")
 
     def forbidden(*a, **k):
         raise AssertionError("the Codex login must not be touched")
+
     monkeypatch.setattr(collect_mod.codex_limits, "read_auth", forbidden)
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=forbidden, accounts=[cx], login={"claude"})
     acc = stats["accounts"]["c0d3x1"]
@@ -843,6 +1014,7 @@ def test_codex_account_without_login_reads_no_auth(tmp_path, monkeypatch):
 
 def test_no_next_request_is_published_for_a_provider_without_login(tmp_path):
     from dataclasses import replace
+
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     cx, _ = make_account(tmp_path, "codex", "c0d3x1", "Team")
@@ -867,31 +1039,56 @@ def test_changes_noticed_via_the_login_go_when_it_is_switched_off(tmp_path):
 
 def test_withhold_login_data_hides_endpoint_data_of_providers_without_login():
     from limit_rings.collect import withhold_login_data
-    oauth = {"limits": [{"id": "five_hour"}], "limits_source": "oauth", "limits_updated_at": "t",
-             "extra": {"kind": "x"}, "plan": "max", "auth": {"status": "ok"}, "changes": [{"kind": "new"}],
-             "login": True, "tokens": {"a": 1},
-             "limits_next_request_at": "t", "limits_paused_until": "t"}
+
+    oauth = {
+        "limits": [{"id": "five_hour"}],
+        "limits_source": "oauth",
+        "limits_updated_at": "t",
+        "extra": {"kind": "x"},
+        "plan": "max",
+        "auth": {"status": "ok"},
+        "changes": [{"kind": "new"}],
+        "login": True,
+        "tokens": {"a": 1},
+        "limits_next_request_at": "t",
+        "limits_paused_until": "t",
+    }
     local = {**oauth, "limits_source": "session_log", "plan": "plus"}
-    stats = {"schema": 2, "providers": {"claude": dict(oauth), "codex": dict(local)},
-             "accounts": {"k1": {**oauth, "provider": "claude"}, "c1": {**oauth, "provider": "codex"}}}
+    stats = {
+        "schema": 2,
+        "providers": {"claude": dict(oauth), "codex": dict(local)},
+        "accounts": {"k1": {**oauth, "provider": "claude"}, "c1": {**oauth, "provider": "codex"}},
+    }
     out = withhold_login_data(stats, {"codex"})
     c = out["providers"]["claude"]
-    assert (c["limits"], c["limits_source"], c["extra"], c["plan"], c["auth"], c["changes"], c["login"]) == \
-        ([], None, None, None, None, [], False)
+    assert (c["limits"], c["limits_source"], c["extra"], c["plan"], c["auth"], c["changes"], c["login"]) == (
+        [],
+        None,
+        None,
+        None,
+        None,
+        [],
+        False,
+    )
     assert c["limits_next_request_at"] is None and c["limits_paused_until"] is None
-    assert c["tokens"] == {"a": 1}                                   # local data stays
-    assert out["providers"]["codex"] == local                         # login on: untouched
+    assert c["tokens"] == {"a": 1}  # local data stays
+    assert out["providers"]["codex"] == local  # login on: untouched
     assert out["accounts"]["k1"]["limits"] == [] and out["accounts"]["k1"]["auth"] is None
     assert out["accounts"]["c1"] == stats["accounts"]["c1"]
     nologin = withhold_login_data(stats, set())
-    assert nologin["providers"]["codex"]["limits"] == [{"id": "five_hour"}]   # session-log limits stay
+    assert nologin["providers"]["codex"]["limits"] == [{"id": "five_hour"}]  # session-log limits stay
     assert nologin["providers"]["codex"]["plan"] == "plus" and nologin["providers"]["codex"]["auth"] is None
     assert withhold_login_data(None, set()) is None
     assert withhold_login_data({"schema": 2}, set()) == {"schema": 2}
-    assert withhold_login_data({"schema": 2, "providers": [1], "accounts": "x"}, set()) == \
-        {"schema": 2, "providers": [1], "accounts": "x"}
-    assert withhold_login_data({"providers": {"claude": 1}, "accounts": {"k": 2}}, set()) == \
-        {"providers": {"claude": 1}, "accounts": {"k": 2}}
+    assert withhold_login_data({"schema": 2, "providers": [1], "accounts": "x"}, set()) == {
+        "schema": 2,
+        "providers": [1],
+        "accounts": "x",
+    }
+    assert withhold_login_data({"providers": {"claude": 1}, "accounts": {"k": 2}}, set()) == {
+        "providers": {"claude": 1},
+        "accounts": {"k": 2},
+    }
 
 
 def test_hidden_provider_without_login_loses_its_endpoint_data(tmp_path):

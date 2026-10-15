@@ -18,7 +18,8 @@ _OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 def get_json(url: str, headers: dict, timeout: float = 10.0):
-    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": f"limit-rings/{VERSION}",
-                                               **headers})
+    req = urllib.request.Request(
+        url, headers={"Accept": "application/json", "User-Agent": f"limit-rings/{VERSION}", **headers}
+    )
     with _OPENER.open(req, timeout=timeout) as resp:
         return json.load(resp)

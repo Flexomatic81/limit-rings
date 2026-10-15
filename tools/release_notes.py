@@ -1,6 +1,6 @@
 """Release helper for CI: checks the tag against metadata.json and prints the CHANGELOG.md section of the version.
 
-    python3 tools/release_notes.py v0.3.0 > notes.md
+python3 tools/release_notes.py v0.3.0 > notes.md
 """
 
 import re

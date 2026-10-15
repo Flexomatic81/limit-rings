@@ -4,11 +4,16 @@ from limit_rings.sources.claude_logs import parse_line, read_events
 
 
 def usage_line(msg_id="msg_1", req="req_1", ts="2026-10-03T17:19:57.005Z", **usage):
-    u = {"input_tokens": 6, "cache_creation_input_tokens": 100,
-         "cache_read_input_tokens": 50, "output_tokens": 7}
+    u = {"input_tokens": 6, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 50, "output_tokens": 7}
     u.update(usage)
-    return json.dumps({"type": "assistant", "timestamp": ts, "requestId": req,
-                       "message": {"id": msg_id, "model": "claude-opus-4-7", "usage": u}})
+    return json.dumps(
+        {
+            "type": "assistant",
+            "timestamp": ts,
+            "requestId": req,
+            "message": {"id": msg_id, "model": "claude-opus-4-7", "usage": u},
+        }
+    )
 
 
 def test_parse_line_maps_usage_fields():
@@ -29,8 +34,12 @@ def test_parse_line_null_fields_count_as_zero():
 
 
 def test_parse_line_rejects_garbage():
-    for bad in ["{broken", "[1]", usage_line(output_tokens="viel"),
-                json.dumps({"timestamp": "2026-10-03T00:00:00Z", "message": {"id": "m", "usage": [1]}})]:
+    for bad in [
+        "{broken",
+        "[1]",
+        usage_line(output_tokens="viel"),
+        json.dumps({"timestamp": "2026-10-03T00:00:00Z", "message": {"id": "m", "usage": [1]}}),
+    ]:
         try:
             parse_line(bad)
         except ValueError:
@@ -42,8 +51,9 @@ def test_read_events_dedupes_repeated_blocks_and_counts_invalid(tmp_path):
     proj = tmp_path / "-home-x-proj"
     (proj / "sess" / "subagents").mkdir(parents=True)
     (proj / "sess.jsonl").write_text(
-        "\n".join([usage_line(), usage_line(), usage_line(msg_id="msg_2"), "{broken",
-                   json.dumps({"type": "user"})]) + "\n")
+        "\n".join([usage_line(), usage_line(), usage_line(msg_id="msg_2"), "{broken", json.dumps({"type": "user"})])
+        + "\n"
+    )
     (proj / "sess" / "subagents" / "agent-a.jsonl").write_text(usage_line(msg_id="msg_3") + "\n")
 
     files, seen = {}, {}
@@ -68,8 +78,7 @@ def test_streaming_snapshots_count_final_usage_within_and_across_runs(tmp_path):
     assert sum(e.cache_write for e in res.events) == 100  # unchanged fields not counted twice
 
     with f.open("a") as fh:
-        fh.write(usage_line(output_tokens=3256, ts="2026-10-04T09:00:00Z") + "\n"
-                 + usage_line(output_tokens=5) + "\n")
+        fh.write(usage_line(output_tokens=3256, ts="2026-10-04T09:00:00Z") + "\n" + usage_line(output_tokens=5) + "\n")
     res2 = read_events(tmp_path, files, seen)
     assert [(e.input, e.output, e.cache_read, e.cache_write) for e in res2.events] == [(0, 2956, 0, 0)]
     assert res2.events[0].ts.isoformat() == "2026-10-03T17:19:57.005000+00:00"  # day of the first line
@@ -135,11 +144,14 @@ def test_pathological_line_is_counted_invalid_and_offsets_advance(tmp_path):
 
 def test_unexpected_parse_error_is_counted_invalid(tmp_path, monkeypatch):
     import limit_rings.sources.claude_logs as mod
+
     real = mod.parse_line
+
     def parse(line):
         if "msg_bad" in line:
             raise OverflowError("extreme timestamp")
         return real(line)
+
     monkeypatch.setattr(mod, "parse_line", parse)
     f = tmp_path / "p" / "s.jsonl"
     f.parent.mkdir()
@@ -150,14 +162,21 @@ def test_unexpected_parse_error_is_counted_invalid(tmp_path, monkeypatch):
 
 def test_model_and_cwd_are_carried_including_streaming_deltas(tmp_path):
     def line(out):
-        return json.dumps({"type": "assistant", "timestamp": "2026-10-03T17:19:57.005Z", "requestId": "r",
-                           "cwd": "/home/user/projects/website/frontend",
-                           "message": {"id": "m", "model": "claude-opus-5-5",
-                                       "usage": {"input_tokens": 1, "output_tokens": out}}})
+        return json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-10-03T17:19:57.005Z",
+                "requestId": "r",
+                "cwd": "/home/user/projects/website/frontend",
+                "message": {"id": "m", "model": "claude-opus-5-5", "usage": {"input_tokens": 1, "output_tokens": out}},
+            }
+        )
+
     f = tmp_path / "p" / "s.jsonl"
     f.parent.mkdir()
     f.write_text(line(8) + "\n" + line(300) + "\n")
     res = read_events(tmp_path, {}, {})
     assert [(e.output, e.model, e.project) for e in res.events] == [
         (8, "claude-opus-5-5", "/home/user/projects/website/frontend"),
-        (292, "claude-opus-5-5", "/home/user/projects/website/frontend")]
+        (292, "claude-opus-5-5", "/home/user/projects/website/frontend"),
+    ]

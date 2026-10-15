@@ -17,16 +17,27 @@ NOW = 1_791_300_000.0
 
 def creds(tmp_path, expires_ms=(NOW + 3600) * 1000):
     p = tmp_path / ".credentials.json"
-    p.write_text(json.dumps({"claudeAiOauth": {"accessToken": "top-secret", "expiresAt": int(expires_ms),
-                                               "subscriptionType": "pro"}}))
+    p.write_text(
+        json.dumps(
+            {"claudeAiOauth": {"accessToken": "top-secret", "expiresAt": int(expires_ms), "subscriptionType": "pro"}}
+        )
+    )
     return p
 
 
 def statusline(tmp_path, written_at, pct=33.0):
     p = tmp_path / "claude-statusline-limits.json"
-    p.write_text(json.dumps({"written_at": written_at, "rate_limits": {
-        "five_hour": {"used_percentage": pct, "resets_at": int(NOW) + 600},
-        "seven_day": {"used_percentage": 10.0, "resets_at": int(NOW) + 86400}}}))
+    p.write_text(
+        json.dumps(
+            {
+                "written_at": written_at,
+                "rate_limits": {
+                    "five_hour": {"used_percentage": pct, "resets_at": int(NOW) + 600},
+                    "seven_day": {"used_percentage": 10.0, "resets_at": int(NOW) + 86400},
+                },
+            }
+        )
+    )
     return p
 
 
@@ -34,45 +45,61 @@ def test_real_response_normalizes():
     """Real response from 2026-10-04 (billing details removed); utilization is in percent."""
     resp = json.loads((FIXTURES / "oauth_usage.json").read_text())
     assert normalize_oauth(resp) == [
-        {"id": "five_hour", "label": "5 h", "used_percent": 1.0,
-         "resets_at": 1791122400, "window_minutes": 300},
-        {"id": "seven_day", "label": "Week", "used_percent": 34.0,
-         "resets_at": 1791259200, "window_minutes": 10080},
-        {"id": "weekly_scoped:fable", "label": "Week Fable", "used_percent": 9.0,
-         "resets_at": 1791259200, "window_minutes": 10080, "model": "Fable"},
+        {"id": "five_hour", "label": "5 h", "used_percent": 1.0, "resets_at": 1791122400, "window_minutes": 300},
+        {"id": "seven_day", "label": "Week", "used_percent": 34.0, "resets_at": 1791259200, "window_minutes": 10080},
+        {
+            "id": "weekly_scoped:fable",
+            "label": "Week Fable",
+            "used_percent": 9.0,
+            "resets_at": 1791259200,
+            "window_minutes": 10080,
+            "model": "Fable",
+        },
     ]
 
 
 def test_scoped_limits_skip_broken_entries_and_duplicates():
-    resp = {"five_hour": {"utilization": 5.0, "resets_at": None},
-            "seven_day_opus": {"utilization": 20.0, "resets_at": None},
-            "limits": [
-                {"kind": "session", "percent": 5},
-                {"kind": "weekly_scoped", "percent": 21, "scope": {"model": {"display_name": "Opus"}}},
-                {"kind": "weekly_scoped", "percent": "lots", "scope": {"model": {"display_name": "Broken"}}},
-                {"kind": "weekly_scoped", "percent": 3, "scope": None},
-                "not an object",
-                {"kind": "weekly_scoped", "percent": 7, "resets_at": None,
-                 "scope": {"model": {"id": None, "display_name": "Sonnet"}}},
-            ]}
+    resp = {
+        "five_hour": {"utilization": 5.0, "resets_at": None},
+        "seven_day_opus": {"utilization": 20.0, "resets_at": None},
+        "limits": [
+            {"kind": "session", "percent": 5},
+            {"kind": "weekly_scoped", "percent": 21, "scope": {"model": {"display_name": "Opus"}}},
+            {"kind": "weekly_scoped", "percent": "lots", "scope": {"model": {"display_name": "Broken"}}},
+            {"kind": "weekly_scoped", "percent": 3, "scope": None},
+            "not an object",
+            {
+                "kind": "weekly_scoped",
+                "percent": 7,
+                "resets_at": None,
+                "scope": {"model": {"id": None, "display_name": "Sonnet"}},
+            },
+        ],
+    }
     assert [(lim["label"], lim["used_percent"]) for lim in normalize_oauth(resp)] == [
-        ("5 h", 5.0), ("Week Opus", 20.0), ("Week Sonnet", 7.0)]
+        ("5 h", 5.0),
+        ("Week Opus", 20.0),
+        ("Week Sonnet", 7.0),
+    ]
 
 
 def test_scoped_limits_alone_are_not_enough():
     try:
-        normalize_oauth({"limits": [{"kind": "weekly_scoped", "percent": 9,
-                                     "scope": {"model": {"display_name": "Fable"}}}]})
+        normalize_oauth(
+            {"limits": [{"kind": "weekly_scoped", "percent": 9, "scope": {"model": {"display_name": "Fable"}}}]}
+        )
     except ValueError:
         return
     raise AssertionError("without five_hour/seven_day the fallback should apply")
 
 
 def test_normalize_oauth_null_reset_and_unknown_windows():
-    resp = {"five_hour": {"utilization": 42.0, "resets_at": "2026-10-03T20:00:00+00:00"},
-            "seven_day": {"utilization": 0.0, "resets_at": None},
-            "seven_day_opus": None,
-            "something_new": {"utilization": 5.0}}
+    resp = {
+        "five_hour": {"utilization": 42.0, "resets_at": "2026-10-03T20:00:00+00:00"},
+        "seven_day": {"utilization": 0.0, "resets_at": None},
+        "seven_day_opus": None,
+        "something_new": {"utilization": 5.0},
+    }
     limits = normalize_oauth(resp)
     assert [lim["id"] for lim in limits] == ["five_hour", "seven_day"]
     assert limits[0]["resets_at"] == 1791057600
@@ -80,8 +107,13 @@ def test_normalize_oauth_null_reset_and_unknown_windows():
 
 
 def test_normalize_oauth_rejects_unknown_shape():
-    for bad in [{"foo": 1}, [], {"five_hour": "x"}, {"five_hour": {}},
-                {"five_hour": {"utilization": None, "resets_at": None}}]:
+    for bad in [
+        {"foo": 1},
+        [],
+        {"five_hour": "x"},
+        {"five_hour": {}},
+        {"five_hour": {"utilization": None, "resets_at": None}},
+    ]:
         try:
             normalize_oauth(bad)
         except ValueError:
@@ -91,8 +123,9 @@ def test_normalize_oauth_rejects_unknown_shape():
 
 def test_normalize_statusline():
     limits = normalize_statusline({"five_hour": {"used_percentage": 12.5, "resets_at": 100}})
-    assert limits == [{"id": "five_hour", "label": "5 h", "used_percent": 12.5,
-                       "resets_at": 100, "window_minutes": 300}]
+    assert limits == [
+        {"id": "five_hour", "label": "5 h", "used_percent": 12.5, "resets_at": 100, "window_minutes": 300}
+    ]
 
 
 def test_read_credentials_expired_token_is_none(tmp_path):
@@ -112,9 +145,11 @@ def test_malformed_credentials_still_allow_fallback(tmp_path):
 
 def test_oauth_success(tmp_path):
     seen = {}
+
     def fetch(token, timeout=10.0):
         seen["token"] = token
         return {"five_hour": {"utilization": 42.0, "resets_at": None}}
+
     rec, attempt, plan = resolve(None, None, NOW, creds(tmp_path), tmp_path / "x", fetch=fetch)
     assert rec["source"] == "oauth" and rec["updated_at"] == NOW
     assert rec["limits"][0]["used_percent"] == 42.0
@@ -124,6 +159,7 @@ def test_oauth_success(tmp_path):
 def _raiser(exc):
     def fetch(token, timeout=10.0):
         raise exc
+
     return fetch
 
 
@@ -137,25 +173,46 @@ def test_http_401_falls_back_to_statusline_and_does_not_log_token(tmp_path, capl
 
 
 def test_timeout_and_unexpected_shape_fall_back(tmp_path):
-    for fetch in [_raiser(TimeoutError()), lambda token, timeout=10.0: {"foo": 1},
-                  lambda token, timeout=10.0: {"five_hour": {}}]:
+    for fetch in [
+        _raiser(TimeoutError()),
+        lambda token, timeout=10.0: {"foo": 1},
+        lambda token, timeout=10.0: {"five_hour": {}},
+    ]:
         rec, _, _ = resolve(None, None, NOW, creds(tmp_path), statusline(tmp_path, NOW - 60), fetch=fetch)
         assert rec["source"] == "statusline"
 
 
 def test_throttle_keeps_fresh_oauth_record_without_fetching(tmp_path):
     prev = {"limits": [], "source": "oauth", "updated_at": NOW - 100}
-    rec, attempt, _ = resolve(prev, NOW - 100, NOW, creds(tmp_path), statusline(tmp_path, NOW - 500),
-                              fetch=_raiser(AssertionError("must not fetch")))
+    rec, attempt, _ = resolve(
+        prev,
+        NOW - 100,
+        NOW,
+        creds(tmp_path),
+        statusline(tmp_path, NOW - 500),
+        fetch=_raiser(AssertionError("must not fetch")),
+    )
     assert rec is prev and attempt == NOW - 100
 
 
 def test_newer_statusline_does_not_replace_healthy_oauth_during_throttle(tmp_path):
-    opus = {"id": "seven_day_opus", "label": "Week Opus", "used_percent": 95.0,
-            "resets_at": None, "window_minutes": 10080, "model": "Opus"}
+    opus = {
+        "id": "seven_day_opus",
+        "label": "Week Opus",
+        "used_percent": 95.0,
+        "resets_at": None,
+        "window_minutes": 10080,
+        "model": "Opus",
+    }
     prev = {"limits": [opus], "source": "oauth", "updated_at": NOW - 100}
-    rec, _, _ = resolve(prev, NOW - 100, NOW, creds(tmp_path), statusline(tmp_path, NOW - 10),
-                        fetch=_raiser(AssertionError("throttled")))
+    rec, _, _ = resolve(
+        prev,
+        NOW - 100,
+        NOW,
+        creds(tmp_path),
+        statusline(tmp_path, NOW - 10),
+        fetch=_raiser(AssertionError("throttled")),
+    )
     assert rec is prev
 
 
@@ -197,8 +254,14 @@ def test_fetch_refuses_redirects():
 
 def test_newer_statusline_beats_older_previous(tmp_path):
     prev = {"limits": [], "source": "oauth", "updated_at": NOW - 3000}
-    rec, _, _ = resolve(prev, NOW - 100, NOW, creds(tmp_path), statusline(tmp_path, NOW - 50),
-                        fetch=_raiser(AssertionError("throttled")))
+    rec, _, _ = resolve(
+        prev,
+        NOW - 100,
+        NOW,
+        creds(tmp_path),
+        statusline(tmp_path, NOW - 50),
+        fetch=_raiser(AssertionError("throttled")),
+    )
     assert rec["source"] == "statusline"
 
 
@@ -209,8 +272,14 @@ def test_no_sources_at_all(tmp_path):
 
 def test_unexpected_exception_falls_back_throttles_and_does_not_log_token(tmp_path, caplog):
     """HTTPException subclasses (IncompleteRead) used to slip through all handlers."""
-    rec, attempt, plan = resolve(None, None, NOW, creds(tmp_path), statusline(tmp_path, NOW - 60),
-                                 fetch=_raiser(http.client.IncompleteRead(b"top-secret")))
+    rec, attempt, plan = resolve(
+        None,
+        None,
+        NOW,
+        creds(tmp_path),
+        statusline(tmp_path, NOW - 60),
+        fetch=_raiser(http.client.IncompleteRead(b"top-secret")),
+    )
     assert rec["source"] == "statusline" and rec["updated_at"] == NOW - 60
     assert attempt == NOW and plan == "pro"
     assert "top-secret" not in caplog.text
@@ -219,9 +288,11 @@ def test_unexpected_exception_falls_back_throttles_and_does_not_log_token(tmp_pa
 
 def test_future_last_attempt_after_clock_jump_does_not_block_oauth(tmp_path):
     calls = []
+
     def fetch(token, timeout=10.0):
         calls.append(token)
         return {"five_hour": {"utilization": 42.0, "resets_at": None}}
+
     rec, attempt, _ = resolve(None, NOW + 3600, NOW, creds(tmp_path), tmp_path / "x", fetch=fetch)
     assert calls == ["top-secret"]
     assert rec["source"] == "oauth" and attempt == NOW
@@ -248,24 +319,30 @@ def test_reset_times_are_rounded_not_truncated():
 
 def test_rate_limit_pauses_oauth_and_uses_the_status_line_meanwhile(tmp_path):
     from limit_rings.sources import backoff
-    err = urllib.error.HTTPError("https://api.anthropic.com/api/oauth/usage", 429, "Too Many Requests",
-                                 {"Retry-After": "3600"}, io.BytesIO(b""))
+
+    err = urllib.error.HTTPError(
+        "https://api.anthropic.com/api/oauth/usage", 429, "Too Many Requests", {"Retry-After": "3600"}, io.BytesIO(b"")
+    )
     pause = backoff.new()
-    rec, attempt, _ = resolve(None, None, NOW, creds(tmp_path), statusline(tmp_path, NOW - 60),
-                              fetch=_raiser(err), pause=pause)
+    rec, attempt, _ = resolve(
+        None, None, NOW, creds(tmp_path), statusline(tmp_path, NOW - 60), fetch=_raiser(err), pause=pause
+    )
     assert rec["source"] == "statusline" and attempt == NOW
     assert pause == {"until": NOW + 3600, "failures": 1}
 
     def forbidden(token, timeout=10.0):
         raise AssertionError("must not fetch during the pause")
-    rec, attempt, _ = resolve(rec, NOW, NOW + 1200, creds(tmp_path), statusline(tmp_path, NOW + 1100),
-                              fetch=forbidden, pause=pause)
+
+    rec, attempt, _ = resolve(
+        rec, NOW, NOW + 1200, creds(tmp_path), statusline(tmp_path, NOW + 1100), fetch=forbidden, pause=pause
+    )
     assert rec["source"] == "statusline" and rec["updated_at"] == NOW + 1100 and attempt == NOW
 
     ok = json.loads((FIXTURES / "oauth_usage.json").read_text())
     login = creds(tmp_path, expires_ms=(NOW + 7200) * 1000)
-    rec, _, _ = resolve(rec, NOW, NOW + 3600, login, statusline(tmp_path, NOW + 1100),
-                        fetch=lambda token, timeout=10.0: ok, pause=pause)
+    rec, _, _ = resolve(
+        rec, NOW, NOW + 3600, login, statusline(tmp_path, NOW + 1100), fetch=lambda token, timeout=10.0: ok, pause=pause
+    )
     assert rec["source"] == "oauth"
     assert pause == backoff.new()
 
@@ -274,8 +351,16 @@ def test_oauth_record_carries_extra_usage_only_when_enabled(tmp_path):
     base = json.loads((FIXTURES / "oauth_usage.json").read_text())
     rec, _, _ = resolve(None, None, NOW, creds(tmp_path), tmp_path / "x", fetch=lambda token, timeout=10.0: base)
     assert "extra" not in rec
-    on = {**base, "extra_usage": {"is_enabled": True, "monthly_limit": 5000, "used_credits": 1234,
-                                  "utilization": 24.68, "currency": "USD"}}
+    on = {
+        **base,
+        "extra_usage": {
+            "is_enabled": True,
+            "monthly_limit": 5000,
+            "used_credits": 1234,
+            "utilization": 24.68,
+            "currency": "USD",
+        },
+    }
     rec, _, _ = resolve(None, None, NOW, creds(tmp_path), tmp_path / "x", fetch=lambda token, timeout=10.0: on)
     assert rec["extra"] == {"kind": "extra_usage", "used": 12.34, "limit": 50.0, "percent": 24.68, "currency": "USD"}
 
@@ -285,11 +370,17 @@ def test_single_windows_and_a_model_limit_without_a_general_weekly_limit():
     week = {"utilization": 30.0, "resets_at": "2026-10-06T04:00:00+00:00"}
     assert [lim["id"] for lim in normalize_oauth({"five_hour": None, "seven_day": week})] == ["seven_day"]
     assert [lim["id"] for lim in normalize_oauth({"five_hour": five, "seven_day": None})] == ["five_hour"]
-    scoped = {"kind": "weekly_scoped", "percent": 9, "resets_at": "2026-10-06T04:00:00+00:00",
-              "scope": {"model": {"display_name": "Fable"}}}
+    scoped = {
+        "kind": "weekly_scoped",
+        "percent": 9,
+        "resets_at": "2026-10-06T04:00:00+00:00",
+        "scope": {"model": {"display_name": "Fable"}},
+    }
     limits = normalize_oauth({"five_hour": five, "seven_day": None, "limits": [scoped]})
     assert [(lim["id"], lim.get("model"), lim["window_minutes"]) for lim in limits] == [
-        ("five_hour", None, 300), ("weekly_scoped:fable", "Fable", 10080)]
+        ("five_hour", None, 300),
+        ("weekly_scoped:fable", "Fable", 10080),
+    ]
 
 
 def test_no_status_line_cache_for_additional_accounts(tmp_path):
@@ -299,6 +390,7 @@ def test_no_status_line_cache_for_additional_accounts(tmp_path):
 
 def test_resolve_local_drops_endpoint_data_and_takes_the_status_line(tmp_path):
     from limit_rings.sources.claude_limits import resolve_local
+
     oauth = {"limits": [], "source": "oauth", "updated_at": 2000.0, "extra": {"kind": "extra_usage"}}
     copy = statusline(tmp_path, 1000.0)
     rec = resolve_local(oauth, copy)

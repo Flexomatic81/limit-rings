@@ -67,8 +67,15 @@ def _read_statusline(path: Path | None) -> dict | None:
     return {"limits": limits, "source": "statusline", "updated_at": written_at}
 
 
-def resolve(previous, last_attempt, now, credentials: Path, statusline_cache: Path | None,
-            fetch=fetch_oauth_usage, pause: dict | None = None):
+def resolve(
+    previous,
+    last_attempt,
+    now,
+    credentials: Path,
+    statusline_cache: Path | None,
+    fetch=fetch_oauth_usage,
+    pause: dict | None = None,
+):
     """pause: back-off state (backoff.new()), updated in place after 429/503 and after a success."""
     pause = backoff.new() if pause is None else pause
     token, plan = read_credentials(credentials, now)

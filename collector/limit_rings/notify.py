@@ -58,8 +58,7 @@ def _countdown(resets_at, now: float) -> str:
 def _early_warning_due(limit: dict, now: float) -> bool:
     fc = limit.get("forecast")
     span = EARLY_WARNING_SPANS.get(limit.get("window_minutes"))
-    return (span is not None and isinstance(fc, dict)
-            and fc.get("status") == "full" and fc["eta"] - now <= span)
+    return span is not None and isinstance(fc, dict) and fc.get("status") == "full" and fc["eta"] - now <= span
 
 
 def _reset_notice(key: str, name: str, limit: dict) -> Notice:
@@ -70,16 +69,22 @@ def _reset_notice(key: str, name: str, limit: dict) -> Notice:
 def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> Notice:
     eta = limit["forecast"]["eta"]
     args = {"provider": name, "limit": _limit_name(limit), "duration": _duration(eta - now)}
-    summary = (_("%(provider)s: %(limit)s full in ~%(duration)s") if eta > now
-               else _("%(provider)s: %(limit)s almost full")) % args
+    summary = (
+        _("%(provider)s: %(limit)s full in ~%(duration)s") if eta > now else _("%(provider)s: %(limit)s almost full")
+    ) % args
     reset = _countdown(limit.get("resets_at"), now)
     body = _("Now %(percent)d %%") % {"percent": round(pct)} + (f" · {reset}" if reset else "")
     return Notice(key=key, level=EARLY_LEVEL, summary=summary, body=body, urgent=False)
 
 
-def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
-                   thresholds: tuple[int, int] = THRESHOLDS, reset_notice: bool = False,
-                   labels: dict[str, str] | None = None) -> list[Notice]:
+def update_notices(
+    providers: dict[str, list[dict]],
+    notified: dict,
+    now: float,
+    thresholds: tuple[int, int] = THRESHOLDS,
+    reset_notice: bool = False,
+    labels: dict[str, str] | None = None,
+) -> list[Notice]:
     """Determine due notifications and record them in notified (key → level + window).
 
     providers maps the display name to its limits in stats.json format (with forecast, if any).
@@ -126,9 +131,19 @@ def update_notices(providers: dict[str, list[dict]], notified: dict, now: float,
                 continue
             notified[key] = {"level": level, "resets_at": resets_at, "minutes": minutes}
             summary = _("%(provider)s: %(limit)s at %(percent)d %%") % {
-                "provider": shown, "limit": _limit_name(limit), "percent": round(pct)}
-            notices.append(Notice(key=key, level=level, summary=summary,
-                                  body=_countdown(resets_at, now), urgent=level >= thresholds[-1]))
+                "provider": shown,
+                "limit": _limit_name(limit),
+                "percent": round(pct),
+            }
+            notices.append(
+                Notice(
+                    key=key,
+                    level=level,
+                    summary=summary,
+                    body=_countdown(resets_at, now),
+                    urgent=level >= thresholds[-1],
+                )
+            )
     given = {name.lower() for name in providers}
     for gone in set(notified) - current:
         if gone.split(":", 1)[0] in given:  # a provider not given (hidden) keeps its entries

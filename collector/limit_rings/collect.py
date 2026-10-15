@@ -95,8 +95,11 @@ def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors, int
 
 def _series(buckets, today) -> dict:
     """The chart's three ranges: 30 days, 13 weeks and 12 months."""
-    return {"daily": aggregate.daily_series(buckets, today), "weekly": aggregate.weekly_series(buckets, today),
-            "monthly": aggregate.monthly_series(buckets, today)}
+    return {
+        "daily": aggregate.daily_series(buckets, today),
+        "weekly": aggregate.weekly_series(buckets, today),
+        "monthly": aggregate.monthly_series(buckets, today),
+    }
 
 
 def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
@@ -104,12 +107,12 @@ def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
     return {"status": status, "expires_at": _iso(expires_at, tz)}
 
 
-def _notify(state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice,
-            labels=None) -> None:
+def _notify(
+    state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice, labels=None
+) -> None:
     if notifier is None:  # notifications off: leave them due, another widget instance may show them
         return
-    for notice in notify.update_notices(providers, state["notified"], now_ts, thresholds, reset_notice,
-                                       labels):
+    for notice in notify.update_notices(providers, state["notified"], now_ts, thresholds, reset_notice, labels):
         try:
             notifier(notice)
         except Exception as e:  # a notification must never abort the run
@@ -135,16 +138,18 @@ def _update_changes(state: dict, providers, now_ts: float) -> None:
     for key in ("claude", "codex"):
         if key in providers:
             section = state[key]
-            section["structure"] = changes.update(section["structure"], section["limits"],
-                                                  _limits_source(key, section["limits"]), now_ts)
+            section["structure"] = changes.update(
+                section["structure"], section["limits"], _limits_source(key, section["limits"]), now_ts
+            )
 
 
 def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float) -> list[dict]:
     out = []
     for limit in map(public_limit, limits):
         entry = history.get(f"{name.lower()}:{limit['id']}")
-        result = (forecast.forecast(entry, limit.get("resets_at"), now_ts, limit.get("window_minutes"))
-                  if entry else None)
+        result = (
+            forecast.forecast(entry, limit.get("resets_at"), now_ts, limit.get("window_minutes")) if entry else None
+        )
         out.append({**limit, "forecast": result} if result else limit)
     return out
 
@@ -152,8 +157,9 @@ def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float)
 def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
     """Breakdown since the start of the Claude weekly window (reset − 7 days), otherwise of the last 7 days."""
     rec = section["limits"]
-    resets = next((lim.get("resets_at") for lim in (rec["limits"] if rec else []) if lim.get("id") == "seven_day"),
-                  None)
+    resets = next(
+        (lim.get("resets_at") for lim in (rec["limits"] if rec else []) if lim.get("id") == "seven_day"), None
+    )
     if resets is not None and resets - 7 * 86400 <= now_ts:
         since, basis = resets - 7 * 86400, "window"
     else:
@@ -211,8 +217,14 @@ def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[li
     plan = None
     try:
         rec, attempt, plan = claude_limits.resolve(
-            section["limits"], section["oauth_last_attempt"], now_ts,
-            paths.credentials, paths.statusline_cache, fetch=fetch, pause=section["oauth_pause"])
+            section["limits"],
+            section["oauth_last_attempt"],
+            now_ts,
+            paths.credentials,
+            paths.statusline_cache,
+            fetch=fetch,
+            pause=section["oauth_pause"],
+        )
         section["limits"], section["oauth_last_attempt"] = rec, attempt
     except Exception as e:
         log.error("Claude limits: unexpected error: %s", type(e).__name__)
@@ -230,12 +242,17 @@ def _process_codex(state, paths, now_ts, tz, fetch, use_login=True) -> list[dict
             section["limits"] = None
         return _process_codex_logs(state, paths, tz)
     errors = _process_codex_logs(state, paths, tz)
-    section = state["codex"]   # _process_codex_logs may have restored a snapshot
+    section = state["codex"]  # _process_codex_logs may have restored a snapshot
     try:
         # The Claude Code plugin writes no session logs: also query the limits directly.
         section["limits"], section["oauth_last_attempt"] = codex_limits.resolve(
-            section["limits"], section["oauth_last_attempt"], now_ts, paths.codex_auth, fetch=fetch,
-            pause=section["oauth_pause"])
+            section["limits"],
+            section["oauth_last_attempt"],
+            now_ts,
+            paths.codex_auth,
+            fetch=fetch,
+            pause=section["oauth_pause"],
+        )
     except Exception as e:
         log.error("Codex limits: unexpected error: %s", type(e).__name__)
         section["oauth_last_attempt"] = now_ts
@@ -253,8 +270,7 @@ def _process_codex_logs(state, paths, tz) -> list[dict]:
             ts = res.limits_ts.timestamp()
             prev = section["limits"]
             if prev is None or ts > prev["updated_at"]:
-                section["limits"] = {"limits": res.limits, "plan": res.plan, "updated_at": ts,
-                                     "source": "session_log"}
+                section["limits"] = {"limits": res.limits, "plan": res.plan, "updated_at": ts, "source": "session_log"}
         return [_unreadable_error(res.unreadable)] if res.unreadable else []
     except Exception:
         log.exception("Codex logs: unexpected error")
@@ -269,8 +285,19 @@ def _fingerprint(state: dict) -> str:
 PROVIDERS = frozenset({"claude", "codex"})
 
 
-def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, providers, thresholds,
-          reset_notice, labels=None, login=PROVIDERS) -> dict:
+def _pass(
+    paths: Paths,
+    now: datetime,
+    tz: tzinfo,
+    fetch,
+    codex_fetch,
+    notifier,
+    providers,
+    thresholds,
+    reset_notice,
+    labels=None,
+    login=PROVIDERS,
+) -> dict:
     """Collect one account from its paths and state file; return its provider entries for stats.json.
 
     A provider missing from providers (hidden in the widget) is neither read nor queried: no logs,
@@ -284,15 +311,16 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     claude_errors, claude_plan = [], None
     if "claude" in providers:
         claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
-    codex_errors = (_process_codex(state, paths, now.timestamp(), tz, codex_fetch, "codex" in login)
-                    if "codex" in providers else [])
+    codex_errors = (
+        _process_codex(state, paths, now.timestamp(), tz, codex_fetch, "codex" in login) if "codex" in providers else []
+    )
     _update_history(state)
     _update_changes(state, providers, now.timestamp())
     with_forecasts = {
         key: _with_forecasts((state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp())
-        for name, key in (("Claude", "claude"), ("Codex", "codex"))}
-    shown = {name: with_forecasts[key] for name, key in (("Claude", "claude"), ("Codex", "codex"))
-             if key in providers}
+        for name, key in (("Claude", "claude"), ("Codex", "codex"))
+    }
+    shown = {name: with_forecasts[key] for name, key in (("Claude", "claude"), ("Codex", "codex")) if key in providers}
     _notify(state, shown, now.timestamp(), notifier, thresholds, reset_notice, labels)
 
     prune_state(state, today)
@@ -302,26 +330,43 @@ def _pass(paths: Paths, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier,
     claude = state["claude"]
     codex = state["codex"]
     entries = {
-        "claude": {**_provider(claude, today, tz, now.timestamp(),
-                               _limits_source("claude", claude["limits"]),
-                               claude_plan, claude_errors, claude_limits.OAUTH_MIN_INTERVAL),
-                   "auth": (_auth(paths.credentials, now.timestamp(), tz)
-                            if "claude" in providers and "claude" in login else None),
-                   "breakdown": _breakdown(claude, now.timestamp(), tz)},
-        "codex": _provider(codex, today, tz, now.timestamp(),
-                           _limits_source("codex", codex["limits"]),
-                           codex["limits"]["plan"] if codex["limits"] else None, codex_errors,
-                           codex_limits.MIN_INTERVAL),
+        "claude": {
+            **_provider(
+                claude,
+                today,
+                tz,
+                now.timestamp(),
+                _limits_source("claude", claude["limits"]),
+                claude_plan,
+                claude_errors,
+                claude_limits.OAUTH_MIN_INTERVAL,
+            ),
+            "auth": (
+                _auth(paths.credentials, now.timestamp(), tz) if "claude" in providers and "claude" in login else None
+            ),
+            "breakdown": _breakdown(claude, now.timestamp(), tz),
+        },
+        "codex": _provider(
+            codex,
+            today,
+            tz,
+            now.timestamp(),
+            _limits_source("codex", codex["limits"]),
+            codex["limits"]["plan"] if codex["limits"] else None,
+            codex_errors,
+            codex_limits.MIN_INTERVAL,
+        ),
     }
     for key in ("claude", "codex"):
         entries[key]["login"] = key in login
-        if key not in login:   # no request will follow, so none is announced (the throttle state stays as it is)
+        if key not in login:  # no request will follow, so none is announced (the throttle state stays as it is)
             entries[key]["limits_next_request_at"] = entries[key]["limits_paused_until"] = None
     for key, limits in with_forecasts.items():
         entries[key]["limits"] = limits
-        entries[key]["changes"] = changes.recent(state[key]["structure"], now.timestamp(), tz,
-                                                local_only=key not in login)
-        if key not in login:   # also a hidden provider, whose state may still hold endpoint data
+        entries[key]["changes"] = changes.recent(
+            state[key]["structure"], now.timestamp(), tz, local_only=key not in login
+        )
+        if key not in login:  # also a hidden provider, whose state may still hold endpoint data
             _strip_login_data(key, entries[key])
     return entries
 
@@ -332,10 +377,10 @@ def _strip_login_data(provider, entry: dict) -> None:
         entry.update(limits=[], limits_source=None, limits_updated_at=None, extra=None)
         entry["plan"] = None
     if provider == "claude":
-        entry["plan"] = None   # the Claude plan name always comes from the login file
+        entry["plan"] = None  # the Claude plan name always comes from the login file
     if "auth" in entry:
         entry["auth"] = None
-    entry["limits_next_request_at"] = entry["limits_paused_until"] = None   # no request will follow
+    entry["limits_next_request_at"] = entry["limits_paused_until"] = None  # no request will follow
     entry["login"] = False
 
 
@@ -360,37 +405,61 @@ def withhold_login_data(stats: dict | None, login) -> dict | None:
 
 def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = True) -> dict:
     """Card data for an account without results (invalid entry, failed pass)."""
-    entry = {"limits": [], "limits_source": None, "limits_updated_at": None, "limits_paused_until": None,
-             "limits_next_request_at": None, "extra": None, "plan": None, "changes": [],
-             "tokens": aggregate.summarize({}, today), **_series({}, today), "errors": errors, "login": login}
+    entry = {
+        "limits": [],
+        "limits_source": None,
+        "limits_updated_at": None,
+        "limits_paused_until": None,
+        "limits_next_request_at": None,
+        "extra": None,
+        "plan": None,
+        "changes": [],
+        "tokens": aggregate.summarize({}, today),
+        **_series({}, today),
+        "errors": errors,
+        "login": login,
+    }
     if provider == "claude":
         entry.update(auth=None, breakdown=None)
     return entry
 
 
-def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, thresholds,
-              reset_notice, login) -> dict:
+def _accounts(
+    accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, thresholds, reset_notice, login
+) -> dict:
     from . import accounts as accounts_mod  # accounts imports Paths from here
+
     out = {}
     today = now.astimezone(tz).date()
     for account in accounts:
         head = {"provider": account.provider, "name": account.name, "dir": account.dir_text}
         if account.error:
-            out[account.id] = {**_empty_entry(account.provider, today, [{"code": account.error}],
-                                              login=account.provider in login), **head}
+            out[account.id] = {
+                **_empty_entry(account.provider, today, [{"code": account.error}], login=account.provider in login),
+                **head,
+            }
             continue
         paths = accounts_mod.account_paths(account, cache)
         try:
-            entry = _pass(paths, now, tz, fetch, codex_fetch, notifier, {account.provider}, thresholds,
-                          reset_notice, labels={accounts_mod.PROVIDER_NAMES[account.provider]: account.label},
-                          login=login)
+            entry = _pass(
+                paths,
+                now,
+                tz,
+                fetch,
+                codex_fetch,
+                notifier,
+                {account.provider},
+                thresholds,
+                reset_notice,
+                labels={accounts_mod.PROVIDER_NAMES[account.provider]: account.label},
+                login=login,
+            )
             entry = entry[account.provider]
         except Exception as e:
             log.error("account %s: run aborted: %s", account.id, type(e).__name__)
             with contextlib.suppress(OSError):
                 os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
-            entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)],
-                                 login=account.provider in login)
+            entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)], login=account.provider in login)
         if account.provider == "codex":
             if account.provider in login:
                 token, _ = codex_limits.read_auth(paths.codex_auth)
@@ -402,33 +471,66 @@ def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fet
     return out
 
 
-def run(paths: Paths, now: datetime, tz: tzinfo, fetch=claude_limits.fetch_oauth_usage,
-        notifier=None, codex_fetch=codex_limits.fetch_usage, providers=PROVIDERS,
-        thresholds=notify.THRESHOLDS, reset_notice=False, accounts=(), login=PROVIDERS) -> dict:
+def run(
+    paths: Paths,
+    now: datetime,
+    tz: tzinfo,
+    fetch=claude_limits.fetch_oauth_usage,
+    notifier=None,
+    codex_fetch=codex_limits.fetch_usage,
+    providers=PROVIDERS,
+    thresholds=notify.THRESHOLDS,
+    reset_notice=False,
+    accounts=(),
+    login=PROVIDERS,
+) -> dict:
     """One pass over the main account and each additional account (see _pass); writes stats.json.
     login: providers whose login may be used (see _pass)."""
-    stats = {"schema": SCHEMA, "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
-             "providers": _pass(paths, now, tz, fetch, codex_fetch, notifier, providers, thresholds,
-                                reset_notice, login=login),
-             "accounts": _accounts(accounts, paths.state_file.parent, now, tz, fetch, codex_fetch, notifier,
-                                   thresholds, reset_notice, login)}
+    stats = {
+        "schema": SCHEMA,
+        "generated_at": now.astimezone(tz).isoformat(timespec="seconds"),
+        "providers": _pass(
+            paths, now, tz, fetch, codex_fetch, notifier, providers, thresholds, reset_notice, login=login
+        ),
+        "accounts": _accounts(
+            accounts, paths.state_file.parent, now, tz, fetch, codex_fetch, notifier, thresholds, reset_notice, login
+        ),
+    }
     write_json_atomic(paths.stats_file, stats)
     return stats
 
 
-def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROVIDERS,
-               thresholds=notify.THRESHOLDS, reset_notice=False, accounts=(), login=PROVIDERS) -> dict | None:
+def run_safely(
+    paths: Paths,
+    now: datetime,
+    tz: tzinfo,
+    notifier,
+    providers=PROVIDERS,
+    thresholds=notify.THRESHOLDS,
+    reset_notice=False,
+    accounts=(),
+    login=PROVIDERS,
+) -> dict | None:
     """One run that never raises: after an unexpected error, state.json and the additional accounts' state
     files are moved aside so the next run starts fresh (their due notices were not delivered)."""
     try:
-        return run(paths, now, tz, notifier=notifier, providers=providers, thresholds=thresholds,
-                   reset_notice=reset_notice, accounts=accounts, login=login)
+        return run(
+            paths,
+            now,
+            tz,
+            notifier=notifier,
+            providers=providers,
+            thresholds=thresholds,
+            reset_notice=reset_notice,
+            accounts=accounts,
+            login=login,
+        )
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
         from . import accounts as accounts_mod
+
         cache = paths.state_file.parent
-        files = [paths.state_file] + [accounts_mod.account_paths(a, cache).state_file for a in accounts
-                                      if not a.error]
+        files = [paths.state_file] + [accounts_mod.account_paths(a, cache).state_file for a in accounts if not a.error]
         for f in files:
             with contextlib.suppress(OSError):
                 os.replace(f, f.with_name(f.name + ".corrupt"))

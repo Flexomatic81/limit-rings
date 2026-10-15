@@ -71,12 +71,17 @@ def parse_accounts(text: str | None, home: Path) -> list[Account]:
         if len(out) >= MAX_ACCOUNTS:
             log.warning("more than %d additional accounts – the rest is ignored", MAX_ACCOUNTS)
             break
-        if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not _ID.fullmatch(item["id"]) \
-                or item["id"] in ids:
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("id"), str)
+            or not _ID.fullmatch(item["id"])
+            or item["id"] in ids
+        ):
             continue
         ids.add(item["id"])
-        provider = item["provider"] if isinstance(item.get("provider"), str) and item["provider"] in PROVIDER_NAMES \
-            else None
+        provider = (
+            item["provider"] if isinstance(item.get("provider"), str) and item["provider"] in PROVIDER_NAMES else None
+        )
         dir_text = item.get("dir") if isinstance(item.get("dir"), str) else ""
         name = item.get("name").strip() if isinstance(item.get("name"), str) else ""
         if not name:
@@ -86,16 +91,23 @@ def parse_accounts(text: str | None, home: Path) -> list[Account]:
         valid = provider is not None and path is not None and path != main and (provider, path) not in dirs
         if valid:
             dirs.add((provider, path))
-        out.append(Account(item["id"], provider, path if valid else None, dir_text, name,
-                           None if valid else "account_invalid"))
+        out.append(
+            Account(item["id"], provider, path if valid else None, dir_text, name, None if valid else "account_invalid")
+        )
     return out
 
 
 def account_paths(account: Account, cache: Path) -> Paths:
     d = account.dir
-    return Paths(claude_root=d / "projects", codex_root=d / "sessions", credentials=d / ".credentials.json",
-                 statusline_cache=None, state_file=cache / "accounts" / f"{account.state_key}.json",
-                 stats_file=cache / "stats.json", codex_auth=d / "auth.json")
+    return Paths(
+        claude_root=d / "projects",
+        codex_root=d / "sessions",
+        credentials=d / ".credentials.json",
+        statusline_cache=None,
+        state_file=cache / "accounts" / f"{account.state_key}.json",
+        stats_file=cache / "stats.json",
+        codex_auth=d / "auth.json",
+    )
 
 
 def prune_account_states(cache: Path, keep_keys: set[str], now: float | None = None, keep_days: int = 30) -> None:

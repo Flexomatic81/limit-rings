@@ -26,14 +26,18 @@ def make_cache(home: Path) -> Path:
     main["codex"]["buckets"] = {"2026-10-02": bucket(i=7)}
     (cache / "state.json").write_text(json.dumps(main))
     (home / ".claude-work").mkdir()
-    [work] = parse_accounts(json.dumps([{"id": "w1", "provider": "claude", "dir": "~/.claude-work",
-                                         "name": "Work"}]), home)
+    [work] = parse_accounts(
+        json.dumps([{"id": "w1", "provider": "claude", "dir": "~/.claude-work", "name": "Work"}]), home
+    )
     side = new_state()
     side["claude"]["buckets"] = {"2026-10-01": bucket(cr=9)}
     (cache / "accounts").mkdir()
     (cache / "accounts" / f"{work.state_key}.json").write_text(json.dumps(side))
-    stats = {"schema": 2, "providers": {"claude": {}, "codex": {}},
-             "accounts": {"w1": {"provider": "claude", "name": "Work", "dir": "~/.claude-work"}}}
+    stats = {
+        "schema": 2,
+        "providers": {"claude": {}, "codex": {}},
+        "accounts": {"w1": {"provider": "claude", "name": "Work", "dir": "~/.claude-work"}},
+    }
     (cache / "stats.json").write_text(json.dumps(stats))
     return cache
 
@@ -45,9 +49,18 @@ def test_rows_cover_main_state_and_shown_accounts_sorted_by_date(tmp_path):
         ("2026-09-30", "claude", None, 5),
         ("2026-10-01", "claude", "Work", 9),
         ("2026-10-02", "claude", None, 10),
-        ("2026-10-02", "codex", None, 7)]
-    assert rows[2] == {"date": "2026-10-02", "provider": "claude", "account": None, "input": 1, "output": 2,
-                       "cache_read": 3, "cache_write": 4, "total": 10}
+        ("2026-10-02", "codex", None, 7),
+    ]
+    assert rows[2] == {
+        "date": "2026-10-02",
+        "provider": "claude",
+        "account": None,
+        "input": 1,
+        "output": 2,
+        "cache_read": 3,
+        "cache_write": 4,
+        "total": 10,
+    }
 
 
 def test_csv_and_json_output_write_nothing(tmp_path, capsys):
@@ -61,21 +74,21 @@ def test_csv_and_json_output_write_nothing(tmp_path, capsys):
     assert export.main(["--export", "--json"], home=tmp_path) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["export_version"] == 1 and len(out["days"]) == 4 and out["days"][0]["account"] is None
-    assert sorted(str(p) for p in cache.rglob("*")) == before   # no log, no lock, no state written
+    assert sorted(str(p) for p in cache.rglob("*")) == before  # no log, no lock, no state written
 
 
 def test_without_cache_only_the_header_and_nothing_created(tmp_path, capsys):
     assert export.main(["--export"], home=tmp_path) == 0
-    assert capsys.readouterr().out.splitlines() == [
-        "date,provider,account,input,output,cache_read,cache_write,total"]
+    assert capsys.readouterr().out.splitlines() == ["date,provider,account,input,output,cache_read,cache_write,total"]
     assert not (tmp_path / ".cache").exists()
 
 
 def test_unreadable_account_entries_and_states_are_skipped(tmp_path):
     cache = make_cache(tmp_path)
     stats = json.loads((cache / "stats.json").read_text())
-    stats["accounts"].update({"bad": {"provider": "claude", "name": "Gone", "dir": "relative/dir"},
-                              "odd": "not a dict"})
+    stats["accounts"].update(
+        {"bad": {"provider": "claude", "name": "Gone", "dir": "relative/dir"}, "odd": "not a dict"}
+    )
     (cache / "stats.json").write_text(json.dumps(stats))
     for f in (cache / "accounts").iterdir():
         f.write_text("{broken")
@@ -84,6 +97,7 @@ def test_unreadable_account_entries_and_states_are_skipped(tmp_path):
 
 def test_run_py_dispatches_export_without_collecting(tmp_path, monkeypatch, capsys):
     import limit_rings.widget as widget_mod
+
     monkeypatch.setattr(widget_mod, "main", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not collect")))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(sys, "argv", [str(RUN_PY), "--export", "--json"])

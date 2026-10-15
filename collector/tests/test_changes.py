@@ -155,10 +155,17 @@ def test_recent_returns_the_last_days_for_stats():
     s = run(s, [five(minutes=180), week(), opus()], T0 + 300)
     out = recent(s, T0 + 600, BERLIN)
     assert out == [
-        {"kind": "length", "limit": {"id": "five_hour", "window_minutes": 180}, "previous_minutes": 300,
-         "at": datetime.fromtimestamp(T0 + 300, BERLIN).isoformat(timespec="seconds")},
-        {"kind": "new", "limit": {"id": "seven_day_opus", "window_minutes": 10080, "model": "Opus"},
-         "at": datetime.fromtimestamp(T0 + 300, BERLIN).isoformat(timespec="seconds")},
+        {
+            "kind": "length",
+            "limit": {"id": "five_hour", "window_minutes": 180},
+            "previous_minutes": 300,
+            "at": datetime.fromtimestamp(T0 + 300, BERLIN).isoformat(timespec="seconds"),
+        },
+        {
+            "kind": "new",
+            "limit": {"id": "seven_day_opus", "window_minutes": 10080, "model": "Opus"},
+            "at": datetime.fromtimestamp(T0 + 300, BERLIN).isoformat(timespec="seconds"),
+        },
     ]
     assert recent(s, T0 + 300 + RECENT + 1, BERLIN) == []
     assert recent(None, T0, BERLIN) == []
@@ -177,6 +184,6 @@ def test_events_remember_their_source_and_local_only_skips_endpoint_ones():
 def test_events_without_a_source_count_as_endpoint_data():
     s = run(None, [five()], T0, source="statusline")
     s = run(s, [five(), week()], T0 + 300, source="statusline")
-    del s["events"][0]["source"]        # written by a collector before events remembered their source
+    del s["events"][0]["source"]  # written by a collector before events remembered their source
     assert recent(s, T0 + 600, BERLIN, local_only=True) == []
     assert [e["kind"] for e in recent(s, T0 + 600, BERLIN)] == ["new"]

@@ -83,8 +83,9 @@ def parse(text: str) -> dict[bytes, bytes]:
             entry[field] += _string(line, lineno)
             continue
         keyword, _, rest = line.partition(" ")
-        if keyword not in KEYWORDS and not (keyword.startswith("msgstr[") and keyword.endswith("]")
-                                            and keyword[7:-1].isdigit()):
+        if keyword not in KEYWORDS and not (
+            keyword.startswith("msgstr[") and keyword.endswith("]") and keyword[7:-1].isdigit()
+        ):
             raise PoError(f"line {lineno}: unknown keyword {keyword!r}")
         if keyword in ("msgctxt", "msgid") and _has_msgstr(entry):
             finish()

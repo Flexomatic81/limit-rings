@@ -29,8 +29,9 @@ LEGACY_TIMER = Path(".config/systemd/user/limit-rings.timer")  # relative to HOM
 def _setup_logging(cache: Path) -> None:
     cache.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(cache, 0o700)
-    handler = logging.handlers.RotatingFileHandler(cache / "collector.log", maxBytes=LOG_BYTES, backupCount=1,
-                                                   encoding="utf-8")
+    handler = logging.handlers.RotatingFileHandler(
+        cache / "collector.log", maxBytes=LOG_BYTES, backupCount=1, encoding="utf-8"
+    )
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
     root.handlers[:] = [handler]
@@ -98,9 +99,19 @@ def reset_notice(value: str | None) -> bool:
     return value == "1"
 
 
-def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], tz: tzinfo, notify: bool = True,
-                 wait: float = LOCK_WAIT, providers=PROVIDERS, thresholds=THRESHOLDS,
-                 reset_notice: bool = False, accounts=(), login=PROVIDERS) -> tuple[dict, int]:
+def collect_once(
+    paths: Paths,
+    lock_file: Path,
+    clock: Callable[[], datetime],
+    tz: tzinfo,
+    notify: bool = True,
+    wait: float = LOCK_WAIT,
+    providers=PROVIDERS,
+    thresholds=THRESHOLDS,
+    reset_notice: bool = False,
+    accounts=(),
+    login=PROVIDERS,
+) -> tuple[dict, int]:
     """Run one pass, after the pass of another instance if that one holds the lock; return envelope and exit code.
 
     Every instance gets its own pass: one that gave up on a busy lock would never see a notice while the other
@@ -125,8 +136,17 @@ def collect_once(paths: Paths, lock_file: Path, clock: Callable[[], datetime], t
         elif not _still_the_lock(fd, lock_file):
             stats = None
         else:
-            stats = run_safely(paths, clock(), tz, notices.append if notify else None, providers=providers,
-                               thresholds=thresholds, reset_notice=reset_notice, accounts=accounts, login=login)
+            stats = run_safely(
+                paths,
+                clock(),
+                tz,
+                notices.append if notify else None,
+                providers=providers,
+                thresholds=thresholds,
+                reset_notice=reset_notice,
+                accounts=accounts,
+                login=login,
+            )
             if stats is None:
                 code = 1
                 notices.clear()  # state.json was not saved: they come again with the next pass
@@ -151,17 +171,27 @@ def main(home: Path | None = None) -> int:
     if legacy_timer(home):
         # e.g. a store install over a git install of 0.2: two writers would overwrite each other's state.
         logging.getLogger("limit_rings").warning("legacy timer %s found – not collecting", LEGACY_TIMER)
-        envelope = {"envelope": ENVELOPE, "error": "legacy-timer",
-                    "stats": withhold_login_data(_read_stats(paths.stats_file), login), "notices": []}
+        envelope = {
+            "envelope": ENVELOPE,
+            "error": "legacy-timer",
+            "stats": withhold_login_data(_read_stats(paths.stats_file), login),
+            "notices": [],
+        }
         code = 0
     else:
         tz = local_zone()
         notify = os.environ.get("LIMIT_RINGS_NOTIFY", "1") != "0"  # set by the widget from its settings
-        envelope, code = collect_once(paths, cache / ".lock", lambda: datetime.now(tz), tz, notify,
-                                      providers=shown_providers(os.environ.get("LIMIT_RINGS_PROVIDERS")),
-                                      thresholds=notice_thresholds(os.environ.get("LIMIT_RINGS_THRESHOLDS")),
-                                      reset_notice=reset_notice(os.environ.get("LIMIT_RINGS_RESET_NOTICE")),
-                                      accounts=parse_accounts(os.environ.get("LIMIT_RINGS_ACCOUNTS"), home),
-                                      login=login)
+        envelope, code = collect_once(
+            paths,
+            cache / ".lock",
+            lambda: datetime.now(tz),
+            tz,
+            notify,
+            providers=shown_providers(os.environ.get("LIMIT_RINGS_PROVIDERS")),
+            thresholds=notice_thresholds(os.environ.get("LIMIT_RINGS_THRESHOLDS")),
+            reset_notice=reset_notice(os.environ.get("LIMIT_RINGS_RESET_NOTICE")),
+            accounts=parse_accounts(os.environ.get("LIMIT_RINGS_ACCOUNTS"), home),
+            login=login,
+        )
     sys.stdout.write(json.dumps(envelope, ensure_ascii=True, separators=(",", ":")) + "\n")
     return code

@@ -7,9 +7,9 @@ the collector state ({"until": epoch | None, "failures": int}) and so survives b
 
 from email.utils import parsedate_to_datetime
 
-MIN_PAUSE = 300           # never shorter than the regular request interval
-MAX_PAUSE = 6 * 3600      # a strange header must not silence the widget for days
-_GROWING = (600, 1200, 2400, 3600)   # without Retry-After: 10, 20, 40, then 60 minutes
+MIN_PAUSE = 300  # never shorter than the regular request interval
+MAX_PAUSE = 6 * 3600  # a strange header must not silence the widget for days
+_GROWING = (600, 1200, 2400, 3600)  # without Retry-After: 10, 20, 40, then 60 minutes
 
 
 def new() -> dict:

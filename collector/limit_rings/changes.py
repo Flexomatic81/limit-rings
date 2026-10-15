@@ -8,28 +8,45 @@ from datetime import datetime, tzinfo
 
 from .limits import RESET_TOLERANCE, public_limit, same_window
 
-GONE_AFTER = 3600            # a window counts as gone once it has been missing for this long
-KEEP_EVENTS = 30 * 86400     # how long changes stay in the state file
+GONE_AFTER = 3600  # a window counts as gone once it has been missing for this long
+KEEP_EVENTS = 30 * 86400  # how long changes stay in the state file
 MAX_EVENTS = 20
-RECENT = 3 * 86400           # how long the card shows a change
-LOCAL_SOURCES = frozenset({"statusline", "session_log"})   # limits read without the login
+RECENT = 3 * 86400  # how long the card shows a change
+LOCAL_SOURCES = frozenset({"statusline", "session_log"})  # limits read without the login
 
 
 def _event(kind: str, limit: dict, at: float, source: str | None, **extra) -> dict:
-    return {"kind": kind, "id": limit["id"], "minutes": limit.get("window_minutes"),
-            "model": public_limit(limit).get("model"), "at": at, "source": source, **extra}
+    return {
+        "kind": kind,
+        "id": limit["id"],
+        "minutes": limit.get("window_minutes"),
+        "model": public_limit(limit).get("model"),
+        "at": at,
+        "source": source,
+        **extra,
+    }
 
 
 def _window(limit: dict, at: float) -> dict:
-    return {"minutes": limit.get("window_minutes"), "model": public_limit(limit).get("model"),
-            "resets_at": limit.get("resets_at"), "used": limit["used_percent"], "seen": at, "missing": None}
+    return {
+        "minutes": limit.get("window_minutes"),
+        "model": public_limit(limit).get("model"),
+        "resets_at": limit.get("resets_at"),
+        "used": limit["used_percent"],
+        "seen": at,
+        "missing": None,
+    }
 
 
 def _reset_early(prev: dict, limit: dict, at: float) -> bool:
     """A new window although the previous one still had more than the API's rounding to go."""
     resets = prev["resets_at"]
-    return (resets is not None and not same_window(resets, limit.get("resets_at"))
-            and at < resets - RESET_TOLERANCE and limit["used_percent"] < prev["used"])
+    return (
+        resets is not None
+        and not same_window(resets, limit.get("resets_at"))
+        and at < resets - RESET_TOLERANCE
+        and limit["used_percent"] < prev["used"]
+    )
 
 
 def update(structure: dict | None, rec: dict | None, source: str | None, now: float) -> dict | None:
@@ -71,8 +88,16 @@ def update(structure: dict | None, rec: dict | None, source: str | None, now: fl
         if win["missing"] is None:
             win["missing"] = at
         if at - win["missing"] >= GONE_AFTER:
-            events.append({"kind": "gone", "id": lid, "minutes": win["minutes"], "model": win["model"],
-                           "at": win["missing"], "source": structure["source"]})
+            events.append(
+                {
+                    "kind": "gone",
+                    "id": lid,
+                    "minutes": win["minutes"],
+                    "model": win["model"],
+                    "at": win["missing"],
+                    "source": structure["source"],
+                }
+            )
             gone[lid] = {"at": win["missing"]}
             del windows[lid]
     structure["updated_at"] = at

@@ -15,8 +15,8 @@ from .i18n import _
 from .notify import _duration, _limit_name
 
 STATUS_VERSION = 1
-STALE_AFTER = 300            # seconds without a collector pass (the widget runs it every 60 s)
-WARN, CRIT = 70, 90          # the widget's default thresholds; its own settings are not known here
+STALE_AFTER = 300  # seconds without a collector pass (the widget runs it every 60 s)
+WARN, CRIT = 70, 90  # the widget's default thresholds; its own settings are not known here
 NAMES = {"claude": "Claude", "codex": "Codex"}
 LETTERS = {"claude": "C", "codex": "X"}
 
@@ -45,9 +45,16 @@ def _limit(limit: dict, now: float) -> dict:
         fc = {"status": "enough"}
     else:
         fc = None
-    return {"id": limit.get("id"), "window_minutes": limit.get("window_minutes"), "model": limit.get("model"),
-            "used_percent": used, "remaining_percent": max(0.0, 100.0 - used), "resets_at": _iso(resets),
-            "reset": reset, "forecast": fc}
+    return {
+        "id": limit.get("id"),
+        "window_minutes": limit.get("window_minutes"),
+        "model": limit.get("model"),
+        "used_percent": used,
+        "remaining_percent": max(0.0, 100.0 - used),
+        "resets_at": _iso(resets),
+        "reset": reset,
+        "forecast": fc,
+    }
 
 
 def _entry(entry_id: str, provider: str, entry: dict, now: float, account: dict | None) -> dict:
@@ -55,10 +62,17 @@ def _entry(entry_id: str, provider: str, entry: dict, now: float, account: dict 
     if account is not None:
         name = f"{name} ({account['name']})"
     limits = entry.get("limits") if isinstance(entry.get("limits"), list) else []
-    return {"id": entry_id, "provider": provider, "name": name, "account": account, "plan": entry.get("plan"),
-            "login": entry.get("login", True), "limits_source": entry.get("limits_source"),
-            "limits_updated_at": entry.get("limits_updated_at"),
-            "limits": [_limit(lim, now) for lim in limits if isinstance(lim, dict)]}
+    return {
+        "id": entry_id,
+        "provider": provider,
+        "name": name,
+        "account": account,
+        "plan": entry.get("plan"),
+        "login": entry.get("login", True),
+        "limits_source": entry.get("limits_source"),
+        "limits_updated_at": entry.get("limits_updated_at"),
+        "limits": [_limit(lim, now) for lim in limits if isinstance(lim, dict)],
+    }
 
 
 def build(stats: dict | None, now: float) -> dict:
@@ -74,8 +88,12 @@ def build(stats: dict | None, now: float) -> dict:
             account = {"name": str(entry.get("name") or ""), "dir": entry.get("dir")}
             entries.append(_entry(key, entry["provider"], entry, now, account))
     age = _age(stats.get("generated_at"), now)
-    return {"status_version": STATUS_VERSION, "generated_at": stats.get("generated_at"),
-            "stale": age is None or age > STALE_AFTER, "providers": entries}
+    return {
+        "status_version": STATUS_VERSION,
+        "generated_at": stats.get("generated_at"),
+        "stale": age is None or age > STALE_AFTER,
+        "providers": entries,
+    }
 
 
 def _line(name: str, limit: dict, now: float) -> str:
@@ -90,8 +108,11 @@ def _line(name: str, limit: dict, now: float) -> str:
     fc = limit["forecast"]
     if fc and fc["status"] == "full":
         eta = _age(fc["eta"], now)
-        parts.append(_("full in ~%(duration)s") % {"duration": _duration(-eta)} if eta is not None and eta < 0
-                     else _("full soon"))
+        parts.append(
+            _("full in ~%(duration)s") % {"duration": _duration(-eta)}
+            if eta is not None and eta < 0
+            else _("full soon")
+        )
     elif fc:
         parts.append(_("lasts until reset"))
     return head + " · ".join(parts)
@@ -107,8 +128,12 @@ def waybar(status: dict, now: float | None = None) -> dict:
     """Status → a Waybar custom module ("return-type": "json")."""
     now = time.time() if now is None else now
     if not status["providers"]:
-        return {"text": "–", "tooltip": _("No data – is the Limit Rings widget running?"), "class": ["stale"],
-                "percentage": 0}
+        return {
+            "text": "–",
+            "tooltip": _("No data – is the Limit Rings widget running?"),
+            "class": ["stale"],
+            "percentage": 0,
+        }
     texts, lines, highest, warning = [], [], 0.0, False
     for entry in status["providers"]:
         used = [lim["used_percent"] for lim in entry["limits"]]
@@ -117,8 +142,12 @@ def waybar(status: dict, now: float | None = None) -> dict:
         warning = warning or any(lim["forecast"] and lim["forecast"]["status"] == "full" for lim in entry["limits"])
         lines += [_line(entry["name"], lim, now) for lim in entry["limits"]]
     level = "critical" if highest >= CRIT else "warning" if highest >= WARN or warning else "normal"
-    return {"text": " · ".join(texts), "tooltip": "\n".join(lines),
-            "class": [level] + (["stale"] if status["stale"] else []), "percentage": round(highest)}
+    return {
+        "text": " · ".join(texts),
+        "tooltip": "\n".join(lines),
+        "class": [level] + (["stale"] if status["stale"] else []),
+        "percentage": round(highest),
+    }
 
 
 def main(argv: list[str], home: Path | None = None, now: float | None = None) -> int:

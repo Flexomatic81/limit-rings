@@ -100,8 +100,7 @@ WEEK_RESET = T0 + 5 * 86400
 
 
 def week_at(pct):
-    return {"id": "seven_day", "label": "Week", "used_percent": pct, "resets_at": WEEK_RESET,
-            "window_minutes": 10080}
+    return {"id": "seven_day", "label": "Week", "used_percent": pct, "resets_at": WEEK_RESET, "window_minutes": 10080}
 
 
 def test_week_forecast_uses_last_24_hours():
@@ -110,8 +109,7 @@ def test_week_forecast_uses_last_24_hours():
     feed(h, [(0, 0.0), (6 * 3600, 20.0), (30 * 3600, 44.0)], limit_factory=week_at)
     now = T0 + 30 * 3600
     # point at 0 h is older than 24 h and is dropped; 56 % to go at 1 %/h → 56 h
-    assert forecast(h["claude:seven_day"], WEEK_RESET + 86400, now, 10080) == {
-        "status": "full", "eta": now + 56 * 3600}
+    assert forecast(h["claude:seven_day"], WEEK_RESET + 86400, now, 10080) == {"status": "full", "eta": now + 56 * 3600}
     # it would be full 86 h after T0; a reset after just 80 h comes first
     assert forecast(h["claude:seven_day"], T0 + 80 * 3600, now, 10080) == {"status": "enough"}
 

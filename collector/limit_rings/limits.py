@@ -135,8 +135,15 @@ def _scoped_limits(entries) -> list[dict]:
             name = entry["scope"]["model"]["display_name"]
             if not isinstance(name, str) or not name:
                 continue
-            out.append(make_limit(f"weekly_scoped:{name.lower()}", entry.get("percent"),
-                                  _iso_to_epoch(entry.get("resets_at")), 10080, name))
+            out.append(
+                make_limit(
+                    f"weekly_scoped:{name.lower()}",
+                    entry.get("percent"),
+                    _iso_to_epoch(entry.get("resets_at")),
+                    10080,
+                    name,
+                )
+            )
         except (AttributeError, KeyError, TypeError, ValueError):
             continue
     return out
@@ -187,10 +194,13 @@ def normalize_extra_usage(resp) -> dict | None:
     if not _amount(percent):
         percent = min(100.0, extra["used_credits"] / limit * 100) if limit else None
     currency = extra.get("currency")
-    return {"kind": "extra_usage", "used": extra["used_credits"] / 100,
-            "limit": limit / 100 if limit is not None else None,
-            "percent": float(percent) if percent is not None else None,
-            "currency": currency if isinstance(currency, str) and currency else "USD"}
+    return {
+        "kind": "extra_usage",
+        "used": extra["used_credits"] / 100,
+        "limit": limit / 100 if limit is not None else None,
+        "percent": float(percent) if percent is not None else None,
+        "currency": currency if isinstance(currency, str) and currency else "USD",
+    }
 
 
 def normalize_codex_credits(resp) -> dict | None:

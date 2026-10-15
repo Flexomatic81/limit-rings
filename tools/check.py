@@ -129,12 +129,27 @@ def plan_step(name: str, env: Env) -> Step:
         shellcheck = _python_tool("shellcheck", "shellcheck-py", env)
         return Step(name, [*shellcheck, *_shell_files()] if shellcheck else None, missing="shellcheck")
     if name == "pytest":
-        args = ["-q", "--cov=limit_rings", f"--cov-fail-under={COVERAGE_FLOOR}",
-                "--cov-report=term-missing:skip-covered"]
+        args = [
+            "-q",
+            "--cov=limit_rings",
+            f"--cov-fail-under={COVERAGE_FLOOR}",
+            "--cov-report=term-missing:skip-covered",
+        ]
         command: list[str] | None = None
         if env.use_uv:
-            command = ["uv", "run", "--no-project", "--with", f"pytest=={env.pins['pytest']}",
-                       "--with", f"pytest-cov=={env.pins['pytest-cov']}", "python", "-m", "pytest", *args]
+            command = [
+                "uv",
+                "run",
+                "--no-project",
+                "--with",
+                f"pytest=={env.pins['pytest']}",
+                "--with",
+                f"pytest-cov=={env.pins['pytest-cov']}",
+                "python",
+                "-m",
+                "pytest",
+                *args,
+            ]
         elif env.has_module("pytest") and env.has_module("pytest_cov"):
             command = [sys.executable, "-m", "pytest", *args]
         return Step(name, command, cwd=ROOT / "collector", missing="pytest or pytest-cov")
@@ -149,8 +164,9 @@ def plan_step(name: str, env: Env) -> Step:
     raise ValueError(f"unknown step: {name}")
 
 
-def run_steps(steps: Sequence[Step], env: Env,
-              runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run) -> dict[str, tuple[str, str]]:
+def run_steps(
+    steps: Sequence[Step], env: Env, runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run
+) -> dict[str, tuple[str, str]]:
     """Runs every step, also after a failure → {name: (passed|failed|skipped, detail)}."""
     results: dict[str, tuple[str, str]] = {}
     for step in steps:
@@ -175,6 +191,7 @@ def run_steps(steps: Sequence[Step], env: Env,
 
 def install_hook(root: Path) -> int:
     """Points git at tools/hooks – unless the hooks directory holds hooks of its own, which would stop running."""
+
     def git(*args: str) -> str:
         return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
 
@@ -182,11 +199,17 @@ def install_hook(root: Path) -> int:
         print("The pre-commit hook is already active.")
         return 0
     hooks = root / git("rev-parse", "--git-path", "hooks")
-    own = sorted(p.name for p in hooks.iterdir() if p.is_file() and not p.name.endswith(".sample")) \
-        if hooks.is_dir() else []
+    own = (
+        sorted(p.name for p in hooks.iterdir() if p.is_file() and not p.name.endswith(".sample"))
+        if hooks.is_dir()
+        else []
+    )
     if own:
-        print(f"Nothing changed: {hooks} holds hooks of its own ({', '.join(own)}) that would stop running. "
-              "Call 'python3 tools/check.py fast' from your pre-commit hook instead.", file=sys.stderr)
+        print(
+            f"Nothing changed: {hooks} holds hooks of its own ({', '.join(own)}) that would stop running. "
+            "Call 'python3 tools/check.py fast' from your pre-commit hook instead.",
+            file=sys.stderr,
+        )
         return 1
     git("config", "core.hooksPath", "tools/hooks")
     print("Pre-commit hook active: the fast checks run before every commit ('git commit --no-verify' skips them).")

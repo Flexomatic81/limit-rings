@@ -24,11 +24,7 @@ def read_new_lines(path: Path, file_state: dict | None) -> tuple[list[str], dict
     if end < 0:
         return [], {"offset": offset, "inode": st.st_ino}
 
-    lines = [
-        raw.decode("utf-8", errors="replace")
-        for raw in data[: end + 1].split(b"\n")
-        if raw.strip()
-    ]
+    lines = [raw.decode("utf-8", errors="replace") for raw in data[: end + 1].split(b"\n") if raw.strip()]
     return lines, {"offset": offset + end + 1, "inode": st.st_ino}
 
 

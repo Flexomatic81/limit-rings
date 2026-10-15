@@ -59,22 +59,22 @@ def test_load_state_rejects_wrong_shapes(tmp_path):
     good_limits = {"limits": [], "source": "oauth", "updated_at": 1.0}
     bad_states = [
         _state_with("claude", seen=None),
-        _state_with("claude", seen={"a|b": {"u": [1, 2, 3, 4]}}),                       # without ts
-        _state_with("claude", seen={"a|b": {"ts": "x", "u": [1, 2, 3]}}),               # u too short
+        _state_with("claude", seen={"a|b": {"u": [1, 2, 3, 4]}}),  # without ts
+        _state_with("claude", seen={"a|b": {"ts": "x", "u": [1, 2, 3]}}),  # u too short
         _state_with("claude", seen={"a|b": {"ts": "x", "u": [1, 2, 3, "4"]}}),
         _state_with("claude", seen={"a|b": "broken"}),
         _state_with("claude", files=[]),
         _state_with("claude", buckets=None),
-        _state_with("claude", limits={"limits": []}),                                    # without updated_at
+        _state_with("claude", limits={"limits": []}),  # without updated_at
         _state_with("claude", limits={"limits": [], "updated_at": "yesterday"}),
-        _state_with("claude", limits={"updated_at": 1.0}),                               # without limits
+        _state_with("claude", limits={"updated_at": 1.0}),  # without limits
         _state_with("claude", oauth_last_attempt="now"),
         _state_with("claude", oauth_pause=None),
         _state_with("claude", limits={"limits": [], "updated_at": 1.0, "extra": "lots"}),
         _state_with("codex", oauth_pause={"until": "soon", "failures": 1}),
         _state_with("codex", oauth_pause={"until": None, "failures": -1}),
         _state_with("codex", oauth_pause={"until": None}),
-        _state_with("codex", sessions={"s": {"total": 1}}),                              # without day
+        _state_with("codex", sessions={"s": {"total": 1}}),  # without day
         _state_with("codex", sessions={"s": {"total": "1", "day": "2026-10-01"}}),
         _state_with("codex", sessions=None),
         _state_with("codex", limits={"limits": None, "updated_at": 1.0}),
@@ -83,10 +83,12 @@ def test_load_state_rejects_wrong_shapes(tmp_path):
         p.write_text(json.dumps(bad))
         assert load_state(p) == new_state(), bad
     ok = new_state()
-    ok["claude"].update(seen={"a|b": good_seen}, limits=good_limits, oauth_last_attempt=5.0,
-                        oauth_pause={"until": 9.0, "failures": 2})
-    ok["codex"].update(sessions={"s": {"total": 1, "day": "2026-10-01"}},
-                       limits={"limits": [], "plan": None, "updated_at": 2})
+    ok["claude"].update(
+        seen={"a|b": good_seen}, limits=good_limits, oauth_last_attempt=5.0, oauth_pause={"until": 9.0, "failures": 2}
+    )
+    ok["codex"].update(
+        sessions={"s": {"total": 1, "day": "2026-10-01"}}, limits={"limits": [], "plan": None, "updated_at": 2}
+    )
     p.write_text(json.dumps(ok))
     assert load_state(p) == ok
 
@@ -103,16 +105,23 @@ def test_notified_section_defaults_and_validation(tmp_path):
     del old["notified"]
     p.write_text(json.dumps(old))
     assert load_state(p)["notified"] == {}
-    for bad in [None, [], {"claude:five_hour": None}, {"claude:five_hour": {"level": "80", "resets_at": None}},
-                {"claude:five_hour": {"level": 80, "resets_at": "tomorrow"}},
-                {"claude:five_hour": {"level": 80, "resets_at": None, "minutes": "5 h"}}]:
+    for bad in [
+        None,
+        [],
+        {"claude:five_hour": None},
+        {"claude:five_hour": {"level": "80", "resets_at": None}},
+        {"claude:five_hour": {"level": 80, "resets_at": "tomorrow"}},
+        {"claude:five_hour": {"level": 80, "resets_at": None, "minutes": "5 h"}},
+    ]:
         s = new_state()
         s["notified"] = bad
         p.write_text(json.dumps(s))
         assert load_state(p) == new_state()
     good = new_state()
-    good["notified"] = {"claude:five_hour": {"level": 95, "resets_at": 1791122400},
-                        "codex:primary": {"level": 80, "resets_at": None, "minutes": 10080}}
+    good["notified"] = {
+        "claude:five_hour": {"level": 95, "resets_at": 1791122400},
+        "codex:primary": {"level": 80, "resets_at": None, "minutes": 10080},
+    }
     p.write_text(json.dumps(good))
     assert load_state(p) == good
 
@@ -123,17 +132,23 @@ def test_history_section_defaults_and_validation(tmp_path):
     del old["history"]
     p.write_text(json.dumps(old))
     assert load_state(p)["history"] == {}
-    for bad in [None, {"claude:five_hour": None}, {"claude:five_hour": {"resets_at": None, "points": None}},
-                {"claude:five_hour": {"resets_at": None, "points": [[1, "x"]]}},
-                {"claude:five_hour": {"resets_at": None, "points": [[1]]}},
-                {"claude:five_hour": {"resets_at": None, "minutes": 3.5, "points": []}}]:
+    for bad in [
+        None,
+        {"claude:five_hour": None},
+        {"claude:five_hour": {"resets_at": None, "points": None}},
+        {"claude:five_hour": {"resets_at": None, "points": [[1, "x"]]}},
+        {"claude:five_hour": {"resets_at": None, "points": [[1]]}},
+        {"claude:five_hour": {"resets_at": None, "minutes": 3.5, "points": []}},
+    ]:
         s = new_state()
         s["history"] = bad
         p.write_text(json.dumps(s))
         assert load_state(p) == new_state()
     good = new_state()
-    good["history"] = {"claude:five_hour": {"resets_at": 1791122400, "points": [[1791100000.5, 10.0]]},
-                       "codex:primary": {"resets_at": None, "minutes": 300, "points": []}}
+    good["history"] = {
+        "claude:five_hour": {"resets_at": 1791122400, "points": [[1791100000.5, 10.0]]},
+        "codex:primary": {"resets_at": None, "minutes": 300, "points": []},
+    }
     p.write_text(json.dumps(good))
     assert load_state(p) == good
 
@@ -149,8 +164,12 @@ def test_old_state_without_hourly_requests_a_backfill(tmp_path):
     assert loaded["claude"]["hourly"] == {} and loaded["claude"]["hourly_backfill"] is True
     assert loaded["claude"]["seen"] == old["claude"]["seen"]  # the rest is kept
     assert new_state()["claude"]["hourly_backfill"] is False
-    for bad in [None, {"1791100800": None}, {"1791100800": {"p": {}, "m": None}},
-                {"1791100800": {"p": {"website": "x"}, "m": {}}}]:
+    for bad in [
+        None,
+        {"1791100800": None},
+        {"1791100800": {"p": {}, "m": None}},
+        {"1791100800": {"p": {"website": "x"}, "m": {}}},
+    ]:
         s = new_state()
         s["claude"]["hourly"] = bad
         p.write_text(json.dumps(s))
@@ -163,9 +182,12 @@ def test_structure_section_defaults_and_a_broken_one_is_dropped_alone(tmp_path):
     del old["claude"]["structure"], old["codex"]["structure"]
     p.write_text(json.dumps(old))
     assert load_state(p) == new_state()
-    for bad in ["x", {"source": "oauth"}, {"source": "oauth", "updated_at": 1, "windows": {}, "gone": {},
-                                            "events": [{"kind": "new"}]},
-                {"source": "oauth", "updated_at": 1, "windows": {"a": None}, "gone": {}, "events": []}]:
+    for bad in [
+        "x",
+        {"source": "oauth"},
+        {"source": "oauth", "updated_at": 1, "windows": {}, "gone": {}, "events": [{"kind": "new"}]},
+        {"source": "oauth", "updated_at": 1, "windows": {"a": None}, "gone": {}, "events": []},
+    ]:
         s = new_state()
         s["claude"]["buckets"] = {"2026-10-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0}}
         s["claude"]["structure"] = bad
@@ -175,11 +197,21 @@ def test_structure_section_defaults_and_a_broken_one_is_dropped_alone(tmp_path):
         assert loaded["claude"]["buckets"] == s["claude"]["buckets"]  # the rest of the state is kept
     good = new_state()
     good["codex"]["structure"] = {
-        "source": "oauth", "updated_at": 1791100000.5,
-        "windows": {"primary": {"minutes": 300, "model": None, "resets_at": None, "used": 3.0, "seen": 1791100000.5,
-                                "missing": None}},
+        "source": "oauth",
+        "updated_at": 1791100000.5,
+        "windows": {
+            "primary": {
+                "minutes": 300,
+                "model": None,
+                "resets_at": None,
+                "used": 3.0,
+                "seen": 1791100000.5,
+                "missing": None,
+            }
+        },
         "gone": {"secondary": {"at": 1791000000}},
-        "events": [{"kind": "gone", "id": "secondary", "minutes": 10080, "model": None, "at": 1791000000}]}
+        "events": [{"kind": "gone", "id": "secondary", "minutes": 10080, "model": None, "at": 1791000000}],
+    }
     p.write_text(json.dumps(good))
     assert load_state(p) == good
 

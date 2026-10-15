@@ -13,10 +13,10 @@ from .limits import same_limit_window
 @dataclass(frozen=True)
 class Profile:
     rate_span: int  # span the pace is computed from
-    min_span: int   # minimum span of the data points for a forecast
-    keep: int       # how long points are kept
-    max_age: int    # maximum age of the newest point
-    min_gap: int    # minimum gap between stored points
+    min_span: int  # minimum span of the data points for a forecast
+    keep: int  # how long points are kept
+    max_age: int  # maximum age of the newest point
+    min_gap: int  # minimum gap between stored points
 
 
 PROFILES = {
@@ -47,7 +47,8 @@ def update_history(history: dict, providers: dict[str, tuple[list[dict], float |
             entry["minutes"] = limit.get("window_minutes")
             points = entry["points"]
             newer = updated_at is not None and (
-                not points or (updated_at > points[-1][0] and updated_at - points[-1][0] >= profile.min_gap))
+                not points or (updated_at > points[-1][0] and updated_at - points[-1][0] >= profile.min_gap)
+            )
             if newer:
                 points.append([updated_at, limit["used_percent"]])
             if points:

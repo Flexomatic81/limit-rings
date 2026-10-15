@@ -12,8 +12,15 @@ def limit(id="five_hour", pct=82.0, resets_at=int(NOW) + 4380, window_minutes=30
 def test_first_crossing_of_80_sends_one_normal_notice():
     notified = {}
     notices = update_notices({"Claude": [limit()]}, notified, NOW)
-    assert notices == [Notice(key="claude:five_hour", level=80, summary="Claude: 5-hour limit at 82 %",
-                              body="Reset in 1 h 13 min", urgent=False)]
+    assert notices == [
+        Notice(
+            key="claude:five_hour",
+            level=80,
+            summary="Claude: 5-hour limit at 82 %",
+            body="Reset in 1 h 13 min",
+            urgent=False,
+        )
+    ]
     assert notified == {"claude:five_hour": {"level": 80, "resets_at": int(NOW) + 4380, "minutes": 300}}
 
 
@@ -25,8 +32,7 @@ def test_same_window_does_not_notify_twice():
 
 def test_jump_straight_to_95_sends_only_the_urgent_notice():
     notices = update_notices({"Codex": [limit(id="primary", window_minutes=10080, pct=97.0, resets_at=None)]}, {}, NOW)
-    assert [(n.level, n.urgent, n.summary, n.body) for n in notices] == [
-        (95, True, "Codex: weekly limit at 97 %", "")]
+    assert [(n.level, n.urgent, n.summary, n.body) for n in notices] == [(95, True, "Codex: weekly limit at 97 %", "")]
 
 
 def test_80_then_95_in_same_window_sends_both_once():
@@ -49,8 +55,11 @@ def test_new_window_rearms_and_reset_window_counts_as_zero():
 
 def test_scoped_labels_and_vanished_limits_are_cleaned_up():
     notified = {"claude:old": {"level": 80, "resets_at": None}}
-    notices = update_notices({"Claude": [limit(id="weekly_scoped:fable", window_minutes=10080, model="Fable",
-                                               pct=80.0, resets_at=None)]}, notified, NOW)
+    notices = update_notices(
+        {"Claude": [limit(id="weekly_scoped:fable", window_minutes=10080, model="Fable", pct=80.0, resets_at=None)]},
+        notified,
+        NOW,
+    )
     assert notices[0].summary == "Claude: weekly Fable limit at 80 %"
     assert list(notified) == ["claude:weekly_scoped:fable"]
 
@@ -61,8 +70,12 @@ def test_below_threshold_sends_nothing():
 
 def test_notice_as_json_for_the_widget():
     n = Notice("claude:five_hour", 95, "Claude: 5-hour limit at 96 %", "Reset in 5 min", True)
-    assert n.to_json() == {"key": "claude:five_hour", "summary": "Claude: 5-hour limit at 96 %",
-                           "body": "Reset in 5 min", "urgent": True}
+    assert n.to_json() == {
+        "key": "claude:five_hour",
+        "summary": "Claude: 5-hour limit at 96 %",
+        "body": "Reset in 5 min",
+        "urgent": True,
+    }
 
 
 def test_notify_send_is_gone():
@@ -83,33 +96,52 @@ def test_early_warning_when_five_hour_limit_is_full_within_30_minutes():
     notified = {}
     soon = with_forecast(limit(pct=62.0), int(NOW) + 25 * 60)
     notices = update_notices({"Claude": [soon]}, notified, NOW)
-    assert notices == [Notice(key="claude:five_hour", level=0, summary="Claude: 5-hour limit full in ~25 min",
-                              body="Now 62 % · Reset in 1 h 13 min", urgent=False)]
+    assert notices == [
+        Notice(
+            key="claude:five_hour",
+            level=0,
+            summary="Claude: 5-hour limit full in ~25 min",
+            body="Now 62 % · Reset in 1 h 13 min",
+            urgent=False,
+        )
+    ]
     assert update_notices({"Claude": [soon]}, notified, NOW + 60) == []  # only once
     # later 80 % in the same window: the threshold notice still comes
-    assert [n.level for n in update_notices({"Claude": [with_forecast(limit(pct=80.0), int(NOW) + 600)]},
-                                            notified, NOW + 120)] == [80]
+    assert [
+        n.level
+        for n in update_notices({"Claude": [with_forecast(limit(pct=80.0), int(NOW) + 600)]}, notified, NOW + 120)
+    ] == [80]
 
 
 def test_no_early_warning_when_far_away():
     later = with_forecast(limit(pct=62.0), int(NOW) + 31 * 60)
-    weekly = with_forecast(limit(id="seven_day", pct=62.0, window_minutes=10080, resets_at=int(NOW) + 5 * 86400),
-                           int(NOW) + 25 * 3600)
+    weekly = with_forecast(
+        limit(id="seven_day", pct=62.0, window_minutes=10080, resets_at=int(NOW) + 5 * 86400), int(NOW) + 25 * 3600
+    )
     assert update_notices({"Claude": [later, weekly]}, {}, NOW) == []
 
 
 def test_early_warning_for_the_weekly_limit_within_a_day():
     notified = {}
-    weekly = with_forecast(limit(id="seven_day", pct=62.0, window_minutes=10080, resets_at=int(NOW) + 2 * 86400),
-                           int(NOW) + 18 * 3600)
+    weekly = with_forecast(
+        limit(id="seven_day", pct=62.0, window_minutes=10080, resets_at=int(NOW) + 2 * 86400), int(NOW) + 18 * 3600
+    )
     notices = update_notices({"Claude": [weekly]}, notified, NOW)
-    assert notices == [Notice(key="claude:seven_day", level=0, summary="Claude: weekly limit full in ~18 h 0 min",
-                              body="Now 62 % · Reset in 2 d 0 h", urgent=False)]
+    assert notices == [
+        Notice(
+            key="claude:seven_day",
+            level=0,
+            summary="Claude: weekly limit full in ~18 h 0 min",
+            body="Now 62 % · Reset in 2 d 0 h",
+            urgent=False,
+        )
+    ]
     assert update_notices({"Claude": [weekly]}, notified, NOW + 600) == []
 
 
 def test_custom_thresholds_and_urgency_at_the_second_one():
     notified = {}
+
     def at(pct):
         return update_notices({"Claude": [limit(pct=pct)]}, notified, NOW, thresholds=(50, 75))
 
@@ -121,13 +153,15 @@ def test_custom_thresholds_and_urgency_at_the_second_one():
 def test_reset_notice_only_after_a_warning_and_only_when_wanted():
     def run(notified, pct, resets_at, now, wanted=True):
         return update_notices({"Claude": [limit(pct=pct, resets_at=resets_at)]}, notified, now, reset_notice=wanted)
+
     # warned window whose reset time passes
     notified = {}
     run(notified, 85.0, int(NOW) + 600, NOW)
     notices = run(notified, 85.0, int(NOW) + 600, NOW + 700)
     assert [(n.key, n.level, n.summary, n.body, n.urgent) for n in notices] == [
-        ("claude:five_hour", -1, "Claude: 5-hour limit reset", "", False)]
-    assert run(notified, 0.0, int(NOW) + 18600, NOW + 800) == []          # the new window says nothing more
+        ("claude:five_hour", -1, "Claude: 5-hour limit reset", "", False)
+    ]
+    assert run(notified, 0.0, int(NOW) + 18600, NOW + 800) == []  # the new window says nothing more
     # warned window replaced by a new one before its reset time was seen to pass
     notified = {}
     run(notified, 85.0, int(NOW) + 600, NOW)
@@ -154,8 +188,13 @@ def test_limit_names_for_other_windows_and_missing_window():
 
 
 def test_legacy_label_without_model_still_names_the_model():
-    old = {"id": "seven_day_opus", "label": "Woche Opus", "used_percent": 96.0, "resets_at": None,
-           "window_minutes": 10080}
+    old = {
+        "id": "seven_day_opus",
+        "label": "Woche Opus",
+        "used_percent": 96.0,
+        "resets_at": None,
+        "window_minutes": 10080,
+    }
     assert update_notices({"Claude": [old]}, {}, NOW)[0].summary == "Claude: weekly Opus limit at 96 %"
 
 

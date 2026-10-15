@@ -31,20 +31,24 @@ def version(root: Path = ROOT) -> str:
 
 def build_js(source: str, repo_dir: str = "", ver: str = "") -> str:
     store_id = STORE_ID if source == "store" else ""
-    return (".pragma library\n\n"
-            "// Written by tools/build_plasmoid.py: how this copy of the widget was installed.\n"
-            "// The copy in the repository holds the defaults for running the widget from the checkout.\n"
-            f"const installSource = {json.dumps(source)}\n"
-            f"const storeId = {json.dumps(store_id)}\n"
-            f"const repoDir = {json.dumps(repo_dir)}\n"
-            f"const version = {json.dumps(ver)}\n")
+    return (
+        ".pragma library\n\n"
+        "// Written by tools/build_plasmoid.py: how this copy of the widget was installed.\n"
+        "// The copy in the repository holds the defaults for running the widget from the checkout.\n"
+        f"const installSource = {json.dumps(source)}\n"
+        f"const storeId = {json.dumps(store_id)}\n"
+        f"const repoDir = {json.dumps(repo_dir)}\n"
+        f"const version = {json.dumps(ver)}\n"
+    )
 
 
 def version_py(ver: str) -> str:
-    return ('"""Version of the widget this collector belongs to.\n\n'
-            'Written by tools/build_plasmoid.py into the package; the copy in the repository holds the default for '
-            'running\nfrom the checkout.\n"""\n\n'
-            f"VERSION = {json.dumps(ver)}\n")
+    return (
+        '"""Version of the widget this collector belongs to.\n\n'
+        "Written by tools/build_plasmoid.py into the package; the copy in the repository holds the default for "
+        'running\nfrom the checkout.\n"""\n\n'
+        f"VERSION = {json.dumps(ver)}\n"
+    )
 
 
 def _ignore(directory, names):

@@ -13,7 +13,7 @@ class TokenEvent:
     output: int
     cache_read: int
     cache_write: int
-    model: str | None = None    # model ID (Claude only)
+    model: str | None = None  # model ID (Claude only)
     project: str | None = None  # working directory (Claude only)
 
 

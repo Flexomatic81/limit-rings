@@ -18,10 +18,15 @@ def tree(tmp_path):
 
 
 def test_package_contains_widget_collector_and_translations(tree):
-    for rel in ("metadata.json", "contents/ui/main.qml", "contents/code/format.js",
-                "contents/collector/run.py", "contents/collector/limit_rings/widget.py",
-                f"contents/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo",
-                "contents/locale/de/LC_MESSAGES/limit-rings.mo"):
+    for rel in (
+        "metadata.json",
+        "contents/ui/main.qml",
+        "contents/code/format.js",
+        "contents/collector/run.py",
+        "contents/collector/limit_rings/widget.py",
+        f"contents/locale/de/LC_MESSAGES/plasma_applet_{ID}.mo",
+        "contents/locale/de/LC_MESSAGES/limit-rings.mo",
+    ):
         assert (tree / rel).is_file(), rel
     assert not list(tree.rglob("__pycache__")) and not list(tree.rglob("*.pyc"))
 
@@ -63,8 +68,9 @@ def test_rebuild_replaces_an_earlier_build_or_an_empty_dir(tmp_path):
     assert (bp.build_tree(tmp_path / "empty", "store") / "metadata.json").is_file()
 
 
-@pytest.mark.parametrize("make", [lambda p: (p.mkdir(), (p / "notes.txt").write_text("mine")),
-                                  lambda p: p.write_text("a file")])
+@pytest.mark.parametrize(
+    "make", [lambda p: (p.mkdir(), (p / "notes.txt").write_text("mine")), lambda p: p.write_text("a file")]
+)
 def test_refuses_to_overwrite_what_is_not_a_widget_package(tmp_path, make, capsys):
     out = tmp_path / "docs"
     make(out)
@@ -86,16 +92,32 @@ def test_archive_has_metadata_at_the_root_and_is_reproducible(tmp_path):
 
 def test_packaged_collector_speaks_german_from_the_package_locale(tree):
     code = "from limit_rings.i18n import _; print(_('5-hour limit'))"
-    env = {"PATH": os.environ["PATH"], "PYTHONPATH": str(tree / "contents/collector"),
-           "LANGUAGE": "de", "LANG": "de_DE.UTF-8"}
+    env = {
+        "PATH": os.environ["PATH"],
+        "PYTHONPATH": str(tree / "contents/collector"),
+        "LANGUAGE": "de",
+        "LANG": "de_DE.UTF-8",
+    }
     # cwd outside the checkout: "-c" puts the cwd first on sys.path, which would shadow the packaged limit_rings
-    out = subprocess.run([sys.executable, "-c", code], env=env, cwd=tree, capture_output=True, text=True,
-                         check=True).stdout
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, cwd=tree, capture_output=True, text=True, check=True
+    ).stdout
     assert out.strip() == "5-h-Limit"
 
 
 def test_cli_builds_without_gettext_or_zip(tmp_path):
-    env = {"PATH": str(tmp_path / "empty"), "HOME": str(tmp_path)}   # no msgfmt, no zip on PATH
-    subprocess.run([sys.executable, str(bp.ROOT / "tools/build_plasmoid.py"), "--source", "store",
-                    "--out", str(tmp_path / "dist")], env=env, check=True, capture_output=True)
+    env = {"PATH": str(tmp_path / "empty"), "HOME": str(tmp_path)}  # no msgfmt, no zip on PATH
+    subprocess.run(
+        [
+            sys.executable,
+            str(bp.ROOT / "tools/build_plasmoid.py"),
+            "--source",
+            "store",
+            "--out",
+            str(tmp_path / "dist"),
+        ],
+        env=env,
+        check=True,
+        capture_output=True,
+    )
     assert (tmp_path / "dist" / f"limit-rings-{bp.version()}.plasmoid").is_file()

@@ -22,8 +22,7 @@ def _days(buckets, provider: str, account: str | None) -> list[dict]:
     out = []
     for day, bucket in buckets.items():
         counts = {f: int(bucket.get(f, 0)) for f in FIELDS}
-        out.append({"date": day, "provider": provider, "account": account, **counts,
-                    "total": sum(counts.values())})
+        out.append({"date": day, "provider": provider, "account": account, **counts, "total": sum(counts.values())})
     return out
 
 
@@ -35,8 +34,11 @@ def _accounts(cache: Path, home: Path):
     entries = stats.get("accounts") if isinstance(stats, dict) else None
     if not isinstance(entries, dict):
         return []
-    listed = [{"id": key, "provider": e.get("provider"), "dir": e.get("dir"), "name": e.get("name")}
-              for key, e in entries.items() if isinstance(e, dict)]
+    listed = [
+        {"id": key, "provider": e.get("provider"), "dir": e.get("dir"), "name": e.get("name")}
+        for key, e in entries.items()
+        if isinstance(e, dict)
+    ]
     return [a for a in parse_accounts(json.dumps(listed), home) if a.error is None]
 
 

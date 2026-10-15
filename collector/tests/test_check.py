@@ -9,14 +9,21 @@ PINS = {"ruff": "1.0", "mypy": "2.0", "pytest": "9.0", "pytest-cov": "7.0", "she
 
 
 def env(tmp_path, *, use_uv=False, in_ci=False, on_path=(), modules=()):
-    return check.Env(pins=PINS, use_uv=use_uv, in_ci=in_ci,
-                     which=lambda name: f"/bin/{name}" if name in on_path else None,
-                     has_module=lambda name: name in modules, qt_bin=tmp_path)
+    return check.Env(
+        pins=PINS,
+        use_uv=use_uv,
+        in_ci=in_ci,
+        which=lambda name: f"/bin/{name}" if name in on_path else None,
+        has_module=lambda name: name in modules,
+        qt_bin=tmp_path,
+    )
 
 
 def test_read_pins_takes_exact_pins_and_skips_comments():
-    assert check.read_pins("# tools\nruff==0.16.10  # linter\n\nPyTest==9.1.1\n") == {"ruff": "0.16.10",
-                                                                                        "pytest": "9.1.1"}
+    assert check.read_pins("# tools\nruff==0.16.10  # linter\n\nPyTest==9.1.1\n") == {
+        "ruff": "0.16.10",
+        "pytest": "9.1.1",
+    }
 
 
 def test_read_pins_rejects_a_range():
@@ -47,7 +54,11 @@ def test_python_tools_run_pinned_through_uv(tmp_path):
 
 def test_python_tools_come_from_path_without_uv(tmp_path):
     assert check.plan_step("ruff", env(tmp_path, on_path={"ruff"})).command == [
-        "/bin/ruff", "check", "collector", "tools"]
+        "/bin/ruff",
+        "check",
+        "collector",
+        "tools",
+    ]
     assert check.plan_step("mypy", env(tmp_path, on_path={"mypy"})).command == ["/bin/mypy"]
 
 

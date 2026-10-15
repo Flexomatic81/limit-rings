@@ -19,10 +19,26 @@ SESSION_KEEP_DAYS = 400
 def new_state() -> dict:
     return {
         "version": STATE_VERSION,
-        "claude": {"files": {}, "seen": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
-                   "oauth_pause": backoff.new(), "hourly": {}, "hourly_backfill": False, "structure": None},
-        "codex": {"files": {}, "sessions": {}, "buckets": {}, "limits": None, "oauth_last_attempt": None,
-                  "oauth_pause": backoff.new(), "structure": None},
+        "claude": {
+            "files": {},
+            "seen": {},
+            "buckets": {},
+            "limits": None,
+            "oauth_last_attempt": None,
+            "oauth_pause": backoff.new(),
+            "hourly": {},
+            "hourly_backfill": False,
+            "structure": None,
+        },
+        "codex": {
+            "files": {},
+            "sessions": {},
+            "buckets": {},
+            "limits": None,
+            "oauth_last_attempt": None,
+            "oauth_pause": backoff.new(),
+            "structure": None,
+        },
         "notified": {},
         "history": {},
     }
@@ -37,9 +53,12 @@ def _int(v) -> bool:
 
 
 def _limits_ok(rec) -> bool:
-    return rec is None or (isinstance(rec, dict) and _num(rec.get("updated_at"))
-                           and isinstance(rec.get("limits"), list)
-                           and (rec.get("extra") is None or isinstance(rec["extra"], dict)))
+    return rec is None or (
+        isinstance(rec, dict)
+        and _num(rec.get("updated_at"))
+        and isinstance(rec.get("limits"), list)
+        and (rec.get("extra") is None or isinstance(rec["extra"], dict))
+    )
 
 
 def _shape_ok(data: dict) -> bool:
@@ -50,31 +69,49 @@ def _shape_ok(data: dict) -> bool:
             return False
         if not _limits_ok(section["limits"]):
             return False
-    if not all(isinstance(v, dict) and isinstance(v.get("ts"), str) and isinstance(v.get("u"), list)
-               and len(v["u"]) == 4 and all(_int(n) for n in v["u"]) for v in claude["seen"].values()):
+    if not all(
+        isinstance(v, dict)
+        and isinstance(v.get("ts"), str)
+        and isinstance(v.get("u"), list)
+        and len(v["u"]) == 4
+        and all(_int(n) for n in v["u"])
+        for v in claude["seen"].values()
+    ):
         return False
-    if not all(isinstance(v, dict) and _int(v.get("total")) and isinstance(v.get("day"), str)
-               for v in codex["sessions"].values()):
+    if not all(
+        isinstance(v, dict) and _int(v.get("total")) and isinstance(v.get("day"), str)
+        for v in codex["sessions"].values()
+    ):
         return False
     if not isinstance(claude["hourly_backfill"], bool) or not all(
-            isinstance(b, dict) and all(isinstance(b.get(k), dict) and all(_int(v) for v in b[k].values())
-                                        for k in ("p", "m"))
-            for b in claude["hourly"].values()):
+        isinstance(b, dict)
+        and all(isinstance(b.get(k), dict) and all(_int(v) for v in b[k].values()) for k in ("p", "m"))
+        for b in claude["hourly"].values()
+    ):
         return False
     notified = data["notified"]
     if not isinstance(notified, dict) or not all(
-            isinstance(v, dict) and _int(v.get("level")) and (v.get("resets_at") is None or _int(v["resets_at"]))
-            and _minutes_ok(v) for v in notified.values()):
+        isinstance(v, dict)
+        and _int(v.get("level"))
+        and (v.get("resets_at") is None or _int(v["resets_at"]))
+        and _minutes_ok(v)
+        for v in notified.values()
+    ):
         return False
     history = data["history"]
     if not isinstance(history, dict) or not all(
-            isinstance(v, dict) and (v.get("resets_at") is None or _int(v["resets_at"])) and _minutes_ok(v)
-            and isinstance(v.get("points"), list)
-            and all(isinstance(pt, list) and len(pt) == 2 and _num(pt[0]) and _num(pt[1]) for pt in v["points"])
-            for v in history.values()):
+        isinstance(v, dict)
+        and (v.get("resets_at") is None or _int(v["resets_at"]))
+        and _minutes_ok(v)
+        and isinstance(v.get("points"), list)
+        and all(isinstance(pt, list) and len(pt) == 2 and _num(pt[0]) and _num(pt[1]) for pt in v["points"])
+        for v in history.values()
+    ):
         return False
-    return all((s["oauth_last_attempt"] is None or _num(s["oauth_last_attempt"])) and _pause_ok(s["oauth_pause"])
-               for s in (claude, codex))
+    return all(
+        (s["oauth_last_attempt"] is None or _num(s["oauth_last_attempt"])) and _pause_ok(s["oauth_pause"])
+        for s in (claude, codex)
+    )
 
 
 def _minutes_ok(entry: dict) -> bool:
@@ -92,28 +129,50 @@ def _structure_ok(s) -> bool:
     Every key changes.py reads directly must be present, otherwise the next run would fail as a whole."""
     if s is None:
         return True
-    if not (isinstance(s, dict) and "source" in s and (s["source"] is None or isinstance(s["source"], str))
-            and _num(s.get("updated_at")) and isinstance(s.get("windows"), dict)
-            and isinstance(s.get("gone"), dict) and isinstance(s.get("events"), list)):
+    if not (
+        isinstance(s, dict)
+        and "source" in s
+        and (s["source"] is None or isinstance(s["source"], str))
+        and _num(s.get("updated_at"))
+        and isinstance(s.get("windows"), dict)
+        and isinstance(s.get("gone"), dict)
+        and isinstance(s.get("events"), list)
+    ):
         return False
     windows_ok = all(
-        isinstance(w, dict) and w.keys() >= _WINDOW_KEYS and (w["minutes"] is None or _int(w["minutes"]))
+        isinstance(w, dict)
+        and w.keys() >= _WINDOW_KEYS
+        and (w["minutes"] is None or _int(w["minutes"]))
         and (w["model"] is None or isinstance(w["model"], str))
-        and (w["resets_at"] is None or _int(w["resets_at"])) and _num(w["used"]) and _num(w["seen"])
-        and (w["missing"] is None or _num(w["missing"])) for w in s["windows"].values())
+        and (w["resets_at"] is None or _int(w["resets_at"]))
+        and _num(w["used"])
+        and _num(w["seen"])
+        and (w["missing"] is None or _num(w["missing"]))
+        for w in s["windows"].values()
+    )
     gone_ok = all(isinstance(g, dict) and _num(g.get("at")) for g in s["gone"].values())
     events_ok = all(
-        isinstance(e, dict) and e.keys() >= _EVENT_KEYS and isinstance(e["kind"], str) and isinstance(e["id"], str)
-        and _num(e["at"]) and (e["minutes"] is None or _int(e["minutes"]))
+        isinstance(e, dict)
+        and e.keys() >= _EVENT_KEYS
+        and isinstance(e["kind"], str)
+        and isinstance(e["id"], str)
+        and _num(e["at"])
+        and (e["minutes"] is None or _int(e["minutes"]))
         and (e["model"] is None or isinstance(e["model"], str))
         and (e.get("previous_minutes") is None or _int(e["previous_minutes"]))
-        and (e.get("source") is None or isinstance(e["source"], str)) for e in s["events"])
+        and (e.get("source") is None or isinstance(e["source"], str))
+        for e in s["events"]
+    )
     return windows_ok and gone_ok and events_ok
 
 
 def _pause_ok(pause) -> bool:
-    return (isinstance(pause, dict) and (pause.get("until") is None or _num(pause["until"]))
-            and _int(pause.get("failures")) and pause["failures"] >= 0)
+    return (
+        isinstance(pause, dict)
+        and (pause.get("until") is None or _num(pause["until"]))
+        and _int(pause.get("failures"))
+        and pause["failures"] >= 0
+    )
 
 
 def load_state(path: Path) -> dict:

@@ -50,19 +50,30 @@ def test_resolver_caches_lookups(tmp_path, monkeypatch):
 
 def test_summarize_since_window_start_with_top_four_and_others():
     hourly = {}
+
     def names(e):
         return ("website" if e.project == "/x/website" else e.project, model_label(e.model))
 
     events = [ev(-7200, 999)]  # before the window start → not counted
-    events += [ev(0, 880), ev(600, 30, project="limit-rings"), ev(3600, 20, project="tools"),
-               ev(3600, 10, project="a"), ev(7200, 5, project="b"), ev(7200, 5, project="c", model="claude-sonnet-5")]
+    events += [
+        ev(0, 880),
+        ev(600, 30, project="limit-rings"),
+        ev(3600, 20, project="tools"),
+        ev(3600, 10, project="a"),
+        ev(7200, 5, project="b"),
+        ev(7200, 5, project="c", model="claude-sonnet-5"),
+    ]
     for e in events:
         add_event(hourly, e, *names(e))
     s = summarize(hourly, since=T0 + 900, top=4)  # window starts mid-hour → the whole hour counts
     assert s["total"] == 950
-    assert s["projects"] == [{"name": "website", "total": 880}, {"name": "limit-rings", "total": 30},
-                             {"name": "tools", "total": 20}, {"name": "a", "total": 10},
-                             {"name": None, "other": True, "total": 10}]
+    assert s["projects"] == [
+        {"name": "website", "total": 880},
+        {"name": "limit-rings", "total": 30},
+        {"name": "tools", "total": 20},
+        {"name": "a", "total": 10},
+        {"name": None, "other": True, "total": 10},
+    ]
     assert s["models"] == [{"name": "Opus 5", "total": 945}, {"name": "Sonnet 5", "total": 5}]
 
 

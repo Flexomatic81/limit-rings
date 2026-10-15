@@ -24,15 +24,15 @@ def test_buckets_by_local_date_across_dst_change():
 
 def test_summarize_today_week_month_with_totals():
     b = {}
-    add_event(b, ev("2026-10-01T10:00:00+00:00", i=1), BERLIN)         # Thu, October 1
-    add_event(b, ev("2026-09-30T10:00:00+00:00", o=100), BERLIN)       # September
-    add_event(b, ev("2026-10-12T10:00:00+00:00", cr=10), BERLIN)       # Mon of this week
+    add_event(b, ev("2026-10-01T10:00:00+00:00", i=1), BERLIN)  # Thu, October 1
+    add_event(b, ev("2026-09-30T10:00:00+00:00", o=100), BERLIN)  # September
+    add_event(b, ev("2026-10-12T10:00:00+00:00", cr=10), BERLIN)  # Mon of this week
     add_event(b, ev("2026-10-14T10:00:00+00:00", i=1, o=2, cr=3, cw=4), BERLIN)  # Wed = today
 
     s = summarize(b, date(2026, 10, 14))
     assert s["today"] == {"input": 1, "output": 2, "cache_read": 3, "cache_write": 4, "total": 10}
-    assert s["week"]["total"] == 20          # Oct 12 + Oct 14
-    assert s["month"]["total"] == 21         # Oct 1 + Oct 12 + Oct 14
+    assert s["week"]["total"] == 20  # Oct 12 + Oct 14
+    assert s["month"]["total"] == 21  # Oct 1 + Oct 12 + Oct 14
 
 
 def test_week_starts_monday_and_sunday_belongs_to_previous_week():
@@ -63,8 +63,10 @@ def test_daily_series_has_30_gapless_days_oldest_first():
 
 
 def test_prune_drops_old_buckets():
-    b = {"2025-01-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0},
-         "2026-10-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0}}
+    b = {
+        "2025-01-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0},
+        "2026-10-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0},
+    }
     prune_buckets(b, date(2026, 10, 14), keep_days=400)
     assert list(b) == ["2026-10-01"]
 

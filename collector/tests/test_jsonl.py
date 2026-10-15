@@ -13,7 +13,7 @@ def test_reads_complete_lines_and_keeps_partial_line(tmp_path):
     assert st["inode"] == os.stat(f).st_ino
 
     with f.open("ab") as fh:
-        fh.write(b'}\n')
+        fh.write(b"}\n")
     lines, st = read_new_lines(f, st)
     assert lines == ['{"n":3}']
 
@@ -71,7 +71,10 @@ def test_list_jsonl_reports_unreadable_directories(tmp_path):
 
 
 def test_prune_missing_keeps_entries_under_failed_directories(tmp_path):
-    files = {str(tmp_path / "gone.jsonl"): {}, str(tmp_path / "locked" / "b.jsonl"): {},
-             str(tmp_path / "here.jsonl"): {}}
+    files = {
+        str(tmp_path / "gone.jsonl"): {},
+        str(tmp_path / "locked" / "b.jsonl"): {},
+        str(tmp_path / "here.jsonl"): {},
+    }
     prune_missing(files, {str(tmp_path / "here.jsonl")}, [tmp_path / "locked"])
     assert sorted(files) == [str(tmp_path / "here.jsonl"), str(tmp_path / "locked" / "b.jsonl")]
