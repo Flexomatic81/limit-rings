@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
@@ -106,17 +108,18 @@ ColumnLayout {
                     {key: "week", label: Format.i18nc("token totals", "Week")},
                     {key: "month", label: Format.i18nc("token totals", "Month")}]
             delegate: RowLayout {
+                id: tokenRow
                 required property var modelData
                 Layout.columnSpan: 2
-                PlasmaComponents.Label { text: modelData.label; opacity: 0.7 }
+                PlasmaComponents.Label { text: tokenRow.modelData.label; opacity: 0.7 }
                 PlasmaComponents.Label {
                     id: value
-                    text: card.provider ? Format.compactNumber(card.provider.tokens[modelData.key].total) : ""
+                    text: card.provider ? Format.compactNumber(card.provider.tokens[tokenRow.modelData.key].total) : ""
                     font.bold: true
                     HoverHandler { id: valueHover }
                     PlasmaComponents.ToolTip {
                         visible: valueHover.hovered
-                        text: card.provider ? Format.tokenBreakdown(card.provider.tokens[modelData.key]) : ""
+                        text: card.provider ? Format.tokenBreakdown(card.provider.tokens[tokenRow.modelData.key]) : ""
                     }
                 }
             }
@@ -143,6 +146,7 @@ ColumnLayout {
         Repeater {
             model: Format.chartRanges()
             delegate: PlasmaComponents.Label {
+                id: rangeLabel
                 required property var modelData
                 readonly property bool selected: card.chartRange === modelData.key
                 objectName: "chartRange-" + modelData.key
@@ -151,7 +155,7 @@ ColumnLayout {
                 font.bold: selected
                 opacity: selected ? 1 : rangeHover.hovered ? 0.85 : 0.6
                 HoverHandler { id: rangeHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: card.chartRangeChosen(modelData.key) }
+                TapHandler { onTapped: card.chartRangeChosen(rangeLabel.modelData.key) }
             }
         }
     }

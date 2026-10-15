@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
@@ -5,7 +7,10 @@ import org.kde.kirigami as Kirigami
 import org.kde.kcmutils as KCM
 import "../code/format.js" as Format
 
+// i18n()/i18nc() come from KDE's localized context, which qmllint cannot see: those lines are marked.
 KCM.SimpleKCM {
+    id: page
+
     property alias cfg_warnThreshold: warnSpin.value
     property alias cfg_criticalThreshold: critSpin.value
     property alias cfg_showClaude: claudeBox.checked
@@ -39,17 +44,17 @@ KCM.SimpleKCM {
     Kirigami.FormLayout {
         QQC2.SpinBox {
             id: warnSpin
-            Kirigami.FormData.label: i18n("Warning at (%):")
+            Kirigami.FormData.label: i18n("Warning at (%):") // qmllint disable unqualified
             from: 1; to: critSpin.value - 1
         }
         QQC2.SpinBox {
             id: critSpin
-            Kirigami.FormData.label: i18n("Critical at (%):")
+            Kirigami.FormData.label: i18n("Critical at (%):") // qmllint disable unqualified
             from: warnSpin.value + 1; to: 100
         }
         QQC2.CheckBox {
             id: claudeBox
-            Kirigami.FormData.label: i18n("Show:")
+            Kirigami.FormData.label: i18n("Show:") // qmllint disable unqualified
             text: "Claude"
         }
         QQC2.CheckBox {
@@ -58,7 +63,7 @@ KCM.SimpleKCM {
         }
         QQC2.CheckBox {
             id: loginClaudeBox
-            Kirigami.FormData.label: i18n("Live limits via login:")
+            Kirigami.FormData.label: i18n("Live limits via login:") // qmllint disable unqualified
             text: "Claude"
         }
         QQC2.CheckBox {
@@ -71,117 +76,121 @@ KCM.SimpleKCM {
             Layout.maximumWidth: Kirigami.Units.gridUnit * 24
             wrapMode: Text.WordWrap
             font: Kirigami.Theme.smallFont
-            text: i18n("Without login, limits come only from Claude's status line or Codex's session logs – no limits per model, no extra usage or credits. Applies to this widget and to the provider's additional accounts.")
+            text: i18n("Without login, limits come only from Claude's status line or Codex's session logs – no limits per model, no extra usage or credits. Applies to this widget and to the provider's additional accounts.") // qmllint disable unqualified
         }
         QQC2.CheckBox {
             id: notificationsBox
-            Kirigami.FormData.label: i18n("Notifications:")
-            text: i18n("Warn when a limit reaches %1 % or %2 %", firstSpin.value, secondSpin.value)
+            Kirigami.FormData.label: i18n("Notifications:") // qmllint disable unqualified
+            text: i18n("Warn when a limit reaches %1 % or %2 %", firstSpin.value, secondSpin.value) // qmllint disable unqualified
         }
         QQC2.SpinBox {
             id: firstSpin
-            Kirigami.FormData.label: i18n("Notify at (%):")
+            Kirigami.FormData.label: i18n("Notify at (%):") // qmllint disable unqualified
             enabled: notificationsBox.checked
             from: 1; to: secondSpin.value - 1
         }
         QQC2.SpinBox {
             id: secondSpin
-            Kirigami.FormData.label: i18n("Urgent at (%):")
+            Kirigami.FormData.label: i18n("Urgent at (%):") // qmllint disable unqualified
             enabled: notificationsBox.checked
             from: firstSpin.value + 1; to: 100
         }
         QQC2.CheckBox {
             id: resetBox
             enabled: notificationsBox.checked
-            text: i18n("Tell me when a limit has reset after a warning")
+            text: i18n("Tell me when a limit has reset after a warning") // qmllint disable unqualified
         }
         QQC2.ComboBox {
-            Kirigami.FormData.label: i18n("Panel:")
-            model: [{value: "ring", text: i18nc("panel display style", "Ring")},
-                    {value: "number", text: i18nc("panel display style", "Number")}]
+            Kirigami.FormData.label: i18n("Panel:") // qmllint disable unqualified
+            model: [{value: "ring", text: i18nc("panel display style", "Ring")}, // qmllint disable unqualified
+                    {value: "number", text: i18nc("panel display style", "Number")}] // qmllint disable unqualified
             textRole: "text"
             valueRole: "value"
             // not indexOfValue(): evaluated before the model is set, it stays at -1 and leaves the box empty
-            currentIndex: cfg_compactStyle === "number" ? 1 : 0
-            onActivated: cfg_compactStyle = currentValue
+            currentIndex: page.cfg_compactStyle === "number" ? 1 : 0
+            onActivated: page.cfg_compactStyle = currentValue
         }
         QQC2.ComboBox {
-            Kirigami.FormData.label: i18n("Percentages:")
-            model: [i18nc("show the percentage of a limit that is", "Used"),
-                    i18nc("show the percentage of a limit that is", "Remaining")]
-            currentIndex: cfg_showRemaining ? 1 : 0
-            onActivated: cfg_showRemaining = currentIndex === 1
+            Kirigami.FormData.label: i18n("Percentages:") // qmllint disable unqualified
+            model: [i18nc("show the percentage of a limit that is", "Used"), // qmllint disable unqualified
+                    i18nc("show the percentage of a limit that is", "Remaining")] // qmllint disable unqualified
+            currentIndex: page.cfg_showRemaining ? 1 : 0
+            onActivated: page.cfg_showRemaining = currentIndex === 1
         }
         QQC2.CheckBox {
             id: updatesBox
-            Kirigami.FormData.label: i18n("Updates:")
-            text: i18n("Check daily for a new version (asks GitHub)")
+            Kirigami.FormData.label: i18n("Updates:") // qmllint disable unqualified
+            text: i18n("Check daily for a new version (asks GitHub)") // qmllint disable unqualified
         }
         Kirigami.Separator {
             Kirigami.FormData.isSection: true
-            Kirigami.FormData.label: i18n("Additional accounts")
+            Kirigami.FormData.label: i18n("Additional accounts") // qmllint disable unqualified
         }
         QQC2.Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: i18n("For accounts you use with CLAUDE_CONFIG_DIR or CODEX_HOME in their own directory.")
+            text: i18n("For accounts you use with CLAUDE_CONFIG_DIR or CODEX_HOME in their own directory.") // qmllint disable unqualified
         }
         Repeater {
             // A number: rows are only recreated when accounts are added or removed, so editing keeps focus.
-            model: accounts.length
+            model: page.accounts.length
             delegate: RowLayout {
                 id: accountRow
                 required property int index
-                readonly property var account: accounts[index] || ({})
+                readonly property var account: page.accounts[index] || ({})
                 // Handlers below always use accountRow.index: ComboBox.activated passes its own "index"
                 // (the chosen item) that would otherwise shadow the row index.
                 QQC2.ComboBox {
                     model: ["Claude", "Codex"]
                     currentIndex: accountRow.account.provider === "codex" ? 1 : 0
-                    onActivated: chosen => updateAccount(accountRow.index, {provider: chosen === 1 ? "codex" : "claude"})
+                    onActivated: chosen => page.updateAccount(accountRow.index, {provider: chosen === 1 ? "codex" : "claude"})
                 }
                 QQC2.TextField {
                     Layout.fillWidth: true
-                    placeholderText: i18n("Directory")
+                    placeholderText: i18n("Directory") // qmllint disable unqualified
                     text: accountRow.account.dir
-                    onEditingFinished: updateAccount(accountRow.index, {dir: text})
+                    onEditingFinished: page.updateAccount(accountRow.index, {dir: text})
                 }
                 QQC2.ToolButton {
                     icon.name: "document-open-folder"
-                    QQC2.ToolTip.text: i18n("Choose directory")
+                    QQC2.ToolTip.text: i18n("Choose directory") // qmllint disable unqualified
                     QQC2.ToolTip.visible: hovered
                     visible: folderPicker.status === Loader.Ready
-                    onClicked: { folderPicker.item.accountIndex = accountRow.index; folderPicker.item.open() }
+                    onClicked: {
+                        const picker = folderPicker.item as FolderPicker
+                        picker.accountIndex = accountRow.index
+                        picker.open()
+                    }
                 }
                 QQC2.TextField {
-                    placeholderText: i18n("Name")
+                    placeholderText: i18n("Name") // qmllint disable unqualified
                     text: accountRow.account.name
-                    onEditingFinished: updateAccount(accountRow.index, {name: text})
+                    onEditingFinished: page.updateAccount(accountRow.index, {name: text})
                 }
                 QQC2.TextField {
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3
                     maximumLength: 2
-                    placeholderText: i18nc("short letters for the panel ring", "Short")
+                    placeholderText: i18nc("short letters for the panel ring", "Short") // qmllint disable unqualified
                     text: accountRow.account.short
-                    onEditingFinished: updateAccount(accountRow.index, {short: text})
+                    onEditingFinished: page.updateAccount(accountRow.index, {short: text})
                 }
                 QQC2.CheckBox {
-                    text: i18n("Show")
+                    text: i18n("Show") // qmllint disable unqualified
                     checked: accountRow.account.show
-                    onToggled: updateAccount(accountRow.index, {show: checked})
+                    onToggled: page.updateAccount(accountRow.index, {show: checked})
                 }
                 QQC2.ToolButton {
                     icon.name: "edit-delete"
-                    QQC2.ToolTip.text: i18n("Remove account")
+                    QQC2.ToolTip.text: i18n("Remove account") // qmllint disable unqualified
                     QQC2.ToolTip.visible: hovered
-                    onClicked: removeAccount(accountRow.index)
+                    onClicked: page.removeAccount(accountRow.index)
                 }
             }
         }
         RowLayout {
-            visible: accounts.length < Format.MAX_ACCOUNTS
-            QQC2.Button { text: i18n("Add Claude account"); icon.name: "list-add"; onClicked: addAccount("claude") }
-            QQC2.Button { text: i18n("Add Codex account"); icon.name: "list-add"; onClicked: addAccount("codex") }
+            visible: page.accounts.length < Format.MAX_ACCOUNTS
+            QQC2.Button { text: i18n("Add Claude account"); icon.name: "list-add"; onClicked: page.addAccount("claude") } // qmllint disable unqualified
+            QQC2.Button { text: i18n("Add Codex account"); icon.name: "list-add"; onClicked: page.addAccount("codex") } // qmllint disable unqualified
         }
     }
 
@@ -192,6 +201,6 @@ KCM.SimpleKCM {
     }
     Connections {
         target: folderPicker.item
-        function onChosen(accountIndex, path) { updateAccount(accountIndex, {dir: path}) }
+        function onChosen(accountIndex, path) { page.updateAccount(accountIndex, {dir: path}) }
     }
 }

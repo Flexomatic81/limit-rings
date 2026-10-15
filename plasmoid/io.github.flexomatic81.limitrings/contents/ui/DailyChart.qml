@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents
@@ -22,6 +24,7 @@ Item {
         Repeater {
             model: chart.series
             delegate: Item {
+                id: day
                 required property var modelData
                 width: chart.series.length > 0 ? (chart.width - chart.gap * (chart.series.length - 1)) / chart.series.length : 0
                 height: chart.height
@@ -29,7 +32,7 @@ Item {
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
-                    height: chart.maxTotal > 0 ? Math.max(1, parent.height * modelData.total / chart.maxTotal) : 1
+                    height: chart.maxTotal > 0 ? Math.max(1, parent.height * day.modelData.total / chart.maxTotal) : 1
                     color: Kirigami.Theme.highlightColor
                     opacity: hover.hovered ? 1 : 0.7
                 }
@@ -38,7 +41,7 @@ Item {
 
                 PlasmaComponents.ToolTip {
                     visible: hover.hovered
-                    text: Format.chartTooltip(modelData, chart.range)
+                    text: Format.chartTooltip(day.modelData, chart.range)
                 }
             }
         }
