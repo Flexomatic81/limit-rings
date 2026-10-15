@@ -32,18 +32,29 @@ plasmawindowed io.github.flexomatic81.limitrings
 After changing QML files, run `./install.sh` again and restart `plasmawindowed` (or Plasma) to
 see the result.
 
-## Tests
+## Checks
 
-The test suites and the lint check run in CI for every pull request and must pass:
+CI runs these checks for every pull request, and they must pass. One command runs the same checks locally:
 
 ```bash
-cd collector && uv run --no-project --with pytest pytest -q   # or: python3 -m pytest -q
-/usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
-uvx ruff check collector tools                                # or: ruff check collector tools
+python3 tools/check.py                  # everything: lint, format, types, shell scripts, QML, tests
+python3 tools/check.py fast             # ruff, format and mypy – a few seconds
+python3 tools/check.py --install-hook   # run the fast checks before every commit
 ```
 
-CI runs the collector tests on Python 3.10 and on the newest Python release. Please add tests for
-new behaviour and for bug fixes.
+With [uv](https://docs.astral.sh/uv/) installed, the Python tools run in the versions pinned in
+`tools/requirements-dev.txt`; without uv, install them with `python3 -m pip install -r tools/requirements-dev.txt`.
+`qmllint` and `qmltestrunner` come with Qt 6's QML tools; without them the QML steps are skipped locally.
+
+CI runs the collector tests on Python 3.10 and on the newest Python release, and fails if their coverage drops
+below 97 %. Please add tests for new behaviour and for bug fixes.
+
+Python code is formatted with `ruff format` (line length 120). One commit reformatted the whole code base; to
+keep it out of `git blame`:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ## Ground rules
 

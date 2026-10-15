@@ -344,8 +344,7 @@ can be switched off). Nothing else leaves your machine.
 Contributions are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md). Pull requests go against `dev`.
 
 ```bash
-cd collector && uv run --no-project --with pytest pytest -q
-/usr/lib/qt6/bin/qmltestrunner -input plasmoid/tests
+python3 tools/check.py                          # every check CI runs: lint, types, QML, tests
 plasmawindowed io.github.flexomatic81.limitrings
 python3 tools/build_plasmoid.py --source store   # dist/limit-rings-<version>.plasmoid
 ```

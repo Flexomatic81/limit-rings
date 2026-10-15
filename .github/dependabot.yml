@@ -5,3 +5,8 @@ updates:
     target-branch: dev
     schedule:
       interval: monthly
+  - package-ecosystem: pip
+    directory: /tools
+    target-branch: dev
+    schedule:
+      interval: monthly
