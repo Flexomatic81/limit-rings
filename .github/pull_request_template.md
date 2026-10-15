@@ -7,7 +7,7 @@
 ## Checklist
 
 - [ ] The pull request targets `dev`.
-- [ ] Both test suites pass (`pytest` in `collector/`, `qmltestrunner -input plasmoid/tests`).
+- [ ] `python3 tools/check.py` passes (lint, format, types, shell scripts, QML, tests – what CI runs).
 - [ ] New behaviour and bug fixes come with tests.
 - [ ] New or changed user-facing texts go through i18n, and `po/update.sh` has been run.
 - [ ] The collector still needs nothing but the Python 3.10 standard library.

@@ -107,9 +107,15 @@ def _qt_tool(name: str, env: Env) -> str | None:
     return None
 
 
-def _shell_files() -> list[str]:
-    listed = subprocess.run(["git", "ls-files", "*.sh"], cwd=ROOT, capture_output=True, text=True, check=True)
-    return [*listed.stdout.split(), "tools/hooks/pre-commit"]
+def _shell_files(root: Path = ROOT) -> list[str]:
+    """The tracked shell scripts and the hook; outside a git checkout (a source tarball) every *.sh in the tree."""
+    try:
+        listed = subprocess.run(["git", "ls-files", "*.sh"], cwd=root, capture_output=True, text=True, check=True)
+        scripts = listed.stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        found = (p.relative_to(root) for p in root.rglob("*.sh"))
+        scripts = sorted(str(p) for p in found if not any(part.startswith(".") for part in p.parts))
+    return [*scripts, "tools/hooks/pre-commit"]
 
 
 def _qml_files() -> list[str]:

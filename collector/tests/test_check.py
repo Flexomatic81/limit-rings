@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -83,6 +84,16 @@ def test_shellcheck_covers_every_script_and_the_hook(tmp_path):
     assert {"install.sh", "uninstall.sh", "tools/install-lib.sh", "tools/hooks/pre-commit"} <= set(cmd)
 
 
+def test_shell_files_without_git_come_from_the_tree(tmp_path):
+    # a source tarball has no .git: the scripts are found by name instead
+    (tmp_path / "tools" / "hooks").mkdir(parents=True)
+    (tmp_path / "install.sh").write_text("")
+    (tmp_path / "tools" / "lib.sh").write_text("")
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "activate.sh").write_text("")
+    assert check._shell_files(tmp_path) == ["install.sh", "tools/lib.sh", "tools/hooks/pre-commit"]
+
+
 def test_qt_tools_prefer_qts_bin_directory(tmp_path):
     (tmp_path / "qmllint").write_text("")
     cmd = check.plan_step("qmllint", env(tmp_path, on_path={"qmllint6"})).command
@@ -143,15 +154,23 @@ def git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=False).stdout.strip()
 
 
-def test_install_hook_points_git_at_tools_hooks(tmp_path):
-    git(tmp_path, "init", "-q")
+@pytest.fixture
+def isolated_git(monkeypatch):
+    """git without the developer's global or system config, so their own hooksPath or hook templates don't leak in."""
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+
+
+def test_install_hook_points_git_at_tools_hooks(tmp_path, isolated_git):
+    git(tmp_path, "init", "-q", "--template=")
     assert check.install_hook(tmp_path) == 0
     assert git(tmp_path, "config", "core.hooksPath") == "tools/hooks"
     assert check.install_hook(tmp_path) == 0  # a second call changes nothing
 
 
-def test_install_hook_keeps_existing_own_hooks_working(tmp_path, capsys):
-    git(tmp_path, "init", "-q")
+def test_install_hook_keeps_existing_own_hooks_working(tmp_path, capsys, isolated_git):
+    git(tmp_path, "init", "-q", "--template=")
+    (tmp_path / ".git" / "hooks").mkdir(exist_ok=True)
     (tmp_path / ".git" / "hooks" / "pre-push").write_text("#!/bin/sh\n")
     assert check.install_hook(tmp_path) == 1
     assert git(tmp_path, "config", "core.hooksPath") == ""
