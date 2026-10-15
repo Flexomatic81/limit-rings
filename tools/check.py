@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PINS_FILE = ROOT / "tools" / "requirements-dev.txt"
 PACKAGE = ROOT / "plasmoid" / "io.github.flexomatic81.limitrings" / "contents"
-QT_DIRS = (Path("/usr/lib/qt6/bin"), Path("/usr/lib64/qt6/bin"))  # Arch/Debian/Ubuntu, Fedora/openSUSE
+QT_DIRS = (Path("/usr/lib/qt6/bin"), Path("/usr/lib64/qt6/bin"))  # Arch/Debian/Ubuntu, Fedora
 STEPS = ("ruff", "format", "mypy", "shellcheck", "qmllint", "pytest", "qmltest")
 GROUPS = {"fast": ("ruff", "format", "mypy")}
 QT_STEPS = {"qmllint", "qmltest"}
@@ -113,8 +113,9 @@ def _python_tool(tool: str, package: str, env: Env) -> list[str] | None:
 
 
 def _qt_tool(name: str, env: Env) -> str | None:
-    """Qt 6's own bin directories first, then the Qt 6 names distributions put on PATH, then a plain qmllint
-    that says it is Qt 6 (a plain one may be Qt 5's, which knows neither --max-warnings nor the Qt 6 modules)."""
+    """Qt 6's own bin directories first, then the Qt 6 names distributions put on PATH, then a plain name that is
+    Qt 6 – a plain one may be Qt 5's, which knows neither --max-warnings nor the Qt 6 modules. qmllint tells its
+    version; qmltestrunner cannot, so a plain one counts as Qt 6 when the plain qmllint beside it is."""
     for directory in env.qt_dirs:
         if (directory / name).is_file():
             return str(directory / name)
@@ -123,8 +124,8 @@ def _qt_tool(name: str, env: Env) -> str | None:
         if found:
             return found
     found = env.which(name)
-    # only qmllint can tell its version; a plain qmltestrunner may be Qt 5's
-    if found and name == "qmllint" and _is_qt6(env.qt_version(found)):
+    lint = found if name == "qmllint" else env.which("qmllint")
+    if found and lint and Path(lint).parent == Path(found).parent and _is_qt6(env.qt_version(lint)):
         return found
     return None
 
@@ -185,11 +186,11 @@ def plan_step(name: str, env: Env) -> Step:
     if name == "qmllint":
         qmllint = _qt_tool("qmllint", env)
         # qmllint exits 0 on warnings unless told otherwise; infos never fail it.
-        return Step(name, [qmllint, "--max-warnings", "0", *_qml_files()] if qmllint else None, missing="qmllint")
+        return Step(name, [qmllint, "--max-warnings", "0", *_qml_files()] if qmllint else None, missing="Qt 6 qmllint")
     if name == "qmltest":
         runner = _qt_tool("qmltestrunner", env)
         command = [runner, "-platform", "offscreen", "-input", "plasmoid/tests"] if runner else None
-        return Step(name, command, missing="qmltestrunner")
+        return Step(name, command, missing="Qt 6 qmltestrunner")
     raise ValueError(f"unknown step: {name}")
 
 

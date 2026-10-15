@@ -124,7 +124,7 @@ def run(steps, e, returncode=0, error=None):
 
 def test_missing_qt_tool_is_skipped_locally_but_fails_in_ci(tmp_path):
     steps = [check.plan_step("qmllint", env(tmp_path))]
-    assert run(steps, env(tmp_path))[0] == {"qmllint": ("skipped", "qmllint not found")}
+    assert run(steps, env(tmp_path))[0] == {"qmllint": ("skipped", "Qt 6 qmllint not found")}
     assert run(steps, env(tmp_path, in_ci=True))[0]["qmllint"][0] == "failed"
 
 
@@ -232,3 +232,16 @@ def test_fedoras_qt6_directory_is_known():
 
 def test_the_install_hint_works_on_externally_managed_pythons():
     assert "virtual environment" in check.INSTALL_HINT
+
+
+def test_a_plain_qmltestrunner_next_to_a_qt6_qmllint_is_trusted(tmp_path):
+    e = env(tmp_path, on_path={"qmltestrunner", "qmllint"})
+    assert check.plan_step("qmltest", e).command[0] == "/bin/qmltestrunner"
+    e5 = env(tmp_path, on_path={"qmltestrunner", "qmllint"}, qt_version="qmllint 5.15.2")
+    assert check.plan_step("qmltest", e5).command is None
+
+
+def test_a_qt5_qmllint_is_reported_as_no_qt6_qmllint(tmp_path):
+    e5 = env(tmp_path, on_path={"qmllint"}, qt_version="qmllint 5.15.2")
+    results, _ = run([check.plan_step("qmllint", e5)], e5)
+    assert results == {"qmllint": ("skipped", "Qt 6 qmllint not found")}
