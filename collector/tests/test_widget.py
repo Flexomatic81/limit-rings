@@ -188,7 +188,7 @@ def test_failed_run_returns_last_stats_exit_1_and_no_notices(paths, monkeypatch)
 
     def fake(p, now, tz, notifier, **kw):
         notifier(NOTICE)   # recorded before the crash, but state.json was not saved: must not be shown
-        return None
+        return
     monkeypatch.setattr(widget, "run_safely", fake)
     envelope, code = widget.collect_once(paths, lock, lambda: NOW, TZ)
     assert code == 1

@@ -11,20 +11,20 @@ def test_section_of_a_version():
 
 
 def test_missing_or_empty_section_is_an_error():
-    with pytest.raises(ValueError, match="0.4.0"):
+    with pytest.raises(ValueError, match=r"no entries for 0\.4\.0"):
         rn.changelog_section(CHANGELOG, "0.4.0")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"no entries for 0\.3\.0"):
         rn.changelog_section("## 0.3.0\n\n## 0.2.0\n- x\n", "0.3.0")
 
 
 def test_prefix_versions_do_not_match():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"no entries for 0\.3\.1"):
         rn.changelog_section("## 0.3.10\n\n- x\n", "0.3.1")
 
 
 def test_tag_must_match_the_metadata_version():
     rn.check_tag("v0.3.0", "0.3.0")
-    with pytest.raises(ValueError, match="v0.3.1"):
+    with pytest.raises(ValueError, match=r"tag v0\.3\.1 does not match"):
         rn.check_tag("v0.3.1", "0.3.0")
 
 

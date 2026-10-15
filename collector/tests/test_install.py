@@ -84,7 +84,8 @@ def path_without(tmp_path: Path, *names: str) -> str:
     bin_dir.mkdir(exist_ok=True)
     for d in ("/usr/bin", "/bin"):
         for exe in Path(d).iterdir():
-            if not any(exe.name == n or exe.name.startswith(n + ".") for n in names) and not (bin_dir / exe.name).is_symlink():
+            hidden = any(exe.name == n or exe.name.startswith(n + ".") for n in names)
+            if not hidden and not (bin_dir / exe.name).is_symlink():
                 (bin_dir / exe.name).symlink_to(exe)
     stubs = tmp_path / "stubs"
     for n in names:
@@ -253,7 +254,7 @@ def test_migration_keeps_both_caches_when_the_new_one_exists(env):
     assert "left untouched" in out
 
 
-@pytest.mark.parametrize("old_marker, indent", [(OLD_MARKER, ""), (OLD_MARKER_DE, "    ")])
+@pytest.mark.parametrize(("old_marker", "indent"), [(OLD_MARKER, ""), (OLD_MARKER_DE, "    ")])
 def test_migration_rewrites_the_statusline_hook(env, old_marker, indent):
     before = f"#!/bin/sh\ninput=$(cat)\n{indent}{old_marker}\n{indent}{OLD_SNIPPET}\necho hi\n"
     after = f"#!/bin/sh\ninput=$(cat)\n{MARKER}\n{SNIPPET}\necho hi\n"
@@ -476,7 +477,8 @@ def test_plasmashell_is_restarted_when_the_switch_is_interrupted(env, tmp_path, 
     assert r.returncode != 0
     assert rc.read_text() == APPLETS
     log = calls(env)
-    assert log.index("systemctl --user stop plasma-plasmashell") < log.index("systemctl --user start plasma-plasmashell")
+    stop, start = "systemctl --user stop plasma-plasmashell", "systemctl --user start plasma-plasmashell"
+    assert log.index(stop) < log.index(start)
 
 
 def run_interactive(env: dict, answers: str, **extra: str) -> str:
@@ -537,7 +539,7 @@ def test_timer_of_an_earlier_version_is_removed_and_history_kept(env):
     assert "systemctl --user restart plasma-plasmashell" in out
 
 
-@pytest.mark.parametrize("missing, hint", [("python3", "sudo apt install python3"), ("kpackagetool6", "kpackage")])
+@pytest.mark.parametrize(("missing", "hint"), [("python3", "sudo apt install python3"), ("kpackagetool6", "kpackage")])
 def test_missing_requirement_stops_before_anything_changes(env, tmp_path, missing, hint):
     earlier_version(env)
     r = subprocess.run(["bash", str(ROOT / "install.sh")], env={**env, "PATH": path_without(tmp_path, missing)},
@@ -579,7 +581,7 @@ def test_too_old_python_is_reported_with_its_version(env, tmp_path):
     assert r.returncode == 1 and "Python 3.8 is too old" in r.stderr
 
 
-@pytest.mark.parametrize("os_release, hint", [
+@pytest.mark.parametrize(("os_release", "hint"), [
     ("ID=cachyos\nID_LIKE=arch\n", "sudo pacman -S python"),
     ('ID="opensuse-tumbleweed"\nID_LIKE="opensuse suse"\n', "sudo zypper install python3"),
     ("ID=fedora\n", "sudo dnf install python3")])

@@ -5,6 +5,8 @@ import runpy
 import sys
 from pathlib import Path
 
+import pytest
+
 from limit_rings import export
 from limit_rings.accounts import parse_accounts
 from limit_rings.state import new_state
@@ -85,8 +87,7 @@ def test_run_py_dispatches_export_without_collecting(tmp_path, monkeypatch, caps
     monkeypatch.setattr(widget_mod, "main", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not collect")))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(sys, "argv", [str(RUN_PY), "--export", "--json"])
-    try:
+    with pytest.raises(SystemExit) as exc:
         runpy.run_path(str(RUN_PY), run_name="__main__")
-    except SystemExit as e:
-        assert e.code == 0
+    assert exc.value.code == 0
     assert json.loads(capsys.readouterr().out) == {"export_version": 1, "days": []}

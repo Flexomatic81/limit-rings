@@ -1,5 +1,6 @@
 """Atomic writing of private JSON files."""
 
+import contextlib
 import json
 import os
 import tempfile
@@ -19,8 +20,6 @@ def write_json_atomic(path: Path, obj: object) -> None:
         os.chmod(tmp, 0o600)
         os.replace(tmp, path)
     except BaseException:
-        try:
+        with contextlib.suppress(FileNotFoundError):
             os.unlink(tmp)
-        except FileNotFoundError:
-            pass
         raise

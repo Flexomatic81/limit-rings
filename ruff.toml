@@ -1,5 +1,30 @@
-# Only real errors: syntax errors and pyflakes (undefined names, unused imports …). The collector runs on Python 3.10.
+# The collector runs on Python 3.10.
 target-version = "py310"
+line-length = 120
+src = ["collector", "tools"]  # first-party modules for the import order
 
 [lint]
-select = ["E9", "F"]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # import order
+    "B",        # bugbear: likely bugs
+    "UP",       # newer syntax, up to Python 3.10
+    "SIM", "C4", "PIE", "RET", "PERF",  # simpler equivalents
+    "RUF",      # ruff's own checks
+    "PT",       # pytest style
+    "C90",      # complexity
+]
+ignore = [
+    "PT018",    # composite assertions: splitting them only changes style
+    "PERF203",  # try/except in a loop costs nothing since Python 3.11 and is often clearer
+]
+# Typographic characters used on purpose in messages and docstrings.
+allowed-confusables = ["–", "−"]
+
+[lint.mccabe]
+max-complexity = 13  # the most complex functions today; to be lowered to 10 once they are split
+
+[lint.per-file-ignores]
+# The version guard has to run, and report, on any Python 3 before anything newer is imported.
+"collector/run.py" = ["UP036", "UP031"]

@@ -55,7 +55,7 @@ def test_scoped_limits_skip_broken_entries_and_duplicates():
                 {"kind": "weekly_scoped", "percent": 7, "resets_at": None,
                  "scope": {"model": {"id": None, "display_name": "Sonnet"}}},
             ]}
-    assert [(l["label"], l["used_percent"]) for l in normalize_oauth(resp)] == [
+    assert [(lim["label"], lim["used_percent"]) for lim in normalize_oauth(resp)] == [
         ("5 h", 5.0), ("Week Opus", 20.0), ("Week Sonnet", 7.0)]
 
 
@@ -74,7 +74,7 @@ def test_normalize_oauth_null_reset_and_unknown_windows():
             "seven_day_opus": None,
             "something_new": {"utilization": 5.0}}
     limits = normalize_oauth(resp)
-    assert [l["id"] for l in limits] == ["five_hour", "seven_day"]
+    assert [lim["id"] for lim in limits] == ["five_hour", "seven_day"]
     assert limits[0]["resets_at"] == 1791057600
     assert limits[1]["resets_at"] is None
 
@@ -283,12 +283,12 @@ def test_oauth_record_carries_extra_usage_only_when_enabled(tmp_path):
 def test_single_windows_and_a_model_limit_without_a_general_weekly_limit():
     five = {"utilization": 12.0, "resets_at": "2026-10-04T14:00:00+00:00"}
     week = {"utilization": 30.0, "resets_at": "2026-10-06T04:00:00+00:00"}
-    assert [l["id"] for l in normalize_oauth({"five_hour": None, "seven_day": week})] == ["seven_day"]
-    assert [l["id"] for l in normalize_oauth({"five_hour": five, "seven_day": None})] == ["five_hour"]
+    assert [lim["id"] for lim in normalize_oauth({"five_hour": None, "seven_day": week})] == ["seven_day"]
+    assert [lim["id"] for lim in normalize_oauth({"five_hour": five, "seven_day": None})] == ["five_hour"]
     scoped = {"kind": "weekly_scoped", "percent": 9, "resets_at": "2026-10-06T04:00:00+00:00",
               "scope": {"model": {"display_name": "Fable"}}}
     limits = normalize_oauth({"five_hour": five, "seven_day": None, "limits": [scoped]})
-    assert [(l["id"], l.get("model"), l["window_minutes"]) for l in limits] == [
+    assert [(lim["id"], lim.get("model"), lim["window_minutes"]) for lim in limits] == [
         ("five_hour", None, 300), ("weekly_scoped:fable", "Fable", 10080)]
 
 

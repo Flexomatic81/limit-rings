@@ -189,13 +189,9 @@ def test_structure_with_missing_keys_is_dropped_alone(tmp_path):
     window = {"minutes": 300, "model": None, "resets_at": None, "used": 3.0, "seen": 1.0, "missing": None}
     event = {"kind": "new", "id": "five_hour", "minutes": 300, "model": None, "at": 1.0}
     full = {"source": "oauth", "updated_at": 1.0, "windows": {"five_hour": window}, "gone": {}, "events": [event]}
-    broken = []
-    for key in ("source",):
-        broken.append({k: v for k, v in full.items() if k != key})
-    for key in window:
-        broken.append({**full, "windows": {"five_hour": {k: v for k, v in window.items() if k != key}}})
-    for key in event:
-        broken.append({**full, "events": [{k: v for k, v in event.items() if k != key}]})
+    broken = [{k: v for k, v in full.items() if k != "source"}]
+    broken += [{**full, "windows": {"five_hour": {k: v for k, v in window.items() if k != key}}} for key in window]
+    broken += [{**full, "events": [{k: v for k, v in event.items() if k != key}]} for key in event]
     for bad in broken:
         s = new_state()
         s["claude"]["buckets"] = {"2026-10-01": {"input": 1, "output": 0, "cache_read": 0, "cache_write": 0}}

@@ -50,7 +50,9 @@ def test_resolver_caches_lookups(tmp_path, monkeypatch):
 
 def test_summarize_since_window_start_with_top_four_and_others():
     hourly = {}
-    names = lambda e: ("website" if e.project == "/x/website" else e.project, model_label(e.model))
+    def names(e):
+        return ("website" if e.project == "/x/website" else e.project, model_label(e.model))
+
     events = [ev(-7200, 999)]  # before the window start → not counted
     events += [ev(0, 880), ev(600, 30, project="limit-rings"), ev(3600, 20, project="tools"),
                ev(3600, 10, project="a"), ev(7200, 5, project="b"), ev(7200, 5, project="c", model="claude-sonnet-5")]

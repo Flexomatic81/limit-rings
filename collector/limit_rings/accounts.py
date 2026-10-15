@@ -39,7 +39,7 @@ class Account:
     def state_key(self) -> str:
         """State file name from provider and directory only: a changed directory starts afresh, and widgets
         that list the same directory under different ids share one state (interval, pause, notices)."""
-        digest = hashlib.sha256(f"{self.provider}:{self.dir}".encode("utf-8")).hexdigest()[:12]
+        digest = hashlib.sha256(f"{self.provider}:{self.dir}".encode()).hexdigest()[:12]
         return f"{self.provider}-{digest}"
 
 

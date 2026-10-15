@@ -44,8 +44,8 @@ def update(structure: dict | None, rec: dict | None, source: str | None, now: fl
     at = rec["updated_at"]
     events = structure["events"] if structure else []
     if structure is None or structure["source"] != source:
-        structure = {"source": source, "updated_at": at, "windows": {l["id"]: _window(l, at) for l in rec["limits"]},
-                     "gone": {}, "events": events}
+        windows = {lim["id"]: _window(lim, at) for lim in rec["limits"]}
+        structure = {"source": source, "updated_at": at, "windows": windows, "gone": {}, "events": events}
         return _prune(structure, now)
     if at <= structure["updated_at"]:
         return structure

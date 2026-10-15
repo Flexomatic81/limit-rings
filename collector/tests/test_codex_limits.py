@@ -41,7 +41,7 @@ def test_normalize_two_windows_and_rejects_unusable():
     limits, _ = normalize_codex_usage({"rate_limit": {
         "primary_window": {"used_percent": 30, "limit_window_seconds": 18000, "reset_at": 1},
         "secondary_window": {"used_percent": 5, "limit_window_seconds": 604800, "reset_at": 2}}})
-    assert [l["label"] for l in limits] == ["5 h", "Week"]
+    assert [lim["label"] for lim in limits] == ["5 h", "Week"]
     for bad in [{}, [], {"rate_limit": None}, {"rate_limit": {"primary_window": None, "secondary_window": None}},
                 {"rate_limit": {"primary_window": {"used_percent": "x", "limit_window_seconds": 1}}}]:
         try:
@@ -139,6 +139,6 @@ def test_usage_with_only_a_secondary_or_swapped_windows():
     week = {"used_percent": 7, "limit_window_seconds": 604800, "reset_at": 2}
     five = {"used_percent": 30, "limit_window_seconds": 18000, "reset_at": 1}
     only_secondary, _ = normalize_codex_usage({"rate_limit": {"primary_window": None, "secondary_window": week}})
-    assert [(l["id"], l["window_minutes"]) for l in only_secondary] == [("secondary", 10080)]
+    assert [(lim["id"], lim["window_minutes"]) for lim in only_secondary] == [("secondary", 10080)]
     swapped, _ = normalize_codex_usage({"rate_limit": {"primary_window": week, "secondary_window": five}})
-    assert [(l["id"], l["window_minutes"]) for l in swapped] == [("primary", 10080), ("secondary", 300)]
+    assert [(lim["id"], lim["window_minutes"]) for lim in swapped] == [("primary", 10080), ("secondary", 300)]

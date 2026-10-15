@@ -10,7 +10,8 @@ import pytest
 import msgfmt
 
 ROOT = Path(__file__).resolve().parents[2]
-HEADER = 'msgid ""\nmsgstr ""\n"Content-Type: text/plain; charset=UTF-8\\n"\n"Plural-Forms: nplurals=2; plural=(n != 1);\\n"\n\n'
+HEADER = ('msgid ""\nmsgstr ""\n"Content-Type: text/plain; charset=UTF-8\\n"\n'
+          '"Plural-Forms: nplurals=2; plural=(n != 1);\\n"\n\n')
 
 
 def load(tmp_path: Path, po_text: str) -> gettext.GNUTranslations:

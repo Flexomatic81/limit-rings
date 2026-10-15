@@ -4,7 +4,6 @@ import math
 import re
 from datetime import datetime
 
-
 RESET_TOLERANCE = 300  # seconds; the API rounds resets_at sometimes up, sometimes down
 
 
@@ -118,7 +117,7 @@ def normalize_oauth(resp: dict) -> list[dict]:
         out.append(make_limit(key, w["utilization"], _iso_to_epoch(w.get("resets_at")), minutes, model))
     if not out:
         raise ValueError("no usable window")
-    models = {l.get("model") for l in out}
+    models = {lim.get("model") for lim in out}
     for limit in _scoped_limits(resp.get("limits")):
         if limit["model"] not in models:
             models.add(limit["model"])

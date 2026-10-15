@@ -83,9 +83,9 @@ def read_events(root: Path, files: dict, seen: dict) -> ReadResult:
                 res.events.append(ev)
                 continue
             # Intermediate streaming states: only count the increase, on the day of the first line.
-            delta = [max(0, new - old) for new, old in zip(usage, known["u"])]
+            delta = [max(0, new - old) for new, old in zip(usage, known["u"], strict=True)]
             if any(delta):
-                known["u"] = [max(new, old) for new, old in zip(usage, known["u"])]
+                known["u"] = [max(new, old) for new, old in zip(usage, known["u"], strict=True)]
                 res.events.append(TokenEvent(parse_ts(known["ts"]), *delta, model=ev.model, project=ev.project))
     prune_missing(files, present, failed)
     if res.invalid:

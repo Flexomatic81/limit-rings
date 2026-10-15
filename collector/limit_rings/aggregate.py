@@ -8,7 +8,7 @@ FIELDS = ("input", "output", "cache_read", "cache_write")
 
 
 def _zero() -> dict[str, int]:
-    return {f: 0 for f in FIELDS}
+    return dict.fromkeys(FIELDS, 0)
 
 
 def add_event(buckets: dict[str, dict[str, int]], ev: TokenEvent, tz: tzinfo) -> None:
@@ -58,7 +58,7 @@ def _range_series(buckets, starts: list[date], end: date) -> list[dict]:
         if lo <= day <= hi:
             i = max(n for n, k in enumerate(keys) if k <= day)
             totals[i] += sum(bucket.get(f, 0) for f in FIELDS)
-    return [{"date": k, "total": t} for k, t in zip(keys, totals)]
+    return [{"date": k, "total": t} for k, t in zip(keys, totals, strict=True)]
 
 
 def weekly_series(buckets, today: date, weeks: int = 13) -> list[dict]:

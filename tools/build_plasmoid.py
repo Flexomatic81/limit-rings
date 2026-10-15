@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import msgfmt  # noqa: E402
+import msgfmt
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ID = "io.github.flexomatic81.limitrings"
@@ -42,8 +42,8 @@ def build_js(source: str, repo_dir: str = "", ver: str = "") -> str:
 
 def version_py(ver: str) -> str:
     return ('"""Version of the widget this collector belongs to.\n\n'
-            'Written by tools/build_plasmoid.py into the package; the copy in the repository holds the default for running\n'
-            'from the checkout.\n"""\n\n'
+            'Written by tools/build_plasmoid.py into the package; the copy in the repository holds the default for '
+            'running\nfrom the checkout.\n"""\n\n'
             f"VERSION = {json.dumps(ver)}\n")
 
 

@@ -97,13 +97,13 @@ def _structure_ok(s) -> bool:
             and isinstance(s.get("gone"), dict) and isinstance(s.get("events"), list)):
         return False
     windows_ok = all(
-        isinstance(w, dict) and _WINDOW_KEYS <= w.keys() and (w["minutes"] is None or _int(w["minutes"]))
+        isinstance(w, dict) and w.keys() >= _WINDOW_KEYS and (w["minutes"] is None or _int(w["minutes"]))
         and (w["model"] is None or isinstance(w["model"], str))
         and (w["resets_at"] is None or _int(w["resets_at"])) and _num(w["used"]) and _num(w["seen"])
         and (w["missing"] is None or _num(w["missing"])) for w in s["windows"].values())
     gone_ok = all(isinstance(g, dict) and _num(g.get("at")) for g in s["gone"].values())
     events_ok = all(
-        isinstance(e, dict) and _EVENT_KEYS <= e.keys() and isinstance(e["kind"], str) and isinstance(e["id"], str)
+        isinstance(e, dict) and e.keys() >= _EVENT_KEYS and isinstance(e["kind"], str) and isinstance(e["id"], str)
         and _num(e["at"]) and (e["minutes"] is None or _int(e["minutes"]))
         and (e["model"] is None or isinstance(e["model"], str))
         and (e.get("previous_minutes") is None or _int(e["previous_minutes"]))

@@ -110,7 +110,9 @@ def test_early_warning_for_the_weekly_limit_within_a_day():
 
 def test_custom_thresholds_and_urgency_at_the_second_one():
     notified = {}
-    at = lambda pct: update_notices({"Claude": [limit(pct=pct)]}, notified, NOW, thresholds=(50, 75))
+    def at(pct):
+        return update_notices({"Claude": [limit(pct=pct)]}, notified, NOW, thresholds=(50, 75))
+
     assert [(n.level, n.urgent) for n in at(55.0)] == [(50, False)]
     assert at(60.0) == []
     assert [(n.level, n.urgent) for n in at(76.0)] == [(75, True)]
@@ -159,6 +161,7 @@ def test_legacy_label_without_model_still_names_the_model():
 
 def test_texts_go_through_the_translation(monkeypatch):
     import gettext
+
     from limit_rings import i18n
 
     class Marked(gettext.NullTranslations):

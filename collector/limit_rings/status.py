@@ -58,7 +58,7 @@ def _entry(entry_id: str, provider: str, entry: dict, now: float, account: dict 
     return {"id": entry_id, "provider": provider, "name": name, "account": account, "plan": entry.get("plan"),
             "login": entry.get("login", True), "limits_source": entry.get("limits_source"),
             "limits_updated_at": entry.get("limits_updated_at"),
-            "limits": [_limit(l, now) for l in limits if isinstance(l, dict)]}
+            "limits": [_limit(lim, now) for lim in limits if isinstance(lim, dict)]}
 
 
 def build(stats: dict | None, now: float) -> dict:
@@ -111,11 +111,11 @@ def waybar(status: dict, now: float | None = None) -> dict:
                 "percentage": 0}
     texts, lines, highest, warning = [], [], 0.0, False
     for entry in status["providers"]:
-        used = [l["used_percent"] for l in entry["limits"]]
+        used = [lim["used_percent"] for lim in entry["limits"]]
         texts.append(f"{_letter(entry)} {round(max(used))}%" if used else f"{_letter(entry)} –")
-        highest = max([highest] + used)
-        warning = warning or any(l["forecast"] and l["forecast"]["status"] == "full" for l in entry["limits"])
-        lines += [_line(entry["name"], l, now) for l in entry["limits"]]
+        highest = max([highest, *used])
+        warning = warning or any(lim["forecast"] and lim["forecast"]["status"] == "full" for lim in entry["limits"])
+        lines += [_line(entry["name"], lim, now) for lim in entry["limits"]]
     level = "critical" if highest >= CRIT else "warning" if highest >= WARN or warning else "normal"
     return {"text": " · ".join(texts), "tooltip": "\n".join(lines),
             "class": [level] + (["stale"] if status["stale"] else []), "percentage": round(highest)}

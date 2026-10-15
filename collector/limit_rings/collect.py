@@ -1,5 +1,6 @@
 """One collector run: read logs, fetch limits, write stats.json."""
 
+import contextlib
 import copy
 import json
 import logging
@@ -151,7 +152,8 @@ def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float)
 def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
     """Breakdown since the start of the Claude weekly window (reset − 7 days), otherwise of the last 7 days."""
     rec = section["limits"]
-    resets = next((l.get("resets_at") for l in (rec["limits"] if rec else []) if l.get("id") == "seven_day"), None)
+    resets = next((lim.get("resets_at") for lim in (rec["limits"] if rec else []) if lim.get("id") == "seven_day"),
+                  None)
     if resets is not None and resets - 7 * 86400 <= now_ts:
         since, basis = resets - 7 * 86400, "window"
     else:
@@ -368,7 +370,7 @@ def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = 
 
 def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, thresholds,
               reset_notice, login) -> dict:
-    from . import accounts as accounts_mod   # accounts imports Paths from here
+    from . import accounts as accounts_mod  # accounts imports Paths from here
     out = {}
     today = now.astimezone(tz).date()
     for account in accounts:
@@ -385,10 +387,8 @@ def _accounts(accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fet
             entry = entry[account.provider]
         except Exception as e:
             log.error("account %s: run aborted: %s", account.id, type(e).__name__)
-            try:
+            with contextlib.suppress(OSError):
                 os.replace(paths.state_file, paths.state_file.with_name(paths.state_file.name + ".corrupt"))
-            except OSError:
-                pass
             entry = _empty_entry(account.provider, today, [dict(LOGS_FAILED)],
                                  login=account.provider in login)
         if account.provider == "codex":
@@ -430,8 +430,6 @@ def run_safely(paths: Paths, now: datetime, tz: tzinfo, notifier, providers=PROV
         files = [paths.state_file] + [accounts_mod.account_paths(a, cache).state_file for a in accounts
                                       if not a.error]
         for f in files:
-            try:
+            with contextlib.suppress(OSError):
                 os.replace(f, f.with_name(f.name + ".corrupt"))
-            except OSError:
-                pass
         return None

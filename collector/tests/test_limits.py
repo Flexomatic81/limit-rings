@@ -39,7 +39,7 @@ def test_normalize_codex_skips_missing_secondary():
 def test_normalize_codex_two_windows():
     rl = {"primary": {"used_percent": 30, "window_minutes": 300, "resets_at": 1},
           "secondary": {"used_percent": 5, "window_minutes": 10080, "resets_at": 2}}
-    assert [l["label"] for l in normalize_codex(rl)] == ["5 h", "Week"]
+    assert [lim["label"] for lim in normalize_codex(rl)] == ["5 h", "Week"]
 
 
 def test_extra_usage_with_monthly_limit_in_currency_units():
