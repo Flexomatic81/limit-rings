@@ -18,8 +18,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from limit_rings import widget
-from limit_rings.collect import Paths
 from limit_rings.notify import Notice
+from limit_rings.paths import Paths
 
 TZ = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=TZ)

@@ -6,21 +6,18 @@ import json
 import logging
 import os
 from collections.abc import Callable, Collection, Iterable, Sequence
-from dataclasses import dataclass
-from datetime import date, datetime, timezone, tzinfo
+from datetime import date, datetime, tzinfo
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from typing import Any
 
+from . import accounts as accounts_mod
 from . import aggregate, breakdown, changes, forecast, notify
 from .fsutil import write_json_atomic
 from .limits import public_limit
 from .models import JsonDict, TokenEvent
+from .paths import Paths
 from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs
 from .state import load_state, prune_state, save_state
-
-if TYPE_CHECKING:
-    from .accounts import Account  # accounts imports Paths from here
 
 log = logging.getLogger("limit_rings")
 
@@ -28,47 +25,6 @@ Fetch = Callable[..., Any]  # usage endpoint request: (token, [account,] timeout
 Notifier = Callable[[notify.Notice], None]
 
 SCHEMA = 2
-
-
-@dataclass(frozen=True)
-class Paths:
-    claude_root: Path
-    codex_root: Path
-    credentials: Path
-    statusline_cache: Path | None
-    state_file: Path
-    stats_file: Path
-    codex_auth: Path | None = None
-
-    @classmethod
-    def default(cls, home: Path) -> "Paths":
-        cache = home / ".cache" / "limit-rings"
-        return cls(
-            claude_root=home / ".claude" / "projects",
-            codex_root=home / ".codex" / "sessions",
-            credentials=home / ".claude" / ".credentials.json",
-            statusline_cache=cache / "claude-statusline-limits.json",
-            state_file=cache / "state.json",
-            stats_file=cache / "stats.json",
-            codex_auth=home / ".codex" / "auth.json",
-        )
-
-
-def local_zone() -> tzinfo:
-    candidates = [os.environ.get("TZ", "").lstrip(":")]
-    try:
-        target = os.path.realpath("/etc/localtime")
-        if "zoneinfo/" in target:
-            candidates.append(target.split("zoneinfo/", 1)[1])
-    except OSError:
-        pass
-    for key in candidates:
-        if key:
-            try:
-                return ZoneInfo(key)
-            except (ZoneInfoNotFoundError, ValueError):
-                continue
-    return datetime.now().astimezone().tzinfo or timezone.utc
 
 
 def _iso(epoch: float | None, tz: tzinfo) -> str | None:
@@ -457,7 +413,7 @@ def _empty_entry(provider: str | None, today: date, errors: list[JsonDict], logi
 
 
 def _accounts(
-    accounts: Sequence["Account"],
+    accounts: Sequence[accounts_mod.Account],
     cache: Path,
     now: datetime,
     tz: tzinfo,
@@ -468,8 +424,6 @@ def _accounts(
     reset_notice: bool,
     login: Collection[str],
 ) -> JsonDict:
-    from . import accounts as accounts_mod  # accounts imports Paths from here
-
     out = {}
     today = now.astimezone(tz).date()
     for account in accounts:
@@ -524,7 +478,7 @@ def run(
     providers: Collection[str] = PROVIDERS,
     thresholds: tuple[int, int] = notify.THRESHOLDS,
     reset_notice: bool = False,
-    accounts: Sequence["Account"] = (),
+    accounts: Sequence[accounts_mod.Account] = (),
     login: Collection[str] = PROVIDERS,
 ) -> JsonDict:
     """One pass over the main account and each additional account (see _pass); writes stats.json.
@@ -551,7 +505,7 @@ def run_safely(
     providers: Collection[str] = PROVIDERS,
     thresholds: tuple[int, int] = notify.THRESHOLDS,
     reset_notice: bool = False,
-    accounts: Sequence["Account"] = (),
+    accounts: Sequence[accounts_mod.Account] = (),
     login: Collection[str] = PROVIDERS,
 ) -> JsonDict | None:
     """One run that never raises: after an unexpected error, state.json and the additional accounts' state
@@ -570,8 +524,6 @@ def run_safely(
         )
     except Exception as e:
         log.error("run aborted: %s", type(e).__name__)
-        from . import accounts as accounts_mod
-
         cache = paths.state_file.parent
         files = [paths.state_file] + [accounts_mod.account_paths(a, cache).state_file for a in accounts if not a.error]
         for f in files:

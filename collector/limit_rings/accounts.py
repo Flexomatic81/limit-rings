@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from .collect import Paths
+from .paths import Paths
 
 log = logging.getLogger(__name__)
 

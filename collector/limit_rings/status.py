@@ -10,10 +10,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from .collect import local_zone
 from .i18n import _
 from .models import JsonDict
 from .notify import _duration, _limit_name
+from .paths import local_zone
 
 STATUS_VERSION = 1
 STALE_AFTER = 300  # seconds without a collector pass (the widget runs it every 60 s)

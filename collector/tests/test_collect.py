@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from limit_rings import collect
-from limit_rings.collect import Paths, run, run_safely
+from limit_rings.collect import run, run_safely
+from limit_rings.paths import Paths
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 3, 19, 42, tzinfo=BERLIN)
@@ -191,7 +192,7 @@ def test_unreadable_transcript_is_reported_but_rest_counts(tmp_path):
 
 
 def test_local_zone_prefers_tz_variable(monkeypatch):
-    from limit_rings.collect import local_zone
+    from limit_rings.paths import local_zone
 
     monkeypatch.setenv("TZ", "America/New_York")
     assert local_zone().key == "America/New_York"
