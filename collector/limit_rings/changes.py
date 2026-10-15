@@ -5,8 +5,10 @@ records what changed; the card shows the recent changes for a few days.
 """
 
 from datetime import datetime, tzinfo
+from typing import Any
 
 from .limits import RESET_TOLERANCE, public_limit, same_window
+from .models import JsonDict
 
 GONE_AFTER = 3600  # a window counts as gone once it has been missing for this long
 KEEP_EVENTS = 30 * 86400  # how long changes stay in the state file
@@ -15,7 +17,7 @@ RECENT = 3 * 86400  # how long the card shows a change
 LOCAL_SOURCES = frozenset({"statusline", "session_log"})  # limits read without the login
 
 
-def _event(kind: str, limit: dict, at: float, source: str | None, **extra) -> dict:
+def _event(kind: str, limit: JsonDict, at: float, source: str | None, **extra: Any) -> JsonDict:
     return {
         "kind": kind,
         "id": limit["id"],
@@ -27,7 +29,7 @@ def _event(kind: str, limit: dict, at: float, source: str | None, **extra) -> di
     }
 
 
-def _window(limit: dict, at: float) -> dict:
+def _window(limit: JsonDict, at: float) -> JsonDict:
     return {
         "minutes": limit.get("window_minutes"),
         "model": public_limit(limit).get("model"),
@@ -38,7 +40,7 @@ def _window(limit: dict, at: float) -> dict:
     }
 
 
-def _reset_early(prev: dict, limit: dict, at: float) -> bool:
+def _reset_early(prev: JsonDict, limit: JsonDict, at: float) -> bool:
     """A new window although the previous one still had more than the API's rounding to go."""
     resets = prev["resets_at"]
     return (
@@ -49,7 +51,7 @@ def _reset_early(prev: dict, limit: dict, at: float) -> bool:
     )
 
 
-def update(structure: dict | None, rec: dict | None, source: str | None, now: float) -> dict | None:
+def update(structure: JsonDict | None, rec: JsonDict | None, source: str | None, now: float) -> JsonDict | None:
     """Compare the limits record of a provider with the known windows and note the changes.
 
     Only a newer record from the same source counts: another source (the status line knows fewer
@@ -104,14 +106,14 @@ def update(structure: dict | None, rec: dict | None, source: str | None, now: fl
     return _prune(structure, now)
 
 
-def _prune(structure: dict, now: float) -> dict:
+def _prune(structure: JsonDict, now: float) -> JsonDict:
     cutoff = now - KEEP_EVENTS
     structure["events"] = [e for e in structure["events"] if e["at"] >= cutoff][-MAX_EVENTS:]
     structure["gone"] = {k: v for k, v in structure["gone"].items() if v["at"] >= cutoff}
     return structure
 
 
-def recent(structure: dict | None, now: float, tz: tzinfo, local_only: bool = False) -> list[dict]:
+def recent(structure: JsonDict | None, now: float, tz: tzinfo, local_only: bool = False) -> list[JsonDict]:
     """The changes of the last days in stats.json format.
 
     local_only: only changes noticed in local data (a provider without login); events of unknown source –

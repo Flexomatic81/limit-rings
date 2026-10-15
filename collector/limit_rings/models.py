@@ -2,6 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
+
+JsonDict = dict[str, Any]  # a JSON object as read from a file, an API response or the widget
 
 
 @dataclass(frozen=True)

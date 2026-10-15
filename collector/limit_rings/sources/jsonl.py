@@ -3,8 +3,10 @@
 import os
 from pathlib import Path
 
+from ..models import JsonDict
 
-def read_new_lines(path: Path, file_state: dict | None) -> tuple[list[str], dict]:
+
+def read_new_lines(path: Path, file_state: JsonDict | None) -> tuple[list[str], JsonDict]:
     """Read complete lines from the stored offset.
 
     An incomplete last line is left for the next call.
@@ -47,7 +49,7 @@ def list_jsonl(root: Path) -> tuple[list[Path], list[Path]]:
     return sorted(found), sorted(failed)
 
 
-def prune_missing(files: dict, present: set[str], failed: list[Path]) -> None:
+def prune_missing(files: JsonDict, present: set[str], failed: list[Path]) -> None:
     """Remove entries of vanished files – except under unreadable directories."""
     prefixes = tuple(str(d) + os.sep for d in failed)
     for gone in set(files) - present:

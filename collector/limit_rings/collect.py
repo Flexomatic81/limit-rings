@@ -5,18 +5,27 @@ import copy
 import json
 import logging
 import os
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone, tzinfo
+from datetime import date, datetime, timezone, tzinfo
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import aggregate, breakdown, changes, forecast, notify
 from .fsutil import write_json_atomic
 from .limits import public_limit
+from .models import JsonDict, TokenEvent
 from .sources import backoff, claude_limits, claude_logs, codex_limits, codex_logs
 from .state import load_state, prune_state, save_state
 
+if TYPE_CHECKING:
+    from .accounts import Account  # accounts imports Paths from here
+
 log = logging.getLogger("limit_rings")
+
+Fetch = Callable[..., Any]  # usage endpoint request: (token, [account,] timeout=…) → the raw JSON response
+Notifier = Callable[[notify.Notice], None]
 
 SCHEMA = 2
 
@@ -68,16 +77,25 @@ def _iso(epoch: float | None, tz: tzinfo) -> str | None:
     return datetime.fromtimestamp(epoch, tz).isoformat(timespec="seconds")
 
 
-def _next_request(section: dict, interval: float, now_ts: float) -> float | None:
+def _next_request(section: JsonDict, interval: float, now_ts: float) -> float | None:
     """When the usage endpoint will be asked next: after the regular interval and any running pause."""
     last = section["oauth_last_attempt"]
     if last is None:
         return None
-    candidates = [last + interval, backoff.blocked_until(section["oauth_pause"], now_ts) or 0]
+    candidates: list[float] = [last + interval, backoff.blocked_until(section["oauth_pause"], now_ts) or 0]
     return max(candidates)
 
 
-def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors, interval) -> dict:
+def _provider(
+    section: JsonDict,
+    today: date,
+    tz: tzinfo,
+    now_ts: float,
+    limits_source: str | None,
+    plan: str | None,
+    errors: list[JsonDict],
+    interval: float,
+) -> JsonDict:
     rec = section["limits"]
     return {
         "limits": rec["limits"] if rec else [],
@@ -93,7 +111,7 @@ def _provider(section: dict, today, tz, now_ts, limits_source, plan, errors, int
     }
 
 
-def _series(buckets, today) -> dict:
+def _series(buckets: JsonDict, today: date) -> JsonDict:
     """The chart's three ranges: 30 days, 13 weeks and 12 months."""
     return {
         "daily": aggregate.daily_series(buckets, today),
@@ -102,13 +120,19 @@ def _series(buckets, today) -> dict:
     }
 
 
-def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> dict:
+def _auth(credentials: Path, now_ts: float, tz: tzinfo) -> JsonDict:
     status, expires_at = claude_limits.credential_status(credentials, now_ts)
     return {"status": status, "expires_at": _iso(expires_at, tz)}
 
 
 def _notify(
-    state: dict, providers: dict[str, list[dict]], now_ts: float, notifier, thresholds, reset_notice, labels=None
+    state: JsonDict,
+    providers: dict[str, list[JsonDict]],
+    now_ts: float,
+    notifier: Notifier | None,
+    thresholds: tuple[int, int],
+    reset_notice: bool,
+    labels: dict[str, str] | None = None,
 ) -> None:
     if notifier is None:  # notifications off: leave them due, another widget instance may show them
         return
@@ -119,7 +143,7 @@ def _notify(
             log.warning("notification failed: %s", type(e).__name__)
 
 
-def _update_history(state: dict) -> None:
+def _update_history(state: JsonDict) -> None:
     providers = {}
     for name, key in (("Claude", "claude"), ("Codex", "codex")):
         rec = state[key]["limits"]
@@ -127,13 +151,14 @@ def _update_history(state: dict) -> None:
     forecast.update_history(state["history"], providers)
 
 
-def _limits_source(key: str, rec: dict | None) -> str | None:
+def _limits_source(key: str, rec: JsonDict | None) -> str | None:
     if rec is None:
         return None
-    return rec["source"] if key == "claude" else rec.get("source", "session_log")
+    source: str | None = rec["source"] if key == "claude" else rec.get("source", "session_log")
+    return source
 
 
-def _update_changes(state: dict, providers, now_ts: float) -> None:
+def _update_changes(state: JsonDict, providers: Collection[str], now_ts: float) -> None:
     """Note changes to the limit structure of each shown provider (a hidden one is not compared)."""
     for key in ("claude", "codex"):
         if key in providers:
@@ -143,7 +168,7 @@ def _update_changes(state: dict, providers, now_ts: float) -> None:
             )
 
 
-def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float) -> list[dict]:
+def _with_forecasts(limits: list[JsonDict], name: str, history: JsonDict, now_ts: float) -> list[JsonDict]:
     out = []
     for limit in map(public_limit, limits):
         entry = history.get(f"{name.lower()}:{limit['id']}")
@@ -154,7 +179,7 @@ def _with_forecasts(limits: list[dict], name: str, history: dict, now_ts: float)
     return out
 
 
-def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
+def _breakdown(section: JsonDict, now_ts: float, tz: tzinfo) -> JsonDict:
     """Breakdown since the start of the Claude weekly window (reset − 7 days), otherwise of the last 7 days."""
     rec = section["limits"]
     resets = next(
@@ -167,7 +192,7 @@ def _breakdown(section: dict, now_ts: float, tz: tzinfo) -> dict:
     return {"since": _iso(since, tz), "basis": basis, **breakdown.summarize(section["hourly"], since)}
 
 
-def _unreadable_error(count: int) -> dict:
+def _unreadable_error(count: int) -> JsonDict:
     return {"code": "logs_unreadable", "count": count}
 
 
@@ -175,13 +200,15 @@ LOGS_FAILED = {"code": "logs_failed"}
 LIMITS_UNAVAILABLE = {"code": "limits_unavailable"}
 
 
-def _add_breakdown(hourly: dict, events, resolver, since: float) -> None:
+def _add_breakdown(
+    hourly: JsonDict, events: Iterable[TokenEvent], resolver: breakdown.ProjectResolver, since: float
+) -> None:
     for ev in events:
         if ev.ts.timestamp() >= since:
             breakdown.add_event(hourly, ev, resolver.name(ev.project), breakdown.model_label(ev.model))
 
 
-def _backfill_hourly(section: dict, paths, now_ts: float, resolver) -> None:
+def _backfill_hourly(section: JsonDict, paths: Paths, now_ts: float, resolver: breakdown.ProjectResolver) -> None:
     """Once after the update: backfill the hourly counts from the transcripts.
 
     Reads with fresh state so that daily totals and deduplication stay untouched.
@@ -191,7 +218,9 @@ def _backfill_hourly(section: dict, paths, now_ts: float, resolver) -> None:
     section["hourly_backfill"] = False
 
 
-def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[list[dict], str | None]:
+def _process_claude(
+    state: JsonDict, paths: Paths, now_ts: float, tz: tzinfo, fetch: Fetch, use_login: bool = True
+) -> tuple[list[JsonDict], str | None]:
     section = state["claude"]
     errors = []
     resolver = breakdown.ProjectResolver()
@@ -233,7 +262,9 @@ def _process_claude(state, paths, now_ts, tz, fetch, use_login=True) -> tuple[li
     return errors, plan
 
 
-def _process_codex(state, paths, now_ts, tz, fetch, use_login=True) -> list[dict]:
+def _process_codex(
+    state: JsonDict, paths: Paths, now_ts: float, tz: tzinfo, fetch: Fetch, use_login: bool = True
+) -> list[JsonDict]:
     section = state["codex"]
     if not use_login:
         # Without login only the session logs count; a record from the endpoint goes, before the logs are read,
@@ -259,7 +290,7 @@ def _process_codex(state, paths, now_ts, tz, fetch, use_login=True) -> list[dict
     return errors
 
 
-def _process_codex_logs(state, paths, tz) -> list[dict]:
+def _process_codex_logs(state: JsonDict, paths: Paths, tz: tzinfo) -> list[JsonDict]:
     section = state["codex"]
     snapshot = copy.deepcopy(section)
     try:
@@ -278,7 +309,7 @@ def _process_codex_logs(state, paths, tz) -> list[dict]:
         return [dict(LOGS_FAILED)]
 
 
-def _fingerprint(state: dict) -> str:
+def _fingerprint(state: JsonDict) -> str:
     return json.dumps(state, sort_keys=True, separators=(",", ":"))
 
 
@@ -289,15 +320,15 @@ def _pass(
     paths: Paths,
     now: datetime,
     tz: tzinfo,
-    fetch,
-    codex_fetch,
-    notifier,
-    providers,
-    thresholds,
-    reset_notice,
-    labels=None,
-    login=PROVIDERS,
-) -> dict:
+    fetch: Fetch,
+    codex_fetch: Fetch,
+    notifier: Notifier | None,
+    providers: Collection[str],
+    thresholds: tuple[int, int],
+    reset_notice: bool,
+    labels: dict[str, str] | None = None,
+    login: Collection[str] = PROVIDERS,
+) -> JsonDict:
     """Collect one account from its paths and state file; return its provider entries for stats.json.
 
     A provider missing from providers (hidden in the widget) is neither read nor queried: no logs,
@@ -308,7 +339,7 @@ def _pass(
     before = _fingerprint(state)
     today = now.astimezone(tz).date()
 
-    claude_errors: list[dict] = []
+    claude_errors: list[JsonDict] = []
     claude_plan: str | None = None
     if "claude" in providers:
         claude_errors, claude_plan = _process_claude(state, paths, now.timestamp(), tz, fetch, "claude" in login)
@@ -372,7 +403,7 @@ def _pass(
     return entries
 
 
-def _strip_login_data(provider, entry: dict) -> None:
+def _strip_login_data(provider: str, entry: JsonDict) -> None:
     """Remove what came from the usage endpoint or the login file from a provider entry (not the changes)."""
     if entry.get("limits_source") == "oauth":
         entry.update(limits=[], limits_source=None, limits_updated_at=None, extra=None)
@@ -385,7 +416,7 @@ def _strip_login_data(provider, entry: dict) -> None:
     entry["login"] = False
 
 
-def withhold_login_data(stats: dict | None, login) -> dict | None:
+def withhold_login_data(stats: JsonDict | None, login: Collection[str]) -> JsonDict | None:
     """A stats.json written by another pass, for a widget that has the login off for some providers.
 
     Their entries lose what came from the usage endpoint (limits, extra, plan), the login state and the changes;
@@ -404,7 +435,7 @@ def withhold_login_data(stats: dict | None, login) -> dict | None:
     return stats
 
 
-def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = True) -> dict:
+def _empty_entry(provider: str | None, today: date, errors: list[JsonDict], login: bool = True) -> JsonDict:
     """Card data for an account without results (invalid entry, failed pass)."""
     entry = {
         "limits": [],
@@ -426,8 +457,17 @@ def _empty_entry(provider: str | None, today, errors: list[dict], login: bool = 
 
 
 def _accounts(
-    accounts, cache: Path, now: datetime, tz: tzinfo, fetch, codex_fetch, notifier, thresholds, reset_notice, login
-) -> dict:
+    accounts: Sequence["Account"],
+    cache: Path,
+    now: datetime,
+    tz: tzinfo,
+    fetch: Fetch,
+    codex_fetch: Fetch,
+    notifier: Notifier | None,
+    thresholds: tuple[int, int],
+    reset_notice: bool,
+    login: Collection[str],
+) -> JsonDict:
     from . import accounts as accounts_mod  # accounts imports Paths from here
 
     out = {}
@@ -440,6 +480,8 @@ def _accounts(
                 **head,
             }
             continue
+        provider = account.provider
+        assert provider is not None  # parse_accounts sets an error on every account without a provider
         paths = accounts_mod.account_paths(account, cache)
         try:
             entry = _pass(
@@ -449,13 +491,13 @@ def _accounts(
                 fetch,
                 codex_fetch,
                 notifier,
-                {account.provider},
+                {provider},
                 thresholds,
                 reset_notice,
-                labels={accounts_mod.PROVIDER_NAMES[account.provider]: account.label},
+                labels={accounts_mod.PROVIDER_NAMES[provider]: account.label},
                 login=login,
             )
-            entry = entry[account.provider]
+            entry = entry[provider]
         except Exception as e:
             log.error("account %s: run aborted: %s", account.id, type(e).__name__)
             with contextlib.suppress(OSError):
@@ -476,15 +518,15 @@ def run(
     paths: Paths,
     now: datetime,
     tz: tzinfo,
-    fetch=claude_limits.fetch_oauth_usage,
-    notifier=None,
-    codex_fetch=codex_limits.fetch_usage,
-    providers=PROVIDERS,
-    thresholds=notify.THRESHOLDS,
-    reset_notice=False,
-    accounts=(),
-    login=PROVIDERS,
-) -> dict:
+    fetch: Fetch = claude_limits.fetch_oauth_usage,
+    notifier: Notifier | None = None,
+    codex_fetch: Fetch = codex_limits.fetch_usage,
+    providers: Collection[str] = PROVIDERS,
+    thresholds: tuple[int, int] = notify.THRESHOLDS,
+    reset_notice: bool = False,
+    accounts: Sequence["Account"] = (),
+    login: Collection[str] = PROVIDERS,
+) -> JsonDict:
     """One pass over the main account and each additional account (see _pass); writes stats.json.
     login: providers whose login may be used (see _pass)."""
     stats = {
@@ -505,13 +547,13 @@ def run_safely(
     paths: Paths,
     now: datetime,
     tz: tzinfo,
-    notifier,
-    providers=PROVIDERS,
-    thresholds=notify.THRESHOLDS,
-    reset_notice=False,
-    accounts=(),
-    login=PROVIDERS,
-) -> dict | None:
+    notifier: Notifier | None,
+    providers: Collection[str] = PROVIDERS,
+    thresholds: tuple[int, int] = notify.THRESHOLDS,
+    reset_notice: bool = False,
+    accounts: Sequence["Account"] = (),
+    login: Collection[str] = PROVIDERS,
+) -> JsonDict | None:
     """One run that never raises: after an unexpected error, state.json and the additional accounts' state
     files are moved aside so the next run starts fresh (their due notices were not delivered)."""
     try:

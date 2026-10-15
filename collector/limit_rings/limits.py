@@ -3,18 +3,21 @@
 import math
 import re
 from datetime import datetime
+from typing import Any
+
+from .models import JsonDict
 
 RESET_TOLERANCE = 300  # seconds; the API rounds resets_at sometimes up, sometimes down
 
 
-def same_window(resets_a, resets_b) -> bool:
+def same_window(resets_a: int | None, resets_b: int | None) -> bool:
     """Do two reset times belong to the same window? Small API deviations are ignored."""
     if resets_a is None or resets_b is None:
         return resets_a is None and resets_b is None
     return abs(resets_a - resets_b) <= RESET_TOLERANCE
 
 
-def same_limit_window(entry: dict, limit: dict) -> bool:
+def same_limit_window(entry: JsonDict, limit: JsonDict) -> bool:
     """Does a stored entry (history, notified) still describe the window of this limit?
 
     Besides the reset time the window length counts: Codex can move another window into "primary".
@@ -35,7 +38,9 @@ def window_text(minutes: int) -> str:
     return f"{minutes} min"
 
 
-def make_limit(limit_id: str, used_percent, resets_at, window_minutes, model: str | None = None) -> dict:
+def make_limit(
+    limit_id: str, used_percent: object, resets_at: Any, window_minutes: Any, model: str | None = None
+) -> JsonDict:
     if isinstance(used_percent, bool) or not isinstance(used_percent, (int, float)):
         raise ValueError(f"{limit_id}: utilization missing")
     out = {
@@ -52,7 +57,7 @@ def make_limit(limit_id: str, used_percent, resets_at, window_minutes, model: st
     return out
 
 
-def _legacy_label(limit_id: str, window_minutes, model: str | None) -> str:
+def _legacy_label(limit_id: str, window_minutes: Any, model: str | None) -> str:
     if window_minutes is None:
         return limit_id
     if window_minutes == 300:
@@ -65,7 +70,7 @@ def _legacy_label(limit_id: str, window_minutes, model: str | None) -> str:
 _LEGACY_SCOPED = re.compile(r"^(?:Week|Woche) (.+)$")
 
 
-def public_limit(limit: dict) -> dict:
+def public_limit(limit: JsonDict) -> JsonDict:
     """Limit as written to stats.json: no display label; model-scoped limits carry "model".
 
     Records saved before schema 2 still have a label ("Woche Opus", "Week Opus") and no model.
@@ -80,7 +85,7 @@ def public_limit(limit: dict) -> dict:
     return out
 
 
-def normalize_codex(rate_limits: dict) -> list[dict]:
+def normalize_codex(rate_limits: JsonDict) -> list[JsonDict]:
     out = []
     for key in ("primary", "secondary"):
         w = rate_limits.get(key)
@@ -98,13 +103,13 @@ OAUTH_WINDOWS = (
 )
 
 
-def _iso_to_epoch(value) -> int | None:
+def _iso_to_epoch(value: object) -> int | None:
     if value is None:
         return None
     return round(datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp())
 
 
-def normalize_oauth(resp: dict) -> list[dict]:
+def normalize_oauth(resp: JsonDict) -> list[JsonDict]:
     if not isinstance(resp, dict):
         raise ValueError("response is not an object")
     if not any(isinstance(resp.get(key), dict) for key, _, _ in OAUTH_WINDOWS):
@@ -125,7 +130,7 @@ def normalize_oauth(resp: dict) -> list[dict]:
     return out
 
 
-def _scoped_limits(entries) -> list[dict]:
+def _scoped_limits(entries: object) -> list[JsonDict]:
     """Model-scoped weekly limits from the newer limits list; broken entries are dropped."""
     out = []
     for entry in entries if isinstance(entries, list) else []:
@@ -149,7 +154,7 @@ def _scoped_limits(entries) -> list[dict]:
     return out
 
 
-def normalize_statusline(rate_limits: dict) -> list[dict]:
+def normalize_statusline(rate_limits: JsonDict) -> list[JsonDict]:
     out = []
     for key, minutes, _model in OAUTH_WINDOWS[:2]:
         w = rate_limits.get(key)
@@ -159,7 +164,7 @@ def normalize_statusline(rate_limits: dict) -> list[dict]:
     return out
 
 
-def normalize_codex_usage(resp: dict) -> tuple[list[dict], str | None]:
+def normalize_codex_usage(resp: JsonDict) -> tuple[list[JsonDict], str | None]:
     """Codex usage endpoint response → (limits, plan). No usable window: ValueError."""
     if not isinstance(resp, dict) or not isinstance(resp.get("rate_limit"), dict):
         raise ValueError("rate_limit missing")
@@ -178,11 +183,11 @@ def normalize_codex_usage(resp: dict) -> tuple[list[dict], str | None]:
     return out, resp.get("plan_type")
 
 
-def _amount(value) -> bool:
+def _amount(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0
 
 
-def normalize_extra_usage(resp) -> dict | None:
+def normalize_extra_usage(resp: object) -> JsonDict | None:
     """Claude's paid extra usage (amounts in minor units → currency units); None if off or unusable."""
     extra = resp.get("extra_usage") if isinstance(resp, dict) else None
     if not isinstance(extra, dict) or extra.get("is_enabled") is not True or not _amount(extra.get("used_credits")):
@@ -203,7 +208,7 @@ def normalize_extra_usage(resp) -> dict | None:
     }
 
 
-def normalize_codex_credits(resp) -> dict | None:
+def normalize_codex_credits(resp: object) -> JsonDict | None:
     """Codex credit balance; None without a balance (and not unlimited) or if unusable."""
     credits = resp.get("credits") if isinstance(resp, dict) else None
     if not isinstance(credits, dict):

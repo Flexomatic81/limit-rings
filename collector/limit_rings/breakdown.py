@@ -6,7 +6,7 @@ Hourly because the Claude weekly window does not start at midnight (e.g. Tuesday
 import re
 from pathlib import Path
 
-from .models import TokenEvent
+from .models import JsonDict, TokenEvent
 
 KEEP_SECONDS = 8 * 86400
 
@@ -28,7 +28,7 @@ class ProjectResolver:
     """Project = name of the working directory's Git repository (worktrees → main repository),
     otherwise the directory name. Results are cached per instance."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache: dict[str, str] = {}
 
     def name(self, cwd: str | None) -> str:
@@ -60,7 +60,7 @@ def _hour(ev: TokenEvent) -> str:
     return str(int(ev.ts.timestamp()) // 3600 * 3600)
 
 
-def add_event(hourly: dict, ev: TokenEvent, project: str, model: str | None) -> None:
+def add_event(hourly: JsonDict, ev: TokenEvent, project: str, model: str | None) -> None:
     total = ev.input + ev.output + ev.cache_read + ev.cache_write
     bucket = hourly.setdefault(_hour(ev), {"p": {}, "m": {}})
     bucket["p"][project] = bucket["p"].get(project, 0) + total
@@ -68,12 +68,12 @@ def add_event(hourly: dict, ev: TokenEvent, project: str, model: str | None) -> 
         bucket["m"][model] = bucket["m"].get(model, 0) + total
 
 
-def prune_hourly(hourly: dict, now: float, keep: int = KEEP_SECONDS) -> None:
+def prune_hourly(hourly: JsonDict, now: float, keep: int = KEEP_SECONDS) -> None:
     for hour in [h for h in hourly if int(h) < now - keep]:
         del hourly[hour]
 
 
-def _top(counts: dict[str, int], top: int) -> list[dict]:
+def _top(counts: dict[str, int], top: int) -> list[JsonDict]:
     ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
     out = [{"name": name, "total": total} for name, total in ranked[:top]]
     rest = sum(total for _, total in ranked[top:])
@@ -82,7 +82,7 @@ def _top(counts: dict[str, int], top: int) -> list[dict]:
     return out
 
 
-def summarize(hourly: dict, since: float, top: int = 4) -> dict:
+def summarize(hourly: JsonDict, since: float, top: int = 4) -> JsonDict:
     """Totals from the hour containing since: {"total", "projects": [...], "models": [...]}."""
     start = int(since) // 3600 * 3600
     projects: dict[str, int] = {}

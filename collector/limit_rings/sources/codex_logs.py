@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..limits import normalize_codex
-from ..models import TokenEvent, parse_ts
+from ..models import JsonDict, TokenEvent, parse_ts
 from .jsonl import list_jsonl, prune_missing, read_new_lines
 
 log = logging.getLogger(__name__)
@@ -18,12 +18,12 @@ class CodexResult:
     events: list[TokenEvent] = field(default_factory=list)
     invalid: int = 0
     unreadable: int = 0
-    limits: list[dict] | None = None
+    limits: list[JsonDict] | None = None
     plan: str | None = None
     limits_ts: datetime | None = None
 
 
-def _int(d: dict, key: str) -> int:
+def _int(d: JsonDict, key: str) -> int:
     value = d.get(key)
     if value is None:
         return 0
@@ -32,7 +32,7 @@ def _int(d: dict, key: str) -> int:
     return value
 
 
-def _event_from_usage(ts: datetime, last: dict) -> TokenEvent:
+def _event_from_usage(ts: datetime, last: JsonDict) -> TokenEvent:
     inp = _int(last, "input_tokens")
     cached = _int(last, "cached_input_tokens")
     return TokenEvent(
@@ -44,7 +44,7 @@ def _event_from_usage(ts: datetime, last: dict) -> TokenEvent:
     )
 
 
-def read_events(root: Path, files: dict, sessions: dict) -> CodexResult:
+def read_events(root: Path, files: JsonDict, sessions: JsonDict) -> CodexResult:
     res = CodexResult()
     paths, failed = list_jsonl(root)
     for d in failed:

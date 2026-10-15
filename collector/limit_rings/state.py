@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .aggregate import prune_buckets
 from .fsutil import write_json_atomic
+from .models import JsonDict
 from .sources import backoff
 
 log = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ SEEN_KEEP_DAYS = 35
 SESSION_KEEP_DAYS = 400
 
 
-def new_state() -> dict:
+def new_state() -> JsonDict:
     return {
         "version": STATE_VERSION,
         "claude": {
@@ -44,15 +45,15 @@ def new_state() -> dict:
     }
 
 
-def _num(v) -> bool:
+def _num(v: object) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
-def _int(v) -> bool:
+def _int(v: object) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
-def _limits_ok(rec) -> bool:
+def _limits_ok(rec: object) -> bool:
     return rec is None or (
         isinstance(rec, dict)
         and _num(rec.get("updated_at"))
@@ -61,7 +62,7 @@ def _limits_ok(rec) -> bool:
     )
 
 
-def _shape_ok(data: dict) -> bool:
+def _shape_ok(data: JsonDict) -> bool:
     """Check only the shape (not the content) that prune_state and run rely on."""
     claude, codex = data["claude"], data["codex"]
     for section, dicts in ((claude, ("files", "seen", "buckets", "hourly")), (codex, ("files", "sessions", "buckets"))):
@@ -114,7 +115,7 @@ def _shape_ok(data: dict) -> bool:
     )
 
 
-def _minutes_ok(entry: dict) -> bool:
+def _minutes_ok(entry: JsonDict) -> bool:
     """Window length of a history/notified entry: missing in older states, otherwise int or None."""
     return entry.get("minutes") is None or _int(entry["minutes"])
 
@@ -123,7 +124,7 @@ _WINDOW_KEYS = frozenset({"minutes", "model", "resets_at", "used", "seen", "miss
 _EVENT_KEYS = frozenset({"kind", "id", "minutes", "model", "at"})
 
 
-def _structure_ok(s) -> bool:
+def _structure_ok(s: object) -> bool:
     """Known windows and changes of a provider (see changes.py); None until the first limits.
 
     Every key changes.py reads directly must be present, otherwise the next run would fail as a whole."""
@@ -166,7 +167,7 @@ def _structure_ok(s) -> bool:
     return windows_ok and gone_ok and events_ok
 
 
-def _pause_ok(pause) -> bool:
+def _pause_ok(pause: object) -> bool:
     return (
         isinstance(pause, dict)
         and (pause.get("until") is None or _num(pause["until"]))
@@ -175,7 +176,7 @@ def _pause_ok(pause) -> bool:
     )
 
 
-def load_state(path: Path) -> dict:
+def load_state(path: Path) -> JsonDict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -210,11 +211,11 @@ def load_state(path: Path) -> dict:
     return data
 
 
-def save_state(path: Path, state: dict) -> None:
+def save_state(path: Path, state: JsonDict) -> None:
     write_json_atomic(path, state)
 
 
-def prune_state(state: dict, today: date) -> None:
+def prune_state(state: JsonDict, today: date) -> None:
     cutoff = (today - timedelta(days=SEEN_KEEP_DAYS)).isoformat()
     seen = state["claude"]["seen"]
     for key in [k for k, v in seen.items() if v["ts"][:10] < cutoff]:

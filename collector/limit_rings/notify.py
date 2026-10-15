@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .i18n import _
 from .limits import public_limit, same_limit_window, window_text
+from .models import JsonDict
 
 THRESHOLDS = (80, 95)  # default; the second one is urgent
 EARLY_LEVEL = 0  # level of the forecast-based early warning (below all thresholds)
@@ -22,11 +23,11 @@ class Notice:
     body: str
     urgent: bool
 
-    def to_json(self) -> dict:
+    def to_json(self) -> JsonDict:
         return {"key": self.key, "summary": self.summary, "body": self.body, "urgent": self.urgent}
 
 
-def _limit_name(limit: dict) -> str:
+def _limit_name(limit: JsonDict) -> str:
     limit = public_limit(limit)
     minutes, model = limit.get("window_minutes"), limit.get("model")
     if minutes == 10080:
@@ -49,25 +50,25 @@ def _duration(seconds: float) -> str:
     return f"{m} min"
 
 
-def _countdown(resets_at, now: float) -> str:
+def _countdown(resets_at: float | None, now: float) -> str:
     if resets_at is None or resets_at <= now:
         return ""
     return _("Reset in %(duration)s") % {"duration": _duration(resets_at - now)}
 
 
-def _early_warning_due(limit: dict, now: float) -> bool:
+def _early_warning_due(limit: JsonDict, now: float) -> bool:
     fc = limit.get("forecast")
     minutes = limit.get("window_minutes")
     span = EARLY_WARNING_SPANS.get(minutes) if isinstance(minutes, int) else None
     return span is not None and isinstance(fc, dict) and fc.get("status") == "full" and fc["eta"] - now <= span
 
 
-def _reset_notice(key: str, name: str, limit: dict) -> Notice:
+def _reset_notice(key: str, name: str, limit: JsonDict) -> Notice:
     summary = _("%(provider)s: %(limit)s reset") % {"provider": name, "limit": _limit_name(limit)}
     return Notice(key=key, level=RESET_LEVEL, summary=summary, body="", urgent=False)
 
 
-def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> Notice:
+def _early_notice(key: str, name: str, limit: JsonDict, pct: float, now: float) -> Notice:
     eta = limit["forecast"]["eta"]
     args = {"provider": name, "limit": _limit_name(limit), "duration": _duration(eta - now)}
     summary = (
@@ -79,8 +80,8 @@ def _early_notice(key: str, name: str, limit: dict, pct: float, now: float) -> N
 
 
 def update_notices(
-    providers: dict[str, list[dict]],
-    notified: dict,
+    providers: dict[str, list[JsonDict]],
+    notified: JsonDict,
     now: float,
     thresholds: tuple[int, int] = THRESHOLDS,
     reset_notice: bool = False,

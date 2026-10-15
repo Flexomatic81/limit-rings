@@ -8,9 +8,12 @@ refreshed, stored or logged.
 import json
 import logging
 import urllib.error
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from ..limits import normalize_codex_credits, normalize_codex_usage
+from ..models import JsonDict
 from . import backoff
 from .http import get_json
 
@@ -34,11 +37,18 @@ def read_auth(path: Path | None) -> tuple[str | None, str | None]:
     return token, account
 
 
-def fetch_usage(token: str, account_id: str, timeout: float = 10.0, url: str = USAGE_URL) -> dict:
+def fetch_usage(token: str, account_id: str, timeout: float = 10.0, url: str = USAGE_URL) -> Any:
     return get_json(url, {"Authorization": f"Bearer {token}", "ChatGPT-Account-Id": account_id}, timeout)
 
 
-def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usage, pause: dict | None = None):
+def resolve(
+    previous: JsonDict | None,
+    last_attempt: float | None,
+    now: float,
+    auth_path: Path | None,
+    fetch: Callable[..., Any] = fetch_usage,
+    pause: JsonDict | None = None,
+) -> tuple[JsonDict | None, float | None]:
     """→ (limit record, last attempt). When throttled, paused or on error, previous stays unchanged.
 
     pause: back-off state (backoff.new()), updated in place after 429/503 and after a success.
@@ -55,7 +65,7 @@ def resolve(previous, last_attempt, now, auth_path: Path | None, fetch=fetch_usa
         resp = fetch(token, account, timeout=10.0)
         limits, plan = normalize_codex_usage(resp)
         backoff.record_success(pause)
-        rec = {"limits": limits, "plan": plan, "updated_at": now, "source": "oauth"}
+        rec: JsonDict = {"limits": limits, "plan": plan, "updated_at": now, "source": "oauth"}
         extra = normalize_codex_credits(resp)
         if extra:
             rec["extra"] = extra

@@ -10,15 +10,16 @@ import json
 import sys
 from pathlib import Path
 
-from .accounts import account_paths, parse_accounts
+from .accounts import Account, account_paths, parse_accounts
 from .aggregate import FIELDS
+from .models import JsonDict
 from .state import load_state
 
 EXPORT_VERSION = 1
 COLUMNS = ("date", "provider", "account", *FIELDS, "total")
 
 
-def _days(buckets, provider: str, account: str | None) -> list[dict]:
+def _days(buckets: JsonDict, provider: str, account: str | None) -> list[JsonDict]:
     out = []
     for day, bucket in buckets.items():
         counts = {f: int(bucket.get(f, 0)) for f in FIELDS}
@@ -26,7 +27,7 @@ def _days(buckets, provider: str, account: str | None) -> list[dict]:
     return out
 
 
-def _accounts(cache: Path, home: Path):
+def _accounts(cache: Path, home: Path) -> list[Account]:
     try:
         stats = json.loads((cache / "stats.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -42,7 +43,7 @@ def _accounts(cache: Path, home: Path):
     return [a for a in parse_accounts(json.dumps(listed), home) if a.error is None]
 
 
-def rows(home: Path) -> list[dict]:
+def rows(home: Path) -> list[JsonDict]:
     """All days with counts, oldest first; account is None for the main login."""
     cache = home / ".cache" / "limit-rings"
     out = []
@@ -51,9 +52,11 @@ def rows(home: Path) -> list[dict]:
         for provider in ("claude", "codex"):
             out += _days(state[provider]["buckets"], provider, None)
     for account in _accounts(cache, home):
+        account_provider = account.provider
+        assert account_provider is not None  # _accounts keeps only valid accounts, and those have a provider
         state_file = account_paths(account, cache).state_file
         if state_file.is_file():
-            out += _days(load_state(state_file)[account.provider]["buckets"], account.provider, account.name)
+            out += _days(load_state(state_file)[account_provider]["buckets"], account_provider, account.name)
     return sorted(out, key=lambda r: (r["date"], r["provider"], r["account"] or ""))
 
 

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .collect import local_zone
 from .i18n import _
+from .models import JsonDict
 from .notify import _duration, _limit_name
 
 STATUS_VERSION = 1
@@ -21,7 +22,7 @@ NAMES = {"claude": "Claude", "codex": "Codex"}
 LETTERS = {"claude": "C", "codex": "X"}
 
 
-def _iso(epoch) -> str | None:
+def _iso(epoch: float | None) -> str | None:
     if epoch is None:
         return None
     return datetime.fromtimestamp(epoch, local_zone()).isoformat(timespec="seconds")
@@ -36,7 +37,7 @@ def _age(iso: str | None, now: float) -> float | None:
         return None
 
 
-def _limit(limit: dict, now: float) -> dict:
+def _limit(limit: JsonDict, now: float) -> JsonDict:
     resets = limit.get("resets_at")
     reset = resets is not None and resets <= now
     used = 0.0 if reset else float(limit.get("used_percent", 0.0))
@@ -59,7 +60,7 @@ def _limit(limit: dict, now: float) -> dict:
     }
 
 
-def _entry(entry_id: str, provider: str, entry: dict, now: float, account: dict | None) -> dict:
+def _entry(entry_id: str, provider: str, entry: JsonDict, now: float, account: JsonDict | None) -> JsonDict:
     name = NAMES.get(provider, provider)
     if account is not None:
         name = f"{name} ({account['name']})"
@@ -78,7 +79,7 @@ def _entry(entry_id: str, provider: str, entry: dict, now: float, account: dict 
     }
 
 
-def build(stats: dict | None, now: float) -> dict:
+def build(stats: JsonDict | None, now: float) -> JsonDict:
     """stats.json → status format version 1."""
     if not isinstance(stats, dict) or stats.get("schema") != 2:
         return {"status_version": STATUS_VERSION, "generated_at": None, "stale": True, "providers": []}
@@ -99,7 +100,7 @@ def build(stats: dict | None, now: float) -> dict:
     }
 
 
-def _line(name: str, limit: dict, now: float) -> str:
+def _line(name: str, limit: JsonDict, now: float) -> str:
     named = {"id": limit["id"], "window_minutes": limit["window_minutes"], "model": limit["model"]}
     head = f"{name} · {_limit_name(named)}: "
     if limit["reset"]:
@@ -121,13 +122,15 @@ def _line(name: str, limit: dict, now: float) -> str:
     return head + " · ".join(parts)
 
 
-def _letter(entry: dict) -> str:
-    if entry["account"] and entry["account"]["name"]:
-        return entry["account"]["name"][0].upper()
-    return LETTERS.get(entry["provider"], entry["provider"][:1].upper())
+def _letter(entry: JsonDict) -> str:
+    account_name: str | None = entry["account"]["name"] if entry["account"] else None
+    if account_name:
+        return account_name[0].upper()
+    provider: str = entry["provider"]
+    return LETTERS.get(provider, provider[:1].upper())
 
 
-def waybar(status: dict, now: float | None = None) -> dict:
+def waybar(status: JsonDict, now: float | None = None) -> JsonDict:
     """Status → a Waybar custom module ("return-type": "json")."""
     now = time.time() if now is None else now
     if not status["providers"]:

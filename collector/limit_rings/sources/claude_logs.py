@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import timezone
 from pathlib import Path
 
-from ..models import TokenEvent, parse_ts
+from ..models import JsonDict, TokenEvent, parse_ts
 from .jsonl import list_jsonl, prune_missing, read_new_lines
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class ReadResult:
     unreadable: int = 0
 
 
-def _count(usage: dict, key: str) -> int:
+def _count(usage: JsonDict, key: str) -> int:
     value = usage.get(key)
     if value is None:
         return 0
@@ -51,7 +51,7 @@ def parse_line(line: str) -> tuple[str, TokenEvent] | None:
     return key, ev
 
 
-def read_events(root: Path, files: dict, seen: dict) -> ReadResult:
+def read_events(root: Path, files: JsonDict, seen: JsonDict) -> ReadResult:
     res = ReadResult()
     paths, failed = list_jsonl(root)
     for d in failed:

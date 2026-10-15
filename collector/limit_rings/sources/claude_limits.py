@@ -7,9 +7,12 @@ It is never refreshed, stored or logged.
 import json
 import logging
 import urllib.error
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from ..limits import normalize_extra_usage, normalize_oauth, normalize_statusline
+from ..models import JsonDict
 from . import backoff
 from .http import get_json
 
@@ -49,11 +52,11 @@ def credential_status(path: Path, now: float) -> tuple[str, float | None]:
     return ("ok" if expires_at > now else "expired"), expires_at
 
 
-def fetch_oauth_usage(token: str, timeout: float = 10.0, url: str = OAUTH_URL) -> dict:
+def fetch_oauth_usage(token: str, timeout: float = 10.0, url: str = OAUTH_URL) -> Any:
     return get_json(url, {"Authorization": f"Bearer {token}", "anthropic-beta": "oauth-2025-04-20"}, timeout)
 
 
-def _read_statusline(path: Path | None) -> dict | None:
+def _read_statusline(path: Path | None) -> JsonDict | None:
     if path is None:  # additional accounts have no status line copy
         return None
     try:
@@ -68,14 +71,14 @@ def _read_statusline(path: Path | None) -> dict | None:
 
 
 def resolve(
-    previous,
-    last_attempt,
-    now,
+    previous: JsonDict | None,
+    last_attempt: float | None,
+    now: float,
     credentials: Path,
     statusline_cache: Path | None,
-    fetch=fetch_oauth_usage,
-    pause: dict | None = None,
-):
+    fetch: Callable[..., Any] = fetch_oauth_usage,
+    pause: JsonDict | None = None,
+) -> tuple[JsonDict | None, float | None, str | None]:
     """pause: back-off state (backoff.new()), updated in place after 429/503 and after a success."""
     pause = backoff.new() if pause is None else pause
     token, plan = read_credentials(credentials, now)
@@ -115,7 +118,7 @@ def resolve(
     return best, last_attempt, plan
 
 
-def resolve_local(previous, statusline_cache: Path | None):
+def resolve_local(previous: JsonDict | None, statusline_cache: Path | None) -> JsonDict | None:
     """Without login: the newer of a stored local record and the status line copy.
 
     A record from the usage endpoint is dropped, so nothing fetched with the login stays on show.

@@ -12,12 +12,13 @@ import logging.handlers
 import os
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Sequence
 from datetime import datetime, tzinfo
 from pathlib import Path
 
-from .accounts import parse_accounts
+from .accounts import Account, parse_accounts
 from .collect import PROVIDERS, Paths, local_zone, run_safely, withhold_login_data
+from .models import JsonDict
 from .notify import THRESHOLDS, Notice
 
 ENVELOPE = 1
@@ -38,7 +39,7 @@ def _setup_logging(cache: Path) -> None:
     root.setLevel(logging.INFO)
 
 
-def _read_stats(path: Path) -> dict | None:
+def _read_stats(path: Path) -> JsonDict | None:
     try:
         with path.open(encoding="utf-8") as fh:
             stats = json.load(fh)
@@ -69,18 +70,18 @@ def _still_the_lock(fd: int, lock_file: Path) -> bool:
     return (locked.st_dev, locked.st_ino) == (current.st_dev, current.st_ino)
 
 
-def _provider_set(value: str | None) -> frozenset:
+def _provider_set(value: str | None) -> frozenset[str]:
     if value is None:
         return PROVIDERS
     return frozenset(name.strip() for name in value.split(",")) & PROVIDERS
 
 
-def shown_providers(value: str | None) -> frozenset:
+def shown_providers(value: str | None) -> frozenset[str]:
     """LIMIT_RINGS_PROVIDERS ("claude,codex", set by the widget) → providers to collect; unset: all."""
     return _provider_set(value)
 
 
-def login_providers(value: str | None) -> frozenset:
+def login_providers(value: str | None) -> frozenset[str]:
     """LIMIT_RINGS_LOGIN ("claude,codex", set by the widget) → providers whose login may be used; unset: all."""
     return _provider_set(value)
 
@@ -106,12 +107,12 @@ def collect_once(
     tz: tzinfo,
     notify: bool = True,
     wait: float = LOCK_WAIT,
-    providers=PROVIDERS,
-    thresholds=THRESHOLDS,
+    providers: Collection[str] = PROVIDERS,
+    thresholds: tuple[int, int] = THRESHOLDS,
     reset_notice: bool = False,
-    accounts=(),
-    login=PROVIDERS,
-) -> tuple[dict, int]:
+    accounts: Sequence[Account] = (),
+    login: Collection[str] = PROVIDERS,
+) -> tuple[JsonDict, int]:
     """Run one pass, after the pass of another instance if that one holds the lock; return envelope and exit code.
 
     Every instance gets its own pass: one that gave up on a busy lock would never see a notice while the other

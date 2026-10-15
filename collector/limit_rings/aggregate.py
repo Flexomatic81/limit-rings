@@ -2,7 +2,7 @@
 
 from datetime import date, timedelta, tzinfo
 
-from .models import TokenEvent
+from .models import JsonDict, TokenEvent
 
 FIELDS = ("input", "output", "cache_read", "cache_write")
 
@@ -18,7 +18,7 @@ def add_event(buckets: dict[str, dict[str, int]], ev: TokenEvent, tz: tzinfo) ->
         bucket[f] = bucket.get(f, 0) + getattr(ev, f)
 
 
-def _sum_range(buckets, start: date, end: date) -> dict[str, int]:
+def _sum_range(buckets: JsonDict, start: date, end: date) -> dict[str, int]:
     out = _zero()
     lo, hi = start.isoformat(), end.isoformat()
     for day, bucket in buckets.items():
@@ -29,7 +29,7 @@ def _sum_range(buckets, start: date, end: date) -> dict[str, int]:
     return out
 
 
-def summarize(buckets, today: date) -> dict:
+def summarize(buckets: JsonDict, today: date) -> JsonDict:
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)
     return {
@@ -39,7 +39,7 @@ def summarize(buckets, today: date) -> dict:
     }
 
 
-def daily_series(buckets, today: date, days: int = 30) -> list[dict]:
+def daily_series(buckets: JsonDict, today: date, days: int = 30) -> list[JsonDict]:
     series = []
     for back in range(days - 1, -1, -1):
         day = (today - timedelta(days=back)).isoformat()
@@ -49,7 +49,7 @@ def daily_series(buckets, today: date, days: int = 30) -> list[dict]:
     return series
 
 
-def _range_series(buckets, starts: list[date], end: date) -> list[dict]:
+def _range_series(buckets: JsonDict, starts: list[date], end: date) -> list[JsonDict]:
     """Totals from each start up to the next one (the last up to end), oldest first."""
     totals = [0] * len(starts)
     lo, hi = starts[0].isoformat(), end.isoformat()
@@ -61,12 +61,12 @@ def _range_series(buckets, starts: list[date], end: date) -> list[dict]:
     return [{"date": k, "total": t} for k, t in zip(keys, totals, strict=True)]
 
 
-def weekly_series(buckets, today: date, weeks: int = 13) -> list[dict]:
+def weekly_series(buckets: JsonDict, today: date, weeks: int = 13) -> list[JsonDict]:
     monday = today - timedelta(days=today.weekday())
     return _range_series(buckets, [monday - timedelta(weeks=back) for back in range(weeks - 1, -1, -1)], today)
 
 
-def monthly_series(buckets, today: date, months: int = 12) -> list[dict]:
+def monthly_series(buckets: JsonDict, today: date, months: int = 12) -> list[JsonDict]:
     starts = []
     for back in range(months - 1, -1, -1):
         y, m = divmod(today.year * 12 + today.month - 1 - back, 12)
@@ -74,7 +74,7 @@ def monthly_series(buckets, today: date, months: int = 12) -> list[dict]:
     return _range_series(buckets, starts, today)
 
 
-def prune_buckets(buckets, today: date, keep_days: int = 400) -> None:
+def prune_buckets(buckets: JsonDict, today: date, keep_days: int = 400) -> None:
     cutoff = (today - timedelta(days=keep_days)).isoformat()
     for day in [d for d in buckets if d < cutoff]:
         del buckets[day]

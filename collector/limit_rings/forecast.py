@@ -8,6 +8,7 @@ Because the values only come in whole percent, the data points need a minimum di
 from dataclasses import dataclass
 
 from .limits import same_limit_window
+from .models import JsonDict
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,7 @@ PROFILES = {
 }
 
 
-def update_history(history: dict, providers: dict[str, tuple[list[dict], float | None]]) -> None:
+def update_history(history: JsonDict, providers: dict[str, tuple[list[JsonDict], float | None]]) -> None:
     """Extend the history of each 5-hour and weekly limit (key "provider:limit-id").
 
     providers maps the display name to (limits, time of the data). A new point is only added
@@ -58,7 +59,7 @@ def update_history(history: dict, providers: dict[str, tuple[list[dict], float |
         del history[gone]
 
 
-def forecast(entry: dict, resets_at, now: float, window_minutes: int | None = 300) -> dict | None:
+def forecast(entry: JsonDict, resets_at: float | None, now: float, window_minutes: int | None = 300) -> JsonDict | None:
     """{"status": "full", "eta": epoch} | {"status": "enough"} | None (too little or stale data)."""
     profile = PROFILES.get(window_minutes) if window_minutes is not None else None
     points = entry["points"]
