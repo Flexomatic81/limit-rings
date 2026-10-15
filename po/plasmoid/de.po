@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: limit-rings\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-08 22:43+0200\n"
+"POT-Creation-Date: 2026-10-08 13:47+0200\n"
 "Language-Team: German\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -11,33 +11,14 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #, kde-format
-msgctxt "token totals"
-msgid "Today"
-msgstr "Heute"
-
-#, kde-format
-msgctxt "token totals"
-msgid "Week"
-msgstr "Woche"
-
-#, kde-format
-msgctxt "token totals"
-msgid "Month"
-msgstr "Monat"
-
-#, kde-format
-msgid "No limit data"
-msgstr "Keine Limit-Daten"
-
-#, kde-format
-msgctxt "daily chart tooltip: %1 date, %2 token count"
-msgid "%1: %2 tokens"
-msgstr "%1: %2 Tokens"
-
-#, kde-format
 msgctxt "billion abbreviation"
 msgid "B"
 msgstr "Mrd"
+
+#, kde-format
+msgctxt "%1 = percent of a limit that is still available"
+msgid "%1 % left"
+msgstr "%1 % übrig"
 
 #, kde-format
 msgctxt "time ago"
@@ -70,9 +51,120 @@ msgid "Session log"
 msgstr "Sitzungslog"
 
 #, kde-format
-msgctxt "%1 = percent of a limit that is still available"
-msgid "%1 % left"
-msgstr "%1 % übrig"
+msgid ""
+"Input: %1\n"
+"Output: %2\n"
+"Cache read: %3\n"
+"Cache write: %4"
+msgstr ""
+"Input: %1\n"
+"Output: %2\n"
+"Cache lesen: %3\n"
+"Cache schreiben: %4"
+
+#, kde-format
+msgctxt "Qt date format for the daily chart tooltip (day and month)"
+msgid "MMM d"
+msgstr "dd.MM."
+
+#, kde-format
+msgctxt "daily chart tooltip: %1 date, %2 token count"
+msgid "%1: %2 tokens"
+msgstr "%1: %2 Tokens"
+
+#, kde-format
+msgctxt "chart range"
+msgid "30 days"
+msgstr "30 Tage"
+
+#, kde-format
+msgctxt "chart range"
+msgid "3 months"
+msgstr "3 Monate"
+
+#, kde-format
+msgctxt "chart range"
+msgid "12 months"
+msgstr "12 Monate"
+
+#, kde-format
+msgctxt "weekly chart tooltip: %1 date of the Monday, %2 token count"
+msgid "Week of %1: %2 tokens"
+msgstr "Woche ab %1: %2 Tokens"
+
+#, kde-format
+msgctxt "Qt date format for the monthly chart tooltip (month and year)"
+msgid "MMMM yyyy"
+msgstr "MMMM yyyy"
+
+#, kde-format
+msgctxt "monthly chart tooltip: %1 month, %2 token count"
+msgid "%1: %2 tokens"
+msgstr "%1: %2 Tokens"
+
+#, kde-format
+msgctxt "%1 = clock time; shown after a manual refresh"
+msgid "limits again from %1"
+msgstr "Limits wieder ab %1"
+
+#, kde-format
+msgctxt "%1 = age such as '5 min ago', %2 = data source"
+msgid "Updated %1 · %2"
+msgstr "Stand %1 · %2"
+
+#, kde-format
+msgctxt "limit data is outdated"
+msgid "stale"
+msgstr "veraltet"
+
+#, kde-format
+msgctxt "%1 = clock time; the provider asked to wait before the next request"
+msgid "paused by the provider until %1"
+msgstr "vom Anbieter pausiert bis %1"
+
+#, kde-format
+msgid "Install it with: %1"
+msgstr "Installieren mit: %1"
+
+#, kde-format
+msgid "Python 3 not found – Limit Rings needs Python 3.10 or newer."
+msgstr "Python 3 nicht gefunden – Limit Rings braucht Python 3.10 oder neuer."
+
+#, kde-format
+msgid "Python %1 is too old – Limit Rings needs 3.10 or newer."
+msgstr "Python %1 ist zu alt – Limit Rings braucht 3.10 oder neuer."
+
+#, kde-format
+msgid ""
+"Limit Rings was updated – restart Plasma or log out and back in to load the "
+"new version."
+msgstr ""
+"Limit Rings wurde aktualisiert – Plasma neu starten oder ab- und wieder "
+"anmelden, um die neue Version zu laden."
+
+#, kde-format
+msgid "The collector output is not readable. Log: %1"
+msgstr "Die Ausgabe des Collectors ist nicht lesbar. Log: %1"
+
+#, kde-format
+msgid "The last collector run failed. Log: %1"
+msgstr "Der letzte Collector-Lauf ist fehlgeschlagen. Log: %1"
+
+#, kde-format
+msgid "No data yet – the first collector run is still in progress."
+msgstr "Noch keine Daten – der erste Collector-Lauf läuft noch."
+
+#, kde-format
+msgid ""
+"An older Limit Rings installation still collects in the background. Remove "
+"it with: %1"
+msgstr ""
+"Eine ältere Limit-Rings-Installation sammelt noch im Hintergrund. Entfernen "
+"mit: %1"
+
+#, kde-format
+msgid "Data from %1 – the collector has not run since. Log: %2"
+msgstr "Daten von %1 – der Collector ist seitdem nicht gelaufen. Log: %2"
 
 #, kde-format
 msgid "Lasts until reset at current pace"
@@ -90,6 +182,12 @@ msgstr "Bei aktuellem Tempo voll in ~%1 (%2)"
 msgctxt "limit window has reset, shown below the bar"
 msgid "Reset – starts again from 0 %"
 msgstr "Zurückgesetzt – beginnt wieder bei 0 %"
+
+#, kde-format
+msgctxt ""
+"%1 = clock time of the reset, with the weekday once it is a day or more away"
+msgid "Resets at %1"
+msgstr "Reset um %1"
 
 #, kde-format
 msgid "lasts until reset"
@@ -119,6 +217,31 @@ msgid "5 h"
 msgstr "5 h"
 
 #, kde-format
+msgctxt "Codex credit balance"
+msgid "Credits"
+msgstr "Credits"
+
+#, kde-format
+msgctxt "Claude's paid usage beyond the plan limits"
+msgid "Extra usage"
+msgstr "Zusatznutzung"
+
+#, kde-format
+msgctxt "Codex credit balance"
+msgid "unlimited"
+msgstr "unbegrenzt"
+
+#, kde-format
+msgctxt "%1 = amount spent; extra usage without a monthly limit"
+msgid "%1 spent"
+msgstr "%1 ausgegeben"
+
+#, kde-format
+msgctxt "%1 = amount spent, %2 = monthly spending limit"
+msgid "%1 of %2"
+msgstr "%1 von %2"
+
+#, kde-format
 msgid "%1 file unreadable – numbers incomplete"
 msgid_plural "%1 files unreadable – numbers incomplete"
 msgstr[0] "%1 Datei nicht lesbar – Zahlen unvollständig"
@@ -135,6 +258,15 @@ msgstr "Limits nicht verfügbar"
 #, kde-format
 msgid "Account settings are invalid – check the directory"
 msgstr "Kontoeinstellungen ungültig – Verzeichnis prüfen"
+
+#, kde-format
+msgctxt "limit state"
+msgid "reset"
+msgstr "zurückgesetzt"
+
+#, kde-format
+msgid "Reset in %1"
+msgstr "Reset in %1"
 
 #, kde-format
 msgid "start codex with this CODEX_HOME"
@@ -179,172 +311,6 @@ msgid ""
 msgstr ""
 "Ohne Login keine Limits – sie kommen aus der Statuszeile, solange claude im "
 "Terminal läuft"
-
-#, kde-format
-msgctxt "%1 = clock time; shown after a manual refresh"
-msgid "limits again from %1"
-msgstr "Limits wieder ab %1"
-
-#, kde-format
-msgctxt "%1 = clock time; the provider asked to wait before the next request"
-msgid "paused by the provider until %1"
-msgstr "vom Anbieter pausiert bis %1"
-
-#, kde-format
-msgctxt "%1 = age such as '5 min ago', %2 = data source"
-msgid "Updated %1 · %2"
-msgstr "Stand %1 · %2"
-
-#, kde-format
-msgctxt "limit data is outdated"
-msgid "stale"
-msgstr "veraltet"
-
-#, kde-format
-msgid "Install it with: %1"
-msgstr "Installieren mit: %1"
-
-#, kde-format
-msgid "Download it from %1"
-msgstr "Download unter %1"
-
-#, kde-format
-msgid "Python 3 not found – Limit Rings needs Python 3.10 or newer."
-msgstr "Python 3 nicht gefunden – Limit Rings braucht Python 3.10 oder neuer."
-
-#, kde-format
-msgid "Python %1 is too old – Limit Rings needs 3.10 or newer."
-msgstr "Python %1 ist zu alt – Limit Rings braucht 3.10 oder neuer."
-
-#, kde-format
-msgid ""
-"Limit Rings was updated – restart Plasma or log out and back in to load the "
-"new version."
-msgstr ""
-"Limit Rings wurde aktualisiert – Plasma neu starten oder ab- und wieder "
-"anmelden, um die neue Version zu laden."
-
-#, kde-format
-msgid "The collector output is not readable. Log: %1"
-msgstr "Die Ausgabe des Collectors ist nicht lesbar. Log: %1"
-
-#, kde-format
-msgid "The last collector run took too long and was stopped. Log: %1"
-msgstr "Der letzte Collector-Lauf hat zu lange gedauert und wurde beendet. Log: %1"
-
-#, kde-format
-msgid ""
-"The widget folder must be named %1 – rename it in Übersicht's widgets folder."
-msgstr ""
-"Der Widget-Ordner muss %1 heißen – benenne ihn im Widgets-Ordner von "
-"Übersicht um."
-
-#, kde-format
-msgid "The last collector run failed. Log: %1"
-msgstr "Der letzte Collector-Lauf ist fehlgeschlagen. Log: %1"
-
-#, kde-format
-msgid "No data yet – the first collector run is still in progress."
-msgstr "Noch keine Daten – der erste Collector-Lauf läuft noch."
-
-#, kde-format
-msgid ""
-"An older Limit Rings installation still collects in the background. Remove "
-"it with: %1"
-msgstr ""
-"Eine ältere Limit-Rings-Installation sammelt noch im Hintergrund. Entfernen "
-"mit: %1"
-
-#, kde-format
-msgid "Data from %1 – the collector has not run since. Log: %2"
-msgstr "Daten von %1 – der Collector ist seitdem nicht gelaufen. Log: %2"
-
-#, kde-format
-msgid ""
-"Input: %1\n"
-"Output: %2\n"
-"Cache read: %3\n"
-"Cache write: %4"
-msgstr ""
-"Input: %1\n"
-"Output: %2\n"
-"Cache lesen: %3\n"
-"Cache schreiben: %4"
-
-#, kde-format
-msgctxt "Qt date format for the daily chart tooltip (day and month)"
-msgid "MMM d"
-msgstr "dd.MM."
-
-#, kde-format
-msgctxt "chart range"
-msgid "30 days"
-msgstr "30 Tage"
-
-#, kde-format
-msgctxt "chart range"
-msgid "3 months"
-msgstr "3 Monate"
-
-#, kde-format
-msgctxt "chart range"
-msgid "12 months"
-msgstr "12 Monate"
-
-#, kde-format
-msgctxt "weekly chart tooltip: %1 date of the Monday, %2 token count"
-msgid "Week of %1: %2 tokens"
-msgstr "Woche ab %1: %2 Tokens"
-
-#, kde-format
-msgctxt "Qt date format for the monthly chart tooltip (month and year)"
-msgid "MMMM yyyy"
-msgstr "MMMM yyyy"
-
-#, kde-format
-msgctxt "monthly chart tooltip: %1 month, %2 token count"
-msgid "%1: %2 tokens"
-msgstr "%1: %2 Tokens"
-
-#, kde-format
-msgctxt ""
-"%1 = clock time of the reset, with the weekday once it is a day or more away"
-msgid "Resets at %1"
-msgstr "Reset um %1"
-
-#, kde-format
-msgctxt "Codex credit balance"
-msgid "Credits"
-msgstr "Credits"
-
-#, kde-format
-msgctxt "Claude's paid usage beyond the plan limits"
-msgid "Extra usage"
-msgstr "Zusatznutzung"
-
-#, kde-format
-msgctxt "Codex credit balance"
-msgid "unlimited"
-msgstr "unbegrenzt"
-
-#, kde-format
-msgctxt "%1 = amount spent; extra usage without a monthly limit"
-msgid "%1 spent"
-msgstr "%1 ausgegeben"
-
-#, kde-format
-msgctxt "%1 = amount spent, %2 = monthly spending limit"
-msgid "%1 of %2"
-msgstr "%1 von %2"
-
-#, kde-format
-msgctxt "limit state"
-msgid "reset"
-msgstr "zurückgesetzt"
-
-#, kde-format
-msgid "Reset in %1"
-msgstr "Reset in %1"
 
 #, kde-format
 msgctxt "limit structure change: %1 limit name, %2 date"
@@ -535,6 +501,25 @@ msgstr "Update verfügbar: %1"
 #, kde-format
 msgid "Refresh now"
 msgstr "Jetzt aktualisieren"
+
+#, kde-format
+msgid "No limit data"
+msgstr "Keine Limit-Daten"
+
+#, kde-format
+msgctxt "token totals"
+msgid "Today"
+msgstr "Heute"
+
+#, kde-format
+msgctxt "token totals"
+msgid "Week"
+msgstr "Woche"
+
+#, kde-format
+msgctxt "token totals"
+msgid "Month"
+msgstr "Monat"
 
 #, kde-format
 msgid "%1 · share of tokens"

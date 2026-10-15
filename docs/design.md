@@ -240,11 +240,7 @@ Rules:
   transcripts of **this** machine and are token shares, not the (undisclosed) limit consumption
   per model. Existing states without `hourly` backfill the hourly count once.
 - `auth` exists only for Claude: state of the login token in `~/.claude/.credentials.json`
-  (`"ok"` | `"expired"` | `"missing"`) and expiry time. On macOS without that file the login comes from
-  the keychain entry `Claude Code-credentials` (`sources/keychain.py`, via `/usr/bin/security`). It is
-  read only when the endpoint is due or nothing is kept yet – the first read shows a permission prompt,
-  and a pass runs every minute; `state.json` keeps plan and expiry of the last read
-  (`claude.keychain_login`), never the token. Additional accounts use their file only. The token is written and refreshed only by
+  (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by
   Claude Code in the terminal (valid for about 8 h). If the state is not `ok`, card and tooltip show
   "Login expired – run claude in a terminal" or "No login found – …".
 - `login` (every provider and account entry): whether the live limits via login are on for it
@@ -377,9 +373,8 @@ instance that runs first decides.
 
 ## Security
 
-- `~/.claude/.credentials.json` (and the login file of each additional account, or on macOS the keychain
-  entry) is only read. The collector does **not** refresh any tokens and
-  never writes to this file or entry; the output of `security` is never logged; an expired token leads to the fallback until Claude Code refreshes
+- `~/.claude/.credentials.json` (and the login file of each additional account) is only read. The collector does **not** refresh any tokens and
+  never writes to this file; an expired token leads to the fallback until Claude Code refreshes
   it itself.
 - The token is sent exclusively to `api.anthropic.com` — never into `stats.json`,
   `state.json`, logs or error messages. Redirects are rejected because `urllib` would otherwise
@@ -387,91 +382,6 @@ instance that runs first decides.
 - The update check sends one unauthenticated GET to `api.github.com` per day and widget instance.
 - `stats.json`, `state.json` and the status line cache are created with mode `0600`,
   `~/.cache/limit-rings/` with `0700`.
-
-## Shared display logic (`core.mjs`)
-
-The Plasma widget and the macOS widget show the same cards from the same code:
-`plasmoid/io.github.flexomatic81.limitrings/contents/code/core.mjs`. It holds the limit logic (percentages,
-pace, thresholds, reset countdown), the texts of the cards, `readCollectorOutput` (parses the collector's
-envelope) and `statusMessage`.
-
-- **Translator:** every text function takes a `tr` object `{i18n, i18nc, i18np, decimal, integer, weekday}`.
-  `ENGLISH` is the plain implementation; Plasma passes the `i18n*` functions of the QML context, the macOS
-  widget builds one from `de.json` (`lib/i18n.mjs`).
-- **`format.js`** is a thin wrapper: it imports the module with `.import "core.mjs" as Core` and passes
-  its `_tr()` to each function, so QML callers and the QML tests stay unchanged.
-- **Extraction:** `po/update.sh` extracts the texts of `*.mjs` as well, so `core.mjs` strings land in
-  `po/plasmoid/*.po` like all others.
-
-## macOS widget (Übersicht)
-
-Source: `macos/limit-rings.widget/` with `index.jsx` (settings block, rendering), `run.sh`, `lib/card.mjs`
-(builds the card model from the collector output with `core.mjs`) and `lib/i18n.mjs`. Helpers live in `lib/`
-because Übersicht treats every `.js`, `.jsx` and `.coffee` file outside it as a widget.
-
-```
-Übersicht (every 60 s) ─► run.sh ─► run.py (collector) ─► JSON on stdout ─► card.mjs ─► index.jsx
-```
-
-- **`run.sh`** is the widget's `command`. Übersicht runs it from its widgets folder with a minimal `PATH`
-  (`/usr/bin:/bin:/usr/sbin:/sbin`), so it looks for Python itself, in this order: the python.org framework
-  (`/Library/Frameworks/Python.framework/Versions/Current/bin/python3`), `/opt/homebrew/bin/python3`,
-  `/usr/local/bin/python3`, `python3` on `PATH`, and `/usr/bin/python3` – the last one only when the
-  Command Line Tools are installed, otherwise it is a stub that opens an install dialog. The first one
-  ≥ 3.10 wins; without one, `run.sh` runs the first it found, so the card names the version that is too
-  old (with a link to python.org). A pass is killed after 50 s (exit 124), since Übersicht starts the next
-  one only after the last one ended.
-- **Login:** without `~/.claude/.credentials.json` the collector reads the keychain entry
-  `Claude Code-credentials` (see Security). This works in the logged-in desktop session only.
-- **Certificates:** Python from python.org ships without root certificates until "Install
-  Certificates.command" is run. The collector then trusts the system bundle `/etc/ssl/cert.pem` itself
-  (`sources/http.py`), so users need not do anything.
-- **Build:** `python3 tools/build_uebersicht.py --out dist` writes `dist/limit-rings-macos-<version>.zip`
-  (`--dir DIR` leaves the unpacked folder as `DIR/limit-rings.widget`). Besides the source it adds `lib/core.mjs`, `lib/de.json`
-  (from `po/plasmoid/de.po`) and `collector/`. The release workflow attaches the zip and its `.sha256` to
-  the draft release.
-
-## macOS installer
-
-`macos/install.sh` is published as the release asset `install-macos.sh` and run as
-`curl -fsSL …/releases/latest/download/install-macos.sh | sh [-s -- OPTIONS]`. Options: `--uninstall`,
-`--no-login-item`, `--version vX.Y.Z` (plain release tags only). The file consists of function
-definitions and a final `main "$@"`, so a download cut off midway runs nothing. It runs on macOS only,
-needs no admin rights and keeps no files outside the home folder (its temporary directory is removed on exit).
-
-Steps of an install or update:
-
-1. **Lock:** one run at a time, via a lock holding the PID; the lock of a killed run is taken over.
-2. **Recovery:** a widget left aside by an interrupted run is restored before anything is downloaded.
-3. **Übersicht:** an existing app in `/Applications` or `~/Applications` is kept. Otherwise the download
-   page on tracesof.net is read, the first link of the form
-   `https://tracesof.net/uebersicht/releases/Uebersicht-<version>.app.zip` on that page is fetched, its entry
-   names are screened (`zipinfo -1`: no absolute path, no `..` segment; `ditto` itself drops both and does not
-   follow a symlink entry to write below it, as tested on macOS 15) and it is installed into
-   `~/Applications` only if `codesign --verify --deep --strict` and `spctl` (notarized) pass and the team
-   ID is `S3P44NRLCW`, Übersicht's author.
-4. **Widget:** `limit-rings-macos.zip` and its `.sha256` come from the release; the checksum is verified
-   before unpacking. The widget is replaced through a staging folder
-   (`~/Library/Application Support/Übersicht/limit-rings-staging`): the old one is moved aside, the new
-   one moved in, and the old one restored if that fails. `settings.json` is carried over.
-5. **Python:** checked with the widget's `run.sh --which`; a missing Python is a warning with the
-   python.org link, not an error.
-6. **Welcome widget:** Übersicht's `GettingStarted.jsx` is removed only if its hash matches a known
-   original. On a fresh install the widgets folder exists before Übersicht's first start, so it never
-   appears.
-7. **Login item:** a LaunchAgent `~/Library/LaunchAgents/io.github.flexomatic81.limitrings.uebersicht.plist`
-   starts Übersicht at login (with `--no-login-item` an earlier LaunchAgent is removed instead). Übersicht is started if not running.
-
-`--uninstall` removes the widget, the LaunchAgent, the staging folder and `~/.cache/limit-rings`;
-Übersicht stays.
-
-**Test hooks** (environment, for the tests only): `LIMIT_RINGS_RELEASE_BASE` (release download URL),
-`LIMIT_RINGS_UEBERSICHT_PAGE` (Übersicht download page), `LIMIT_RINGS_SYSTEM_APPS` (folder standing in for
-`/Applications`) and `LIMIT_RINGS_WELCOME_ORIGINALS` (hashes of the welcome widget originals).
-`collector/tests/test_install_macos.py` runs the script against stub tools; the lint job runs shellcheck.
-
-**Release assets:** `install-macos.sh`, `limit-rings-macos-<version>.zip` and `limit-rings-macos.zip` (a
-version-less copy, so the `latest/download` URL stays stable), each with a `.sha256`.
 
 ## Installation
 
@@ -525,11 +435,10 @@ limit-rings/
   plasmoid/io.github.flexomatic81.limitrings/
     metadata.json
     contents/ui/      main.qml  FullRepresentation.qml  UpdateMessage.qml  …
-    contents/code/    core.mjs  format.js  build.js
+    contents/code/    format.js  build.js
     contents/config/  main.xml  config.qml
   po/  plasmoid/  collector/  update.sh
-  macos/limit-rings.widget/  index.jsx  run.sh  lib/
-  tools/  build_plasmoid.py  build_uebersicht.py  msgfmt.py  release_notes.py  install-lib.sh
+  tools/  build_plasmoid.py  msgfmt.py  release_notes.py  install-lib.sh
   .github/workflows/  test.yml  release.yml
   install.sh  uninstall.sh  README.md  CHANGELOG.md
   docs/  design.md  store/description.md

@@ -91,7 +91,7 @@ and Codex store on your machine.
 
 | | Claude Code | Codex |
 |---|---|---|
-| File | `~/.claude/.credentials.json` (and `<dir>/.credentials.json` of each additional Claude account); on macOS without that file the keychain entry `Claude Code-credentials` | `~/.codex/auth.json` (and `<dir>/auth.json` of each additional Codex account) |
+| File | `~/.claude/.credentials.json` (and `<dir>/.credentials.json` of each additional Claude account) | `~/.codex/auth.json` (and `<dir>/auth.json` of each additional Codex account) |
 | Read from it | access token, its expiry, plan name | access token, account ID |
 | Sent to | `api.anthropic.com` only | `chatgpt.com` only |
 | Asked for | the usage numbers of your plan | the usage numbers of your plan |
@@ -105,7 +105,7 @@ before the next request.
 - Run models or send prompts with your login – it only asks for the usage numbers.
 - Refresh, store, copy or log a token. An expired token simply goes unused until Claude Code or Codex
   renews it.
-- Write to the login files of Claude Code or Codex, or to their keychain entry.
+- Write to the login files of Claude Code or Codex.
 - Follow redirects – the token could otherwise end up at another host.
 - Touch a directory you have not listed under "Additional accounts", or an account you have unticked there.
 - Touch a provider you have switched off: with Claude or Codex unticked under "Show:" in the
@@ -155,11 +155,7 @@ writes `~/.cache/limit-rings/stats.json` and hands the result and any due notifi
 widget; its log is `~/.cache/limit-rings/collector.log`.
 
 Claude limits come from the (undocumented) OAuth usage endpoint; the token from
-`~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. On macOS, where Claude
-Code keeps its login in the keychain, the collector reads the entry `Claude Code-credentials` with
-Apple's `security` tool instead – only while that file is missing, and at most every 5 minutes, since
-macOS asks once for permission. Between reads it keeps the plan name and expiry, never the token.
-Additional Claude accounts are read from their `.credentials.json` only. If the endpoint
+`~/.claude/.credentials.json` is only read and only sent to `api.anthropic.com`. If the endpoint
 fails, a capture of the Claude Code status line serves as a fallback.
 
 Codex limits likewise come directly from the Codex service (ChatGPT login from `~/.codex/auth.json`,
@@ -190,66 +186,6 @@ cd limit-rings
 
 `install.sh` checks the requirements first and names the install command for your distribution if
 something is missing. Use one way or the other: both install the same widget, the last one wins.
-
-### macOS (Übersicht)
-
-A second widget runs on macOS in [Übersicht](https://tracesof.net/uebersicht/). It uses the same collector
-and the same display logic as the Plasma widget and shows one card per provider: rings and bars with the
-pace mark and the reset countdown, tokens for today/week/month and the history over 30 days. It has no
-notifications, no additional accounts, no breakdown by project and model, no extra usage and no 3- or
-12-month ranges.
-
-**Install with one command** in Terminal:
-
-```bash
-curl -fsSL https://github.com/Flexomatic81/limit-rings/releases/latest/download/install-macos.sh | sh
-```
-
-It works from the first release that ships the installer. Run the same command again to update. It needs
-no admin rights and keeps no files outside your home folder. It:
-
-- installs Übersicht into `~/Applications` if you have none – downloaded from tracesof.net and used only
-  after its signature, notarization and developer ID check out. An Übersicht you already have is kept
-  (it updates itself);
-- downloads the widget from the release, verifies its checksum and puts it into Übersicht's widgets
-  folder. A failed update keeps the old widget, and your `settings.json` stays;
-- removes Übersicht's welcome widget if it is still the unchanged original;
-- starts Übersicht at login (macOS shows "Background item added" once) and starts it now. Add
-  `--no-login-item` to skip the login item (this also removes one set up earlier): `… | sh -s -- --no-login-item`;
-- checks for Python and warns if it is missing.
-
-`--version vX.Y.Z` installs a specific release. To remove everything the installer set up (the widget, the
-login item and the cache in `~/.cache/limit-rings`; Übersicht stays):
-
-```bash
-curl -fsSL https://github.com/Flexomatic81/limit-rings/releases/latest/download/install-macos.sh | sh -s -- --uninstall
-```
-
-Requirements: Python ≥ 3.10 from [python.org](https://www.python.org/downloads/macos/) (Homebrew works
-too). Apple's own `python3` is 3.9 and too old; if no suitable Python is found, the card says so.
-
-#### Without the installer
-
-Install [Übersicht](https://tracesof.net/uebersicht/) yourself, then:
-
-1. Download `limit-rings-macos-<version>.zip` from the
-   [latest release](https://github.com/Flexomatic81/limit-rings/releases/latest) and unzip it.
-2. Move `limit-rings.widget` into `~/Library/Application Support/Übersicht/widgets/`. Keep the folder name:
-   the widget does not run under another one (the card says so). To update, delete the old folder first,
-   then move the new one in – unzipping next to it would create `limit-rings.widget 2`.
-
-#### Settings and login
-
-Settings (providers, login, remaining instead of used, thresholds, position) are in
-`limit-rings.widget/settings.json`; Übersicht reloads the widget when you save it. The installer keeps
-this file when it updates the widget. A missing or malformed `login` entry means no login: the live
-limits are then off and only local data is shown.
-
-Claude Code keeps its login in the keychain on macOS. macOS may ask once whether `security` may
-read the entry `Claude Code-credentials` – choose "Always Allow" (see [What is read](#what-is-read-and-where-it-goes)).
-The prompt appears in your desktop session only, not over SSH. Everything said about your logins above
-applies unchanged: it is the same collector, tokens are only read and only sent to the provider, at most
-every 5 minutes.
 
 ### Updating
 
