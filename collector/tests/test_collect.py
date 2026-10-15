@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from limit_rings import collect
 from limit_rings.collect import run, run_safely
 from limit_rings.paths import Paths
+from limit_rings.sources import claude_limits, claude_logs, codex_limits
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = datetime(2026, 10, 3, 19, 42, tzinfo=BERLIN)
@@ -144,12 +145,10 @@ def test_provider_failure_is_isolated(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
     (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-10-03T10:00:00Z", 500) + "\n")
 
-    import limit_rings.collect as collect_mod
-
     def boom(*a, **k):
         raise RuntimeError("broken")
 
-    monkeypatch.setattr(collect_mod.claude_logs, "read_events", boom)
+    monkeypatch.setattr(claude_logs, "read_events", boom)
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
     c, x = stats["providers"]["claude"], stats["providers"]["codex"]
@@ -202,12 +201,11 @@ def test_local_zone_prefers_tz_variable(monkeypatch):
 
 def test_unexpected_limits_failure_still_records_attempt(tmp_path, monkeypatch):
     p = make_paths(tmp_path)
-    import limit_rings.collect as collect_mod
 
     def boom(*a, **k):
         raise RuntimeError("broken")
 
-    monkeypatch.setattr(collect_mod.claude_limits, "resolve", boom)
+    monkeypatch.setattr(claude_limits, "resolve", boom)
 
     stats = run(p, NOW, BERLIN, fetch=ok_fetch)
 
@@ -573,8 +571,6 @@ def test_codex_window_that_vanishes_and_returns_leaves_nothing_behind(tmp_path):
 def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
     from dataclasses import replace
 
-    import limit_rings.collect as collect_mod
-
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
@@ -582,12 +578,15 @@ def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
     (p.claude_root / "proj").mkdir()
     (p.claude_root / "proj" / "s.jsonl").write_text(claude_line("m1", "2026-10-03T10:00:00Z") + "\n")
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("hidden provider must not be touched")
 
     for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
-        monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
-    monkeypatch.setattr(collect_mod.claude_logs, "read_events", forbidden)
+        monkeypatch.setattr(claude_limits, name, forbidden)
+    monkeypatch.setattr(claude_logs, "read_events", forbidden)
 
     later = NOW + timedelta(minutes=10)
     stats = run(p, later, BERLIN, fetch=forbidden, codex_fetch=codex_api, providers={"codex"})
@@ -596,6 +595,7 @@ def test_hidden_provider_is_neither_read_nor_queried(tmp_path, monkeypatch):
     assert claude["tokens"]["today"]["total"] == 0  # the new transcript was not read
     assert claude["auth"] is None and claude["plan"] is None
     assert stats["providers"]["codex"]["limits_updated_at"] == later.isoformat(timespec="seconds")
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_no_providers_means_no_requests_at_all(tmp_path):
@@ -604,11 +604,15 @@ def test_no_providers_means_no_requests_at_all(tmp_path):
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("must not fetch")
 
     stats = run(p, NOW, BERLIN, fetch=forbidden, codex_fetch=forbidden, providers=set())
     assert stats["providers"]["claude"]["limits"] == [] and stats["providers"]["codex"]["limits"] == []
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_notice_settings_reach_the_notifications(tmp_path):
@@ -907,8 +911,6 @@ def write_statusline(p, pct=33.0):
 
 
 def test_claude_without_login_never_opens_the_login_and_uses_the_status_line(tmp_path, monkeypatch):
-    import limit_rings.collect as collect_mod
-
     p = make_paths(tmp_path)
     run(
         p,
@@ -928,11 +930,14 @@ def test_claude_without_login_never_opens_the_login_and_uses_the_status_line(tmp
     before = json.loads(p.state_file.read_text())["claude"]
     write_statusline(p)
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("the login must not be touched")
 
     for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
-        monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
+        monkeypatch.setattr(claude_limits, name, forbidden)
     later = NOW + timedelta(minutes=10)
     stats = run(p, later, BERLIN, fetch=forbidden, login={"codex"})
     c = stats["providers"]["claude"]
@@ -942,50 +947,58 @@ def test_claude_without_login_never_opens_the_login_and_uses_the_status_line(tmp
     after = json.loads(p.state_file.read_text())["claude"]
     assert after["oauth_last_attempt"] == before["oauth_last_attempt"]  # switching back on is unaffected
     assert after["oauth_pause"] == before["oauth_pause"]
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_claude_without_login_and_without_status_line_has_no_limits(tmp_path):
     p = make_paths(tmp_path)
     run(p, NOW, BERLIN, fetch=ok_fetch)
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("must not fetch")
 
     stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=forbidden, login=set())
     assert stats["providers"]["claude"]["limits"] == []
     assert stats["providers"]["claude"]["limits_source"] is None
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_claude_account_without_login_reads_no_credentials(tmp_path, monkeypatch):
-    import limit_rings.collect as collect_mod
-
     p = make_paths(tmp_path)
     work, _ = make_account(tmp_path)
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("no Claude login may be touched, neither the main nor the account one")
 
     for name in ("read_credentials", "credential_status", "fetch_oauth_usage"):
-        monkeypatch.setattr(collect_mod.claude_limits, name, forbidden)
+        monkeypatch.setattr(claude_limits, name, forbidden)
     stats = run(p, NOW, BERLIN, fetch=forbidden, accounts=[work], login={"codex"})
     acc = stats["accounts"]["k7f3a2"]
     assert acc["login"] is False and acc["limits"] == [] and acc["auth"] is None
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_codex_without_login_drops_endpoint_data_and_uses_new_session_logs(tmp_path, monkeypatch):
     from dataclasses import replace
-
-    import limit_rings.collect as collect_mod
 
     p = make_paths(tmp_path)
     p = replace(p, codex_auth=codex_auth(p))
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=codex_api)
     assert stats["providers"]["codex"]["limits_source"] == "oauth"
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("the Codex login must not be touched")
 
-    monkeypatch.setattr(collect_mod.codex_limits, "read_auth", forbidden)
+    monkeypatch.setattr(codex_limits, "read_auth", forbidden)
     later = NOW + timedelta(minutes=10)
     stats = run(p, later, BERLIN, fetch=ok_fetch, codex_fetch=forbidden, login={"claude"})
     x = stats["providers"]["codex"]
@@ -994,23 +1007,26 @@ def test_codex_without_login_drops_endpoint_data_and_uses_new_session_logs(tmp_p
     stats = run(p, later + timedelta(minutes=1), BERLIN, fetch=ok_fetch, codex_fetch=forbidden, login={"claude"})
     x = stats["providers"]["codex"]
     assert x["limits_source"] == "session_log" and [lim["used_percent"] for lim in x["limits"]] == [8.0]
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_codex_account_without_login_reads_no_auth(tmp_path, monkeypatch):
-    import limit_rings.collect as collect_mod
-
     p = make_paths(tmp_path)
     cx, cx_dir = make_account(tmp_path, "codex", "c0d3x1", "Team")
     (cx_dir / "sessions" / "rollout-a.jsonl").write_text(codex_line("2026-10-03T17:00:00Z", 300) + "\n")
 
+    calls = []
+
     def forbidden(*a, **k):
+        calls.append(a)
         raise AssertionError("the Codex login must not be touched")
 
-    monkeypatch.setattr(collect_mod.codex_limits, "read_auth", forbidden)
+    monkeypatch.setattr(codex_limits, "read_auth", forbidden)
     stats = run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=forbidden, accounts=[cx], login={"claude"})
     acc = stats["accounts"]["c0d3x1"]
     assert acc["login"] is False and acc["auth"] is None
     assert acc["limits_source"] == "session_log" and acc["tokens"]["today"]["total"] == 300
+    assert calls == []  # the forbidden function was never called (provider errors are swallowed)
 
 
 def test_no_next_request_is_published_for_a_provider_without_login(tmp_path):
