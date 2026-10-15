@@ -179,3 +179,8 @@ def test_run_py_dispatches_status_without_collecting(tmp_path, monkeypatch, caps
         runpy.run_path(str(RUN_PY), run_name="__main__")
     assert exc.value.code == 0
     assert json.loads(capsys.readouterr().out)["status_version"] == 1
+
+
+@pytest.mark.parametrize("iso", [None, "not a time", 17])
+def test_age_of_a_missing_or_broken_time_is_unknown(iso):
+    assert status._age(iso, 1_791_300_000.0) is None

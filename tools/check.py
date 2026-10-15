@@ -27,7 +27,7 @@ QT_DIRS = (Path("/usr/lib/qt6/bin"), Path("/usr/lib64/qt6/bin"))  # Arch/Debian/
 STEPS = ("ruff", "format", "mypy", "shellcheck", "qmllint", "pytest", "qmltest")
 GROUPS = {"fast": ("ruff", "format", "mypy")}
 QT_STEPS = {"qmllint", "qmltest"}
-COVERAGE_FLOOR = 97
+COVERAGE_FLOOR = 98
 INSTALL_HINT = "install uv, or in a virtual environment: python3 -m pip install -r tools/requirements-dev.txt"
 
 
@@ -160,6 +160,7 @@ def plan_step(name: str, env: Env) -> Step:
         args = [
             "-q",
             "--cov=limit_rings",
+            "--cov-branch",
             f"--cov-fail-under={COVERAGE_FLOOR}",
             "--cov-report=term-missing:skip-covered",
         ]

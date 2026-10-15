@@ -1,11 +1,11 @@
 import json
 from datetime import timedelta
 
-from collect_helpers import BERLIN, NOW, claude_line, codex_api, codex_auth, make_paths, ok_fetch
+from collect_helpers import BERLIN, NOW, claude_line, codex_api, codex_auth, codex_line, make_paths, ok_fetch
 
 from limit_rings import collect
 from limit_rings.collect import run
-from limit_rings.sources import claude_limits, claude_logs
+from limit_rings.sources import claude_limits, claude_logs, codex_limits, codex_logs
 
 
 def test_rate_limit_pause_is_kept_between_runs_and_published(tmp_path):
@@ -234,3 +234,33 @@ def test_pass_returns_the_provider_entries_without_writing_stats(tmp_path):
     assert set(out) == {"claude", "codex"}
     assert out["claude"]["limits_source"] == "oauth"
     assert not p.stats_file.exists() and p.state_file.exists()
+
+
+def test_a_codex_log_failure_is_isolated_and_keeps_the_codex_state(tmp_path, monkeypatch):
+    p = make_paths(tmp_path)
+    (p.codex_root / "rollout-a.jsonl").write_text(codex_line("2026-10-03T10:00:00Z", 500) + "\n")
+    run(p, NOW, BERLIN, fetch=ok_fetch)
+    before = json.loads(p.state_file.read_text())["codex"]
+
+    def boom(*a, **k):
+        raise RuntimeError("broken")
+
+    monkeypatch.setattr(codex_logs, "read_events", boom)
+    stats = run(p, NOW + timedelta(minutes=10), BERLIN, fetch=ok_fetch)
+    x, c = stats["providers"]["codex"], stats["providers"]["claude"]
+    assert x["errors"] == [{"code": "logs_failed"}]
+    assert x["tokens"]["today"]["total"] == 500  # the counts read before stay
+    assert c["errors"] == [] and c["limits_source"] == "oauth"
+    assert json.loads(p.state_file.read_text())["codex"]["files"] == before["files"]
+
+
+def test_an_unexpected_codex_limits_failure_still_records_the_attempt(tmp_path, monkeypatch):
+    p = make_paths(tmp_path)
+
+    def boom(*a, **k):
+        raise RuntimeError("broken")
+
+    monkeypatch.setattr(codex_limits, "resolve", boom)
+    stats = run(p, NOW, BERLIN, fetch=ok_fetch)
+    assert stats["providers"]["claude"]["limits_source"] == "oauth"  # the other provider is untouched
+    assert json.loads(p.state_file.read_text())["codex"]["oauth_last_attempt"] == NOW.timestamp()

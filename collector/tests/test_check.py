@@ -71,6 +71,8 @@ def test_pytest_runs_in_collector_with_the_coverage_floor(tmp_path, monkeypatch)
     assert step.command[:7] == ["uv", "run", "--no-project", "--with", "pytest==9.0", "--with", "pytest-cov==7.0"]
     assert f"--cov-fail-under={check.COVERAGE_FLOOR}" in step.command
     assert "--cov=limit_rings" in step.command
+    assert "--cov-branch" in step.command
+    assert check.COVERAGE_FLOOR == 98
 
 
 def test_pytest_without_uv_needs_both_modules(tmp_path):

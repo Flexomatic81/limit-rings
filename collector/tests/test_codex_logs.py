@@ -1,4 +1,7 @@
 import json
+import os
+
+import pytest
 
 from limit_rings.sources.codex_logs import read_events
 
@@ -140,3 +143,46 @@ def test_pathological_line_is_counted_invalid_and_offsets_advance(tmp_path):
     assert res.invalid == 1
     assert len(res.events) == 2
     assert files[str(f)]["offset"] == f.stat().st_size
+
+
+def test_other_lines_are_skipped_without_counting_as_invalid(tmp_path):
+    f = tmp_path / "2026" / "09" / "29" / "rollout-b.jsonl"
+    write(
+        f,
+        "[1, 2]",
+        json.dumps({"type": "turn_context"}),
+        json.dumps({"type": "event_msg", "payload": {"type": "agent_message"}}),
+        json.dumps({"type": "event_msg", "payload": "text"}),
+        token_count("2026-09-29T10:00:00Z", 110),
+    )
+    res = read_events(tmp_path, {}, {})
+    assert len(res.events) == 1 and res.invalid == 0
+
+
+root_only = pytest.mark.skipif(os.geteuid() == 0, reason="root can read files without permission")
+
+
+@root_only
+def test_an_unreadable_log_is_counted_and_the_others_still_count(tmp_path):
+    good = tmp_path / "2026" / "09" / "29" / "rollout-a.jsonl"
+    bad = tmp_path / "2026" / "09" / "29" / "rollout-b.jsonl"
+    write(good, token_count("2026-09-29T10:00:00Z", 110))
+    write(bad, token_count("2026-09-29T11:00:00Z", 220))
+    bad.chmod(0)
+    try:
+        res = read_events(tmp_path, {}, {})
+    finally:
+        bad.chmod(0o600)
+    assert res.unreadable == 1 and len(res.events) == 1
+
+
+@root_only
+def test_an_unreadable_directory_is_counted(tmp_path):
+    hidden = tmp_path / "2026" / "09" / "30"
+    write(hidden / "rollout-c.jsonl", token_count("2026-09-30T10:00:00Z", 110))
+    hidden.chmod(0)
+    try:
+        res = read_events(tmp_path, {}, {})
+    finally:
+        hidden.chmod(0o700)
+    assert res.unreadable == 1 and res.events == []
