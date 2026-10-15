@@ -629,6 +629,18 @@ def test_failed_upgrade_keeps_the_earlier_version_collecting(env):
     assert not any(c.startswith("systemctl --user stop limit-rings") for c in calls(env))
 
 
+def test_unknown_timer_state_names_both_states_on_one_line(env):
+    earlier_version(env)
+    r = subprocess.run(
+        ["bash", str(ROOT / "install.sh")],
+        env={**env, "STUB_OLD_STATE": "active"},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 1 and "state is unknown (active failed)" in r.stderr
+
+
 def test_unknown_timer_state_deletes_nothing(env):
     earlier_version(env)
     r = subprocess.run(

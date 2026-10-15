@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016 # awk programs and literal grep patterns are single-quoted on purpose
 # Installs the Limit Rings widget – it brings and runs its own collector – from this checkout. Safe to run repeatedly.
 # --statusline: insert the status line hook without asking.
 # --migrate-widgets: switch placed "Agent Stats" widgets to Limit Rings without asking (restarts the Plasma shell).

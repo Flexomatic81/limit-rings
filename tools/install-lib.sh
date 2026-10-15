@@ -1,9 +1,11 @@
+# shellcheck shell=bash
 # Shared by install.sh and uninstall.sh. Expects $units, the systemd user unit directory.
 
 # Prints how to install a package on this distribution: install_hint <apt> <pacman> <dnf> <zypper>.
 # The distribution comes from ID and ID_LIKE in $OS_RELEASE (default /etc/os-release).
 install_hint() {
     local ids
+    # shellcheck source=/dev/null # the system's os-release
     ids="$(. "${OS_RELEASE:-/etc/os-release}" 2>/dev/null && echo "${ID:-} ${ID_LIKE:-}")" || ids=""
     case " $ids " in
         *" debian "* | *" ubuntu "*) echo "sudo apt install $1" ;;
@@ -17,8 +19,9 @@ install_hint() {
 # Stops and removes the systemd timer of an earlier version ($1: unit name without suffix) and deletes the
 # files it ran ($2 …) – only if the timer or the first file exists. Stopping waits for a running pass; unless
 # both units then report inactive or failed, the script aborts before anything is deleted.
+# shellcheck disable=SC2154 # $units is set by the sourcing script
 retire_timer() {
-    local unit="$1" state states
+    local unit="$1" states
     shift
     [[ -f "$units/$unit.timer" || -e "$1" ]] || return 0
     systemctl --user stop "$unit.timer" "$unit.service" 2>/dev/null || true
@@ -26,6 +29,7 @@ retire_timer() {
     # ssh) must not delete the timer file: as long as it exists, the widget's collector does not run next to it.
     states="$(systemctl --user show -p ActiveState --value "$unit.timer" "$unit.service" 2>/dev/null)" || states=""
     if [[ "$(grep -cxE 'inactive|failed' <<< "$states")" != 2 ]]; then
+        # shellcheck disable=SC2086,SC2116 # echo joins the one-state-per-line output into one line
         echo "Error: the old $unit timer could not be stopped, or its state is unknown ($(echo $states)) –" >&2
         echo "  the old timer was left in place. Check: systemctl --user status $unit.timer $unit.service" >&2
         exit 1
