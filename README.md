@@ -54,8 +54,9 @@ see [Installation](#installation).
   (per week) or 12 months (per month).
 - Claude extra usage (amount spent and monthly limit) and Codex credits, when your account has them.
 - Forecast of when a limit will be reached at the current pace (5 h: last 30 min, week: last 24 h).
-- Breakdown of Claude tokens since the weekly reset by project (Git repository) and model — only
-  for the transcripts on the current machine, as a share of tokens (not of the limit).
+- Breakdown of Claude and Codex tokens since the weekly reset by project (Git repository) and model —
+  only for the logs on the current machine (for Codex: sessions run in a terminal), as a share of tokens
+  (not of the limit).
 - Hint in the card and tooltip when the Claude login has expired.
 - A note in the card for three days when a provider changes its limits: a window is new, comes back,
   is no longer reported, changes length or resets early.

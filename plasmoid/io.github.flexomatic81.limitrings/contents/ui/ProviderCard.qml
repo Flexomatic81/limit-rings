@@ -168,7 +168,7 @@ ColumnLayout {
         series: Format.chartSeries(card.provider, card.chartRange)
     }
 
-    // Breakdown by project and model (Claude only)
+    // Breakdown by project and model (Claude and Codex)
     ColumnLayout {
         id: breakdownBlock
         readonly property var b: card.provider ? card.provider.breakdown : null

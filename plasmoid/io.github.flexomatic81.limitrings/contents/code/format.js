@@ -709,7 +709,7 @@ function tooltipText(stats, providers, nowSec, refreshedAtMs, remaining) {
     return lines.join("\n")
 }
 
-// Breakdown by project/model (stats.json: providers.claude.breakdown)
+// Breakdown by project/model (stats.json: providers.<claude|codex>.breakdown)
 function breakdownTitle(b) {
     if (!b) return ""
     if (b.basis !== "window") return i18n("Last 7 days")

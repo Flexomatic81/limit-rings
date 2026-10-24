@@ -82,12 +82,15 @@ def with_forecasts(limits: list[JsonDict], name: str, history: JsonDict, now_ts:
     return out
 
 
+def _is_weekly(limit: JsonDict) -> bool:
+    """The weekly limit of all models (Claude's seven_day, Codex's 7-day window), not a model-scoped one."""
+    return limit.get("id") == "seven_day" or (limit.get("window_minutes") == 10080 and not limit.get("model"))
+
+
 def breakdown_entry(section: JsonDict, now_ts: float, tz: tzinfo) -> JsonDict:
-    """Breakdown since the start of the Claude weekly window (reset − 7 days), otherwise of the last 7 days."""
+    """Breakdown since the start of the provider's weekly window (reset − 7 days), otherwise of the last 7 days."""
     rec = section["limits"]
-    resets = next(
-        (lim.get("resets_at") for lim in (rec["limits"] if rec else []) if lim.get("id") == "seven_day"), None
-    )
+    resets = next((lim.get("resets_at") for lim in (rec["limits"] if rec else []) if _is_weekly(lim)), None)
     if resets is not None and resets - 7 * 86400 <= now_ts:
         since, basis = resets - 7 * 86400, "window"
     else:
@@ -143,6 +146,7 @@ def empty_entry(provider: str | None, today: date, errors: list[JsonDict], login
         "errors": errors,
         "login": login,
     }
+    entry["breakdown"] = None
     if provider == "claude":
-        entry.update(auth=None, breakdown=None)
+        entry["auth"] = None
     return entry

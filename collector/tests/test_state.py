@@ -236,3 +236,16 @@ def test_structure_with_missing_keys_is_dropped_alone(tmp_path):
     s["claude"]["structure"] = {**full, "events": [{**event, "source": "oauth"}]}
     p.write_text(json.dumps(s))
     assert load_state(p)["claude"]["structure"] == s["claude"]["structure"]
+
+
+def test_codex_state_from_before_the_breakdown_is_backfilled_once(tmp_path):
+    path = tmp_path / "state.json"
+    old = new_state()
+    old["codex"]["files"] = {"/x/rollout-a.jsonl": {"offset": 10, "inode": 1, "size": 10}}
+    del old["codex"]["hourly"], old["codex"]["hourly_backfill"]
+    path.write_text(json.dumps(old))
+    loaded = load_state(path)
+    assert loaded["codex"]["hourly"] == {} and loaded["codex"]["hourly_backfill"] is True
+    del old["codex"]["files"]["/x/rollout-a.jsonl"]
+    path.write_text(json.dumps(old))
+    assert load_state(path)["codex"]["hourly_backfill"] is False  # nothing read yet: no backfill needed

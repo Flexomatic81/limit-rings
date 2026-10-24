@@ -1,7 +1,7 @@
 import json
 from datetime import timedelta
 
-from collect_helpers import BERLIN, NOW, make_paths, ok_fetch
+from collect_helpers import BERLIN, NOW, codex_line, make_paths, ok_fetch
 
 from limit_rings.collect import run
 
@@ -106,3 +106,48 @@ def test_legacy_state_limits_are_published_with_model(tmp_path):
     stats = run(p, NOW, BERLIN, fetch=no_fetch)
     opus = [lim for lim in stats["providers"]["claude"]["limits"] if lim["id"] == "seven_day_opus"]
     assert opus and opus[0]["model"] == "Opus" and "label" not in opus[0]
+
+
+def codex_turn(ts, cwd, model):
+    return json.dumps({"timestamp": ts, "type": "turn_context", "payload": {"cwd": cwd, "model": model}})
+
+
+def codex_breakdown_setup(tmp_path):
+    p = make_paths(tmp_path)
+    repo = tmp_path / "work" / "linsens"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "src").mkdir()
+    (p.codex_root / "rollout-a.jsonl").write_text(
+        "\n".join(
+            [
+                codex_turn("2026-10-03T09:59:00Z", str(repo / "src"), "gpt-6-astra"),
+                codex_line("2026-10-03T10:00:00Z", 300),
+                codex_turn("2026-10-03T10:59:00Z", str(tmp_path / "scratch"), "gpt-6-mini"),
+                codex_line("2026-10-03T11:00:00Z", 400),  # last_token_usage of this turn: 400
+            ]
+        )
+        + "\n"
+    )
+    return p
+
+
+def test_codex_tokens_are_broken_down_by_project_and_model(tmp_path):
+    p = codex_breakdown_setup(tmp_path)
+    b = run(p, NOW, BERLIN, fetch=ok_fetch)["providers"]["codex"]["breakdown"]
+    assert b["basis"] == "window"  # the Codex weekly limit from the session log
+    assert b["total"] == 700
+    assert b["projects"] == [{"name": "scratch", "total": 400}, {"name": "linsens", "total": 300}]
+    assert b["models"] == [{"name": "gpt-6-mini", "total": 400}, {"name": "gpt-6-astra", "total": 300}]
+
+
+def test_codex_backfill_for_existing_state_counts_once(tmp_path):
+    p = codex_breakdown_setup(tmp_path)
+    run(p, NOW, BERLIN, fetch=ok_fetch)
+    state = json.loads(p.state_file.read_text())
+    del state["codex"]["hourly"], state["codex"]["hourly_backfill"]  # state from before the update
+    p.state_file.write_text(json.dumps(state))
+    stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=ok_fetch)
+    x = stats["providers"]["codex"]
+    assert x["breakdown"]["total"] == 700
+    assert x["tokens"]["today"]["total"] == 700  # daily totals not counted twice
+    assert json.loads(p.state_file.read_text())["codex"]["hourly_backfill"] is False

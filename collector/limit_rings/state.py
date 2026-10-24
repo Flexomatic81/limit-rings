@@ -38,6 +38,8 @@ def new_state() -> JsonDict:
             "limits": None,
             "oauth_last_attempt": None,
             "oauth_pause": backoff.new(),
+            "hourly": {},
+            "hourly_backfill": False,
             "structure": None,
         },
         "notified": {},
@@ -62,10 +64,22 @@ def _limits_ok(rec: object) -> bool:
     )
 
 
+def _hourly_ok(section: JsonDict) -> bool:
+    """The breakdown's hourly buckets: {hour: {"p": {project: tokens}, "m": {model: tokens}}}."""
+    return isinstance(section["hourly_backfill"], bool) and all(
+        isinstance(b, dict)
+        and all(isinstance(b.get(k), dict) and all(_int(v) for v in b[k].values()) for k in ("p", "m"))
+        for b in section["hourly"].values()
+    )
+
+
 def _shape_ok(data: JsonDict) -> bool:
     """Check only the shape (not the content) that prune_state and run rely on."""
     claude, codex = data["claude"], data["codex"]
-    for section, dicts in ((claude, ("files", "seen", "buckets", "hourly")), (codex, ("files", "sessions", "buckets"))):
+    for section, dicts in (
+        (claude, ("files", "seen", "buckets", "hourly")),
+        (codex, ("files", "sessions", "buckets", "hourly")),
+    ):
         if not all(isinstance(section[k], dict) for k in dicts):
             return False
         if not _limits_ok(section["limits"]):
@@ -84,11 +98,7 @@ def _shape_ok(data: JsonDict) -> bool:
         for v in codex["sessions"].values()
     ):
         return False
-    if not isinstance(claude["hourly_backfill"], bool) or not all(
-        isinstance(b, dict)
-        and all(isinstance(b.get(k), dict) and all(_int(v) for v in b[k].values()) for k in ("p", "m"))
-        for b in claude["hourly"].values()
-    ):
+    if not all(_hourly_ok(section) for section in (claude, codex)):
         return False
     notified = data["notified"]
     if not isinstance(notified, dict) or not all(
@@ -181,11 +191,12 @@ def load_state(path: Path) -> JsonDict:
     if data is None:
         return new_state()
     fresh = new_state()
-    claude = data.get("claude")
-    if isinstance(claude, dict) and "hourly" not in claude:
-        # State from before the project/model breakdown: backfill the hourly counts once –
-        # only if files have already been read (otherwise the next run re-reads everything anyway)
-        claude["hourly"], claude["hourly_backfill"] = {}, bool(claude.get("files"))
+    for provider in ("claude", "codex"):
+        section = data.get(provider)
+        if isinstance(section, dict) and "hourly" not in section:
+            # State from before the project/model breakdown (Claude) or from before Codex had one: backfill the
+            # hourly counts once – only if files have already been read (otherwise the next run re-reads them)
+            section["hourly"], section["hourly_backfill"] = {}, bool(section.get("files"))
     if not _fill_defaults(data, fresh):
         return fresh
     for provider in ("claude", "codex"):

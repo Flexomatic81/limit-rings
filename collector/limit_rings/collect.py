@@ -136,16 +136,19 @@ def _pass(
             ),
             "breakdown": entries.breakdown_entry(claude, now.timestamp(), tz),
         },
-        "codex": entries.provider_entry(
-            codex,
-            today,
-            tz,
-            now.timestamp(),
-            entries.limits_source("codex", codex["limits"]),
-            codex["limits"]["plan"] if codex["limits"] else None,
-            codex_errors,
-            codex_limits.MIN_INTERVAL,
-        ),
+        "codex": {
+            **entries.provider_entry(
+                codex,
+                today,
+                tz,
+                now.timestamp(),
+                entries.limits_source("codex", codex["limits"]),
+                codex["limits"]["plan"] if codex["limits"] else None,
+                codex_errors,
+                codex_limits.MIN_INTERVAL,
+            ),
+            "breakdown": entries.breakdown_entry(codex, now.timestamp(), tz),
+        },
     }
     for key in ("claude", "codex"):
         provider_entries[key]["login"] = key in login

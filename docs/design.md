@@ -234,13 +234,15 @@ Rules:
   usage endpoint and the status line or session log starts afresh without changes; the first run notes
   nothing. `state.json` keeps the known windows and the changes of 30 days (at most 20) per provider
   under `structure`; a malformed `structure` is dropped alone. The card shows one line per change.
-- `breakdown` exists only for Claude: token totals since the start of the Claude weekly window
-  (weekly limit reset − 7 days; without a known weekly limit the last 7 days, `basis: "7d"`), for
+- `breakdown` (Claude and Codex): token totals since the start of the provider's weekly window
+  (reset of the weekly limit of all models − 7 days; without a known weekly limit the last 7 days, `basis: "7d"`), for
   both `projects` and `models` the four largest entries plus a catch-all entry
   `{"name": null, "other": true, "total": …}` for the rest. Project = Git repository of the
   working directory (worktree → main repository), otherwise the directory name; model as a readable
-  name ("Opus 5.5"). Counted hourly (`hourly` in `state.json`, 8 days). The values come only from the
-  transcripts of **this** machine and are token shares, not the (undisclosed) limit consumption
+  name for Claude ("Opus 5.5") and as Codex writes it for Codex ("gpt-6-astra"). Codex takes directory and
+  model from the last `session_meta` / `turn_context` line before each `token_count` event, remembered per
+  file between passes. Counted hourly (`hourly` in `state.json`, 8 days). The values come only from the
+  logs of **this** machine and are token shares, not the (undisclosed) limit consumption
   per model. Existing states without `hourly` backfill the hourly count once.
 - `auth` exists only for Claude: state of the login token in `~/.claude/.credentials.json`
   (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by

@@ -186,3 +186,40 @@ def test_an_unreadable_directory_is_counted(tmp_path):
     finally:
         hidden.chmod(0o700)
     assert res.unreadable == 1 and res.events == []
+
+
+def turn(cwd, model):
+    payload = {"cwd": cwd, "model": model}
+    return json.dumps({"timestamp": "2026-09-29T09:00:00Z", "type": "turn_context", "payload": payload})
+
+
+def test_events_carry_the_model_and_working_directory_of_their_turn(tmp_path):
+    f = tmp_path / "2026" / "09" / "29" / "rollout-a.jsonl"
+    start = json.dumps(
+        {"timestamp": "2026-09-29T09:00:00Z", "type": "session_meta", "payload": {"id": "s1", "cwd": "/w/start"}}
+    )
+    write(
+        f,
+        start,
+        token_count("2026-09-29T10:00:00Z", 110),  # before any turn: the session's directory, no model yet
+        turn("/w/app", "gpt-6-astra"),
+        token_count("2026-09-29T10:05:00Z", 220),
+        turn("/w/lib", "gpt-6-mini"),
+        token_count("2026-09-29T10:10:00Z", 330),
+    )
+    res = read_events(tmp_path, {}, {})
+    assert [(e.project, e.model) for e in res.events] == [
+        ("/w/start", None),
+        ("/w/app", "gpt-6-astra"),
+        ("/w/lib", "gpt-6-mini"),
+    ]
+
+
+def test_the_turn_is_remembered_between_passes(tmp_path):
+    f = tmp_path / "2026" / "09" / "29" / "rollout-a.jsonl"
+    files, sessions = {}, {}
+    write(f, meta("s1"), turn("/w/app", "gpt-6-astra"), token_count("2026-09-29T10:00:00Z", 110))
+    read_events(tmp_path, files, sessions)
+    write(f, token_count("2026-09-29T10:05:00Z", 220))  # appended later, without a new turn_context
+    res = read_events(tmp_path, files, sessions)
+    assert [(e.project, e.model) for e in res.events] == [("/w/app", "gpt-6-astra")]

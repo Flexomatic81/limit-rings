@@ -35,13 +35,14 @@ def add_breakdown(
             breakdown.add_event(hourly, ev, resolver.name(ev.project), breakdown.model_label(ev.model))
 
 
-def backfill_hourly(section: JsonDict, paths: Paths, now_ts: float, resolver: breakdown.ProjectResolver) -> None:
-    """Once after the update: backfill the hourly counts from the transcripts.
+def backfill_hourly(
+    section: JsonDict, events: Iterable[TokenEvent], now_ts: float, resolver: breakdown.ProjectResolver
+) -> None:
+    """Once after the update: backfill the hourly counts from the logs.
 
-    Reads with fresh state so that daily totals and deduplication stay untouched.
+    events come from reading the logs with fresh state, so that daily totals and deduplication stay untouched.
     """
-    res = claude_logs.read_events(paths.claude_root, {}, {})
-    add_breakdown(section["hourly"], res.events, resolver, now_ts - breakdown.KEEP_SECONDS)
+    add_breakdown(section["hourly"], events, resolver, now_ts - breakdown.KEEP_SECONDS)
     section["hourly_backfill"] = False
 
 
@@ -54,7 +55,7 @@ def process_claude(
     snapshot = copy.deepcopy({k: section[k] for k in ("files", "seen", "buckets", "hourly", "hourly_backfill")})
     try:
         if section["hourly_backfill"]:
-            backfill_hourly(section, paths, now_ts, resolver)
+            backfill_hourly(section, claude_logs.read_events(paths.claude_root, {}, {}).events, now_ts, resolver)
         res = claude_logs.read_events(paths.claude_root, section["files"], section["seen"])
         add_breakdown(section["hourly"], res.events, resolver, now_ts - breakdown.KEEP_SECONDS)
         breakdown.prune_hourly(section["hourly"], now_ts)
@@ -98,8 +99,8 @@ def process_codex(
         # so that a new log line of this pass can take its place.
         if section["limits"] and section["limits"].get("source") == "oauth":
             section["limits"] = None
-        return process_codex_logs(state, paths, tz)
-    errors = process_codex_logs(state, paths, tz)
+        return process_codex_logs(state, paths, now_ts, tz)
+    errors = process_codex_logs(state, paths, now_ts, tz)
     section = state["codex"]  # process_codex_logs may have restored a snapshot
     try:
         # The Claude Code plugin writes no session logs: also query the limits directly.
@@ -117,11 +118,16 @@ def process_codex(
     return errors
 
 
-def process_codex_logs(state: JsonDict, paths: Paths, tz: tzinfo) -> list[JsonDict]:
+def process_codex_logs(state: JsonDict, paths: Paths, now_ts: float, tz: tzinfo) -> list[JsonDict]:
     section = state["codex"]
     snapshot = copy.deepcopy(section)
+    resolver = breakdown.ProjectResolver()
     try:
+        if section["hourly_backfill"]:
+            backfill_hourly(section, codex_logs.read_events(paths.codex_root, {}, {}).events, now_ts, resolver)
         res = codex_logs.read_events(paths.codex_root, section["files"], section["sessions"])
+        add_breakdown(section["hourly"], res.events, resolver, now_ts - breakdown.KEEP_SECONDS)
+        breakdown.prune_hourly(section["hourly"], now_ts)
         for ev in res.events:
             aggregate.add_event(section["buckets"], ev, tz)
         if res.limits_ts is not None:
