@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- The Codex card breaks its tokens down by project and model since the weekly reset, like the Claude
+  card – from the session logs of Codex sessions run in a terminal.
+- When the Codex card shows no tokens, it says why: only Codex sessions run in a terminal are counted
+  (Codex used through the Claude Code plugin writes no session logs).
+
 ## 0.6.0
 
 - The history chart in each card switches between 30 days, 3 months (per week) and 12 months
