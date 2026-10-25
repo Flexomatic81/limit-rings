@@ -66,3 +66,30 @@ Mehrere Konten pro Anbieter sind möglich: weitere `CLAUDE_CONFIG_DIR`-/`CODEX_H
 
 Optionaler Statuszeilen-Fallback für Claude-Limits: siehe README auf GitHub (manuell, braucht `jq`).
 Fehler und Ideen: https://github.com/Flexomatic81/limit-rings/issues
+
+## Images
+
+The store takes at most five images. Upload them in this order; the files are here in `docs/store/`,
+1920 × 1080 each, in the stock Breeze Dark colour scheme.
+
+1. `store-1-overview.png`: name, the three main points, and the open popup with the Claude and Codex cards
+   above the rings in a panel
+2. `store-2-popup.png`: the Claude card, its parts labelled
+3. `store-3-panel-views.png`: the panel views side by side (rings, number, what is left, several accounts,
+   vertical panel) and the tooltip
+4. `store-4-notifications.png`: the limits with the forecast and two notifications
+5. `store-5-login.png`: what happens with the login, and the settings page with "Live limits via login"
+
+### How the images are made
+
+The widget in the images is real: `python3 tools/store_shots.py` renders its views from invented data
+(`tools/store_shots/fake.js`) at three times the size into `shots/`: `popup-both.png`, `popup-claude.png`,
+`panel-rings.png`, `panel-number.png`, `panel-remaining.png`, `panel-accounts.png`, `panel-vertical.png`,
+`tooltip.png` and `settings.png`.
+
+Background, frames, labels, the notifications and the settings dialog around the page are drawn in VectorCraft;
+the document is `limit-rings-store.vectorcraft`, one artboard per image, with the views embedded. The
+notifications show the texts the widget sends, with the widget's icon (`utilities-system-monitor`); the sidebar of
+the settings dialog shows the Breeze icons of its pages. After new shots, replace the embedded images (Links →
+Relink, keeping their bounds, then Embed) and export each artboard as PNG at scale 1. Strip the text chunks
+(title and creation time) before committing.
