@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/popup.png" width="820" alt="The widget's card with the Claude and Codex limits, reset countdowns, token history and, for each, a breakdown by project and model">
+  <img src="docs/store/store-1-overview.png" width="860" alt="Limit Rings in a Plasma panel with its popup open: the Claude and Codex limits with reset countdowns and forecast, token history and a breakdown by project and model">
   <br>
   <sub>All screenshots show sample data.</sub>
 </p>
@@ -35,6 +35,16 @@ Requires KDE Plasma 6 and Python ≥ 3.10. Right-click the panel → "Add Widget
 "Download New Plasma Widgets", search for **Limit Rings** and drag it onto a panel or the desktop – or get it
 from the [KDE Store](https://store.kde.org/p/2377644/). Installing from GitHub:
 see [Installation](#installation).
+
+## Screenshots
+
+| | |
+|---|---|
+| ![The Claude card with its parts labelled: limits and forecast, extra usage, token history, breakdown by project and by model](docs/store/store-2-popup.png) | ![The panel views side by side: rings, number, what is left, several accounts, vertical panel, and the tooltip](docs/store/store-3-panel-views.png) |
+| ![The limits with the forecast and two notifications](docs/store/store-4-notifications.png) | ![What happens with the login, and the settings page with "Live limits via login"](docs/store/store-5-login.png) |
+
+These are the images of the KDE Store page, in [`docs/store/`](docs/store/); how they are put together is
+described in [`docs/store/description.md`](docs/store/description.md#images).
 
 ## Features
 
