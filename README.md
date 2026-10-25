@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/popup.png" width="820" alt="The widget's card with the Claude and Codex limits, reset countdowns, token history and a breakdown by project and model">
+  <img src="docs/images/popup.png" width="820" alt="The widget's card with the Claude and Codex limits, reset countdowns, token history and, for each, a breakdown by project and model">
   <br>
   <sub>All screenshots show sample data.</sub>
 </p>
