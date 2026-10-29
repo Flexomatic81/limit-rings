@@ -14,7 +14,7 @@ TestCase {
         id: full
         width: 684
         height: 180   // like the saved popup size that used to cut off the content
-        providers: [{key: "claude", name: "Claude", short: "C"}]
+        providers: [{key: "claude", provider: "claude", name: "Claude", short: "C"}]
         nowMs: Date.parse("2026-10-04T13:30:00+02:00")
         warn: 70
         crit: 90
@@ -95,7 +95,7 @@ TestCase {
         try {
             stats.providers = {codex: zeros}
             full.stats = stats
-            full.providers = [{key: "codex", name: "Codex", short: "X"}]
+            full.providers = [{key: "codex", provider: "codex", name: "Codex", short: "X"}]
             waitForRendering(full)
             const hint = findChild(full, "tokenHint")
             verify(hint !== null)
@@ -106,6 +106,24 @@ TestCase {
             full.providers = saved.providers
             waitForRendering(full)
             verify(!findChild(full, "tokenHint").visible)
+        } finally {
+            full.providers = saved.providers
+            full.stats = saved.stats
+        }
+    }
+
+    function test_plan_name_follows_the_provider() {
+        const saved = {providers: full.providers, stats: full.stats}
+        const stats = JSON.parse(JSON.stringify(full.stats))
+        try {
+            waitForRendering(full)
+            compare(findChild(full, "planName").text, "Pro")
+            stats.providers = {codex: JSON.parse(JSON.stringify(stats.providers.claude))}
+            stats.providers.codex.plan = "pro"
+            full.stats = stats
+            full.providers = [{key: "codex", provider: "codex", name: "Codex", short: "X"}]
+            waitForRendering(full)
+            compare(findChild(full, "planName").text, "Pro 200")   // Codex names its plans differently
         } finally {
             full.providers = saved.providers
             full.stats = saved.stats
@@ -169,7 +187,7 @@ TestCase {
         stats.accounts.k7f3a2.limits[0].used_percent = 77
         stats.accounts.k7f3a2.provider = "claude"
         stats.accounts.k7f3a2.dir = "~/.c"
-        const entries = [{key: "claude", name: "Claude", short: "C"},
+        const entries = [{key: "claude", provider: "claude", name: "Claude", short: "C"},
                          {key: "k7f3a2", account: true, provider: "claude", name: "Claude (Work)", short: "A", dir: "~/.c"},
                          {key: "gone12", account: true, provider: "codex", name: "Codex (Old)", short: "X", dir: "~/.x"}]
         const obj = comp.createObject(this, {providers: entries, nowMs: full.nowMs, warn: 70, crit: 90, stats: stats,

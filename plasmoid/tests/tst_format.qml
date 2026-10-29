@@ -703,16 +703,29 @@ TestCase {
     }
 
     function test_planName_is_readable_and_keeps_unknown_plans() {
-        compare(F.planName("prolite"), "Pro Lite")
-        compare(F.planName("self_serve_business_prolite"), "Business Pro Lite")
-        compare(F.planName("SELF_SERVE_BUSINESS_PROLITE"), "Business Pro Lite")
-        compare(F.planName("max"), "Max")
-        compare(F.planName("PLUS"), "Plus")
-        compare(F.planName("enterprise"), "Enterprise")
-        compare(F.planName("ultra_x"), "ultra_x")   // a new plan shows up as the provider names it
-        compare(F.planName(""), "")
-        compare(F.planName(null), "")
-        compare(F.planName(undefined), "")
+        compare(F.planName("claude", "max"), "Max")
+        compare(F.planName("claude", "team"), "Team")
+        compare(F.planName("claude", "pro"), "Pro")
+        // Codex: the names its own /status shows, not the internal ones
+        compare(F.planName("codex", "team"), "Business")
+        compare(F.planName("codex", "business"), "Enterprise")
+        compare(F.planName("codex", "self_serve_business_prolite"), "Business Premium")
+        compare(F.planName("codex", "SELF_SERVE_BUSINESS_PROLITE"), "Business Premium")
+        compare(F.planName("codex", "self_serve_business_usage_based"), "Business")
+        compare(F.planName("codex", "prolite"), "Pro 100")
+        compare(F.planName("codex", "pro"), "Pro 200")
+        compare(F.planName("codex", "PLUS"), "Plus")
+        compare(F.planName("codex", "enterprise_cbp_automation"), "Enterprise (Automation)")
+        compare(F.planName("codex", "edu_plus"), "Edu Plus")
+        compare(F.planName("codex", "unknown"), "")
+        // a new plan shows up with its words capitalized
+        compare(F.planName("codex", "free_workspace"), "Free Workspace")
+        compare(F.planName("claude", "ultra_x"), "Ultra X")
+        compare(F.planName("other", "plus"), "Plus")
+        compare(F.planName("codex", "__"), "")
+        compare(F.planName("codex", ""), "")
+        compare(F.planName("codex", null), "")
+        compare(F.planName("codex", undefined), "")
     }
 
     // "Remaining" mode: what is left instead of what is used; colours and severity stay with the usage

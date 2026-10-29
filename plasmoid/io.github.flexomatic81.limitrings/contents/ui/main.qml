@@ -26,8 +26,8 @@ PlasmoidItem {
     readonly property var accounts: Format.parseAccounts(Plasmoid.configuration.extraAccounts)
     readonly property var providers: {
         const list = []
-        if (Plasmoid.configuration.showClaude) list.push({key: "claude", name: "Claude", short: "C"})
-        if (Plasmoid.configuration.showCodex) list.push({key: "codex", name: "Codex", short: "X"})
+        if (Plasmoid.configuration.showClaude) list.push({key: "claude", provider: "claude", name: "Claude", short: "C"})
+        if (Plasmoid.configuration.showCodex) list.push({key: "codex", provider: "codex", name: "Codex", short: "X"})
         return Format.displayEntries(list, accounts)
     }
     readonly property string collectorCommand: Format.collectorCommand(Qt.resolvedUrl("../collector/run.py"), Plasmoid.id,

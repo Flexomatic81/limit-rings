@@ -563,15 +563,27 @@ function _windowText(minutes) {
     return minutes + " min"
 }
 
-// Plan as the providers spell it in their login or usage data → product name (not translated);
-// an unknown plan is shown as it comes, so a new one never disappears
-const _PLAN_NAMES = {free: "Free", plus: "Plus", pro: "Pro", prolite: "Pro Lite", max: "Max", team: "Team",
-                     business: "Business", self_serve_business_prolite: "Business Pro Lite",
-                     enterprise: "Enterprise", edu: "Edu"}
+// Plan as the providers spell it in their login or usage data → product name (not translated).
+// Codex names follow its own /status: the internal names do not match the products ("team" is
+// Business, "business" is Enterprise). A plan missing here is shown with its words capitalized,
+// so a new one never disappears.
+const _PLAN_NAMES = {
+    claude: {free: "Free", pro: "Pro", max: "Max", team: "Team", enterprise: "Enterprise"},
+    codex: {free: "Free", go: "Go", plus: "Plus", pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500",
+            team: "Business", self_serve_business_usage_based: "Business",
+            self_serve_business_prolite: "Business Premium", business: "Enterprise",
+            enterprise: "Enterprise", ent26: "Enterprise", enterprise_cbp_usage_based: "Enterprise",
+            enterprise_cbp_automation: "Enterprise (Automation)", edu: "Edu", edu_plus: "Edu Plus",
+            edu_pro: "Edu Pro", education: "Education", sci: "Academic Researchers",
+            sci_plus: "Academic Researchers Plus", k12: "K-12", unknown: ""}
+}
 
-function planName(plan) {
+function planName(provider, plan) {
     if (!plan) return ""
-    return _PLAN_NAMES[String(plan).toLowerCase()] || String(plan)
+    const raw = String(plan).toLowerCase()
+    const known = (_PLAN_NAMES[provider] || {})[raw]
+    if (known !== undefined) return known
+    return raw.split("_").filter(w => w).map(w => w[0].toUpperCase() + w.slice(1)).join(" ")
 }
 
 // Display name of a limit (stats.json carries only window and model)

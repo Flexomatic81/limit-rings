@@ -32,7 +32,8 @@ ColumnLayout {
         id: header
         Kirigami.Heading { level: 4; text: card.title }
         PlasmaComponents.Label {
-            text: card.provider ? Format.planName(card.provider.plan) : ""
+            objectName: "planName"
+            text: card.provider && card.entry ? Format.planName(card.entry.provider, card.provider.plan) : ""
             opacity: 0.7
         }
         Item { Layout.fillWidth: true }
