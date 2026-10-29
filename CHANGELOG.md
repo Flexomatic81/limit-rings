@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.2
+
+- Codex plans carry the names Codex itself shows: for example "Business" for `team`, "Enterprise" for
+  `business`, "Business Premium" for `self_serve_business_prolite` and "Pro 100" for `prolite`. A plan
+  not known yet is shown with its words capitalized instead of its raw name.
+- A note about a changed limit no longer appears when the provider only switches between its usage
+  endpoint and the local data, or right after a change of plan; a window length that returns to what it
+  was removes the earlier note.
+
 ## 0.7.1
 
 - Show the Codex plan `self_serve_business_prolite` as "Business Pro Lite".
