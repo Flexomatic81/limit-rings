@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1
+
+- Show the Codex plan `self_serve_business_prolite` as "Business Pro Lite".
+
 ## 0.7.0
 
 - The Codex card breaks its tokens down by project and model since the weekly reset, like the Claude
