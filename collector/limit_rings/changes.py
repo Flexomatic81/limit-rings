@@ -51,29 +51,55 @@ def _reset_early(prev: JsonDict, limit: JsonDict, at: float) -> bool:
     )
 
 
-def update(structure: JsonDict | None, rec: JsonDict | None, source: str | None, now: float) -> JsonDict | None:
+def update(
+    structure: JsonDict | None, rec: JsonDict | None, source: str | None, now: float, plan: str | None = None
+) -> JsonDict | None:
     """Compare the limits record of a provider with the known windows and note the changes.
 
-    Only a newer record from the same source counts: another source (the status line knows fewer
-    windows than the usage endpoint) starts a new baseline without changes. Returns the structure
-    to store; without a record, the given one.
+    Only a newer record counts. Another source (the status line knows fewer windows than the usage
+    endpoint) or another plan starts a new baseline: with another source only a changed window
+    length is still noted, with another plan nothing – a new plan brings new limits. Returns the
+    structure to store; without a record, the given one.
     """
     if rec is None:
         return structure
     at = rec["updated_at"]
     events = structure["events"] if structure else []
-    if structure is None or structure["source"] != source:
+    known_plan = structure.get("plan") if structure else None
+    new_plan = plan is not None and known_plan is not None and plan != known_plan
+    if structure is None or structure["source"] != source or new_plan:
+        if structure is not None and not new_plan:
+            for limit in rec["limits"]:
+                prev = structure["windows"].get(limit["id"])
+                if prev is not None:
+                    _note_length(events, prev["minutes"], limit, at, source)
         windows = {lim["id"]: _window(lim, at) for lim in rec["limits"]}
         structure = {"source": source, "updated_at": at, "windows": windows, "gone": {}, "events": events}
-        return _prune(structure, now)
-    if at <= structure["updated_at"]:
+    elif at <= structure["updated_at"]:
         return structure
-    present = {limit["id"] for limit in rec["limits"]}
-    for limit in rec["limits"]:
-        _note_present(structure, limit, at)
-    _note_missing(structure, present, at)
-    structure["updated_at"] = at
+    else:
+        present = {limit["id"] for limit in rec["limits"]}
+        for limit in rec["limits"]:
+            _note_present(structure, limit, at)
+        _note_missing(structure, present, at)
+        structure["updated_at"] = at
+    structure["plan"] = plan if plan is not None else known_plan
     return _prune(structure, now)
+
+
+def _note_length(events: list[JsonDict], previous: int | None, limit: JsonDict, at: float, source: str | None) -> bool:
+    """Note a changed window length; a length that only returns to what it was undoes the earlier change.
+
+    Returns whether the length changed at all."""
+    minutes = limit.get("window_minutes")
+    if previous is None or minutes in (None, previous):
+        return False
+    last = next((e for e in reversed(events) if e["id"] == limit["id"] and e["kind"] == "length"), None)
+    if last is not None and last["minutes"] == previous and last.get("previous_minutes") == minutes:
+        events.remove(last)
+    else:
+        events.append(_event("length", limit, at, source, previous_minutes=previous))
+    return True
 
 
 def _note_present(structure: JsonDict, limit: JsonDict, at: float) -> None:
@@ -82,9 +108,7 @@ def _note_present(structure: JsonDict, limit: JsonDict, at: float) -> None:
     lid = limit["id"]
     prev = windows.get(lid)
     if prev is not None:
-        if prev["minutes"] is not None and limit.get("window_minutes") not in (None, prev["minutes"]):
-            events.append(_event("length", limit, at, source, previous_minutes=prev["minutes"]))
-        elif _reset_early(prev, limit, at):
+        if not _note_length(events, prev["minutes"], limit, at, source) and _reset_early(prev, limit, at):
             events.append(_event("early_reset", limit, at, source))
     elif lid in gone:
         events.append(_event("back", limit, at, source))

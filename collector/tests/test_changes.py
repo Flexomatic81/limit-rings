@@ -26,8 +26,8 @@ def rec(limits, at):
     return {"limits": limits, "updated_at": at}
 
 
-def run(structure, limits, at, source="oauth"):
-    return update(structure, rec(limits, at), source, at)
+def run(structure, limits, at, source="oauth", plan=None):
+    return update(structure, rec(limits, at), source, at, plan)
 
 
 def kinds(structure):
@@ -86,6 +86,35 @@ def test_a_changed_window_length_is_noted_with_the_previous_length():
     assert (s["events"][0]["minutes"], s["events"][0]["previous_minutes"]) == (180, 300)
 
 
+def test_a_length_that_returns_undoes_the_change():
+    s = run(None, [five(), week()], T0)
+    s = run(s, [five(minutes=180), week()], T0 + 300)
+    s = run(s, [five(), week()], T0 + 600)
+    assert s["events"] == []
+
+
+def test_a_second_length_change_is_kept():
+    s = run(None, [five()], T0)
+    s = run(s, [five(minutes=180)], T0 + 300)
+    s = run(s, [five(minutes=120)], T0 + 600)
+    assert [(e["previous_minutes"], e["minutes"]) for e in s["events"]] == [(300, 180), (180, 120)]
+
+
+def test_a_length_change_shows_through_a_change_of_source():
+    s = run(None, [five(), week()], T0)
+    s = run(s, [five(minutes=180), opus()], T0 + 300, source="statusline")
+    assert kinds(s) == [("length", "five_hour")]
+    assert s["events"][0]["source"] == "statusline"
+
+
+def test_a_length_that_returns_with_another_source_undoes_the_change():
+    s = run(None, [five()], T0)
+    s = run(s, [five(minutes=43200)], T0 + 300)
+    s = run(s, [five()], T0 + 600, source="session_log")
+    s = run(s, [five()], T0 + 900)
+    assert s["events"] == []
+
+
 def test_an_early_reset_is_noted():
     s = run(None, [five(), week(60.0)], T0)
     s = run(s, [five(), week(0.0, resets_at=T0 + 7 * 86400)], T0 + 300)
@@ -123,6 +152,24 @@ def test_events_survive_a_change_of_source():
     s = run(s, [five(), week(), opus()], T0 + 300)
     s = run(s, [five(), week()], T0 + 600, source="statusline")
     assert kinds(s) == [("new", "seven_day_opus")]
+
+
+def test_another_plan_starts_a_new_baseline_without_changes():
+    s = run(None, [five(), week()], T0, plan="plus")
+    s = run(s, [five(), week(), opus()], T0 + 300, plan="plus")
+    s = run(s, [five(minutes=43200)], T0 + 600, plan="team")
+    s = run(s, [five(minutes=43200)], T0 + 600 + GONE_AFTER, plan="team")
+    assert kinds(s) == [("new", "seven_day_opus")]  # earlier changes stay
+    assert (s["plan"], set(s["windows"])) == ("team", {"five_hour"})
+
+
+def test_an_unknown_plan_is_no_change_of_plan():
+    s = run(None, [five()], T0)
+    s = run(s, [five(minutes=180)], T0 + 300, plan="plus")
+    assert kinds(s) == [("length", "five_hour")]
+    s = run(s, [five(minutes=180), week()], T0 + 600)
+    assert kinds(s) == [("length", "five_hour"), ("new", "seven_day")]
+    assert s["plan"] == "plus"
 
 
 def test_no_new_data_changes_nothing():

@@ -239,3 +239,27 @@ def test_hidden_provider_without_login_loses_its_endpoint_data(tmp_path):
     stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=ok_fetch, providers={"codex"}, login={"codex"})
     c = stats["providers"]["claude"]
     assert (c["limits"], c["limits_source"], c["extra"], c["plan"], c["login"]) == ([], None, None, None, False)
+
+
+def test_a_new_codex_plan_with_other_limits_is_no_change(tmp_path):
+    from dataclasses import replace
+
+    p = make_paths(tmp_path)
+    p = replace(p, codex_auth=codex_auth(p))
+
+    def api(plan, seconds):
+        def fetch(token, account_id, timeout=10.0):
+            resp = codex_api(token, account_id)
+            resp["plan_type"] = plan
+            resp["rate_limit"]["primary_window"]["limit_window_seconds"] = seconds
+            return resp
+
+        return fetch
+
+    run(p, NOW, BERLIN, fetch=ok_fetch, codex_fetch=api("plus", 604800))
+    stats = run(p, NOW + timedelta(minutes=6), BERLIN, fetch=ok_fetch, codex_fetch=api("team", 2592000))
+    assert stats["providers"]["codex"]["plan"] == "team"
+    assert stats["providers"]["codex"]["limits"][0]["window_minutes"] == 43200
+    assert stats["providers"]["codex"]["changes"] == []
+    stats = run(p, NOW + timedelta(minutes=12), BERLIN, fetch=ok_fetch, codex_fetch=api("team", 604800))
+    assert [c["kind"] for c in stats["providers"]["codex"]["changes"]] == ["length"]

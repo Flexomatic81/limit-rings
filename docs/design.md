@@ -72,7 +72,7 @@ Decisions:
 | `sources/claude_limits.py` | Queries the OAuth usage endpoint (no redirects); on error, the status line cache. Returns limits + source + timestamp. | HTTP (urllib), file system |
 | `sources/backoff.py` | Pause after 429/503 from a usage endpoint: reads `Retry-After` (seconds or HTTP date), otherwise growing pauses; used by both limit sources, pause state in `state.json`. | – |
 | `accounts.py` | Additional accounts: `parse_accounts` (validates `LIMIT_RINGS_ACCOUNTS`, canonical directories, at most 8), `account_paths` (state file and directories of one account), `prune_account_states` (removes state files of accounts not shown after 30 days). | `paths` |
-| `changes.py` | Changes to the limit structure: compares each new limits record of a provider with the windows seen before (same source only) and notes new, returning, vanished, re-sized and early-reset windows (`structure` in `state.json`). | `limits` |
+| `changes.py` | Changes to the limit structure: compares each new limits record of a provider with the windows seen before (same source and plan) and notes new, returning, vanished, re-sized and early-reset windows (`structure` in `state.json`). | `limits` |
 | `aggregate.py` | Pure functions: daily buckets → totals for today/week/month, gap-free series of 30 days, 13 weeks (from Monday) and 12 months. | none |
 | `state.py` | Offset and inode per file, seen message IDs, daily buckets per provider, time of the last OAuth query. | file system |
 | `paths.py` | `Paths` (where a pass reads and writes) and `local_zone` (the local time zone from `TZ`, `/etc/localtime` or the system offset). | – |
@@ -230,10 +230,13 @@ Rules:
   for at least an hour; `at` is when it was first missing), `"length"` (same id, other window length;
   with `previous_minutes`) or `"early_reset"` (a new window while the old reset was still more than
   5 minutes away and the usage dropped). `limit` names the window like a limit (`id`,
-  `window_minutes`, `model`). Only records of the same source are compared – a switch between the
-  usage endpoint and the status line or session log starts afresh without changes; the first run notes
-  nothing. `state.json` keeps the known windows and the changes of 30 days (at most 20) per provider
-  under `structure`; a malformed `structure` is dropped alone. The card shows one line per change.
+  `window_minutes`, `model`). A switch between the usage endpoint and the status line or session log
+  starts afresh: the sources know different windows, so only a changed window length is still noted
+  across it. A change of plan starts afresh without any change – a new plan brings new limits. A length
+  that returns to what it was removes the earlier `"length"` change instead of adding a second one. The
+  first run notes nothing. `state.json` keeps the known windows, the last known plan and the changes of
+  30 days (at most 20) per provider under `structure`; a malformed `structure` is dropped alone. The
+  card shows one line per change.
 - `breakdown` (Claude and Codex): token totals since the start of the provider's weekly window
   (reset of the weekly limit of all models − 7 days; without a known weekly limit the last 7 days, `basis: "7d"`), for
   both `projects` and `models` the four largest entries plus a catch-all entry

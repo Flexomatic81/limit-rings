@@ -50,13 +50,15 @@ def _update_history(state: JsonDict) -> None:
     forecast.update_history(state["history"], providers)
 
 
-def _update_changes(state: JsonDict, providers: Collection[str], now_ts: float) -> None:
+def _update_changes(state: JsonDict, providers: Collection[str], now_ts: float, claude_plan: str | None) -> None:
     """Note changes to the limit structure of each shown provider (a hidden one is not compared)."""
     for key in ("claude", "codex"):
         if key in providers:
             section = state[key]
+            rec = section["limits"]
+            plan = claude_plan if key == "claude" else (rec or {}).get("plan")
             section["structure"] = changes.update(
-                section["structure"], section["limits"], entries.limits_source(key, section["limits"]), now_ts
+                section["structure"], rec, entries.limits_source(key, rec), now_ts, plan
             )
 
 
@@ -101,7 +103,7 @@ def _pass(
         else []
     )
     _update_history(state)
-    _update_changes(state, providers, now.timestamp())
+    _update_changes(state, providers, now.timestamp(), claude_plan)
     with_forecasts = {
         key: entries.with_forecasts(
             (state[key]["limits"] or {}).get("limits", []), name, state["history"], now.timestamp()
