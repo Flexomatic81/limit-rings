@@ -704,6 +704,8 @@ TestCase {
 
     function test_planName_is_readable_and_keeps_unknown_plans() {
         compare(F.planName("prolite"), "Pro Lite")
+        compare(F.planName("self_serve_business_prolite"), "Business Pro Lite")
+        compare(F.planName("SELF_SERVE_BUSINESS_PROLITE"), "Business Pro Lite")
         compare(F.planName("max"), "Max")
         compare(F.planName("PLUS"), "Plus")
         compare(F.planName("enterprise"), "Enterprise")

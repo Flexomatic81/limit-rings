@@ -566,7 +566,8 @@ function _windowText(minutes) {
 // Plan as the providers spell it in their login or usage data → product name (not translated);
 // an unknown plan is shown as it comes, so a new one never disappears
 const _PLAN_NAMES = {free: "Free", plus: "Plus", pro: "Pro", prolite: "Pro Lite", max: "Max", team: "Team",
-                     business: "Business", enterprise: "Enterprise", edu: "Edu"}
+                     business: "Business", self_serve_business_prolite: "Business Pro Lite",
+                     enterprise: "Enterprise", edu: "Edu"}
 
 function planName(plan) {
     if (!plan) return ""
