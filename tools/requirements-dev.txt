@@ -1,5 +1,5 @@
 # Development tools in fixed versions: tools/check.py runs them through uv, CI installs them with pip.
-mypy==2.4.0
+mypy==2.4.1
 pytest==9.1.1
 pytest-cov==7.1.0
 ruff==0.17.0
