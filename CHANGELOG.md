@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.3
+
+- Claude's Max 20x plan, called Ultra by Anthropic since October 2026, is shown as "Ultra" – the login file
+  of Claude Code still names it "max". On Ultra without a 5-hour limit the ring shows the week alone.
+
 ## 0.7.2
 
 - Codex plans carry the names Codex itself shows: for example "Business" for `team`, "Enterprise" for
