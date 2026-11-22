@@ -247,6 +247,9 @@ Rules:
   file between passes. Counted hourly (`hourly` in `state.json`, 8 days). The values come only from the
   logs of **this** machine and are token shares, not the (undisclosed) limit consumption
   per model. Existing states without `hourly` backfill the hourly count once.
+- `plan`: Claude's from `subscriptionType` in the login file, except that `"max"` with a `rateLimitTier`
+  ending in `max_20x` becomes `"ultra"` (Max 20x is called Ultra since October 2026, but the login file still
+  says `max`); Codex's from the usage endpoint or the session log. The widget turns it into a display name.
 - `auth` exists only for Claude: state of the login token in `~/.claude/.credentials.json`
   (`"ok"` | `"expired"` | `"missing"`) and expiry time. The token is written and refreshed only by
   Claude Code in the terminal (valid for about 8 h). If the state is not `ok`, card and tooltip show
@@ -276,7 +279,8 @@ Rules:
 
 - For each enabled provider, a ring with the abbreviation "C" / "X": **outer** the highest weekly
   limit, **inner** (thinner) the 5-hour limit, each ring with its own threshold colour; without a
-  5-hour window only the outer ring, without either kind of window the highest value. "Number"
+  5-hour window (Claude Ultra since October 2026, once the account is verified) only the outer ring,
+  without either kind of window the highest value. "Number"
   display: the highest value.
 - Colour by threshold (default): below 70 % neutral, from 70 % warning, from 90 % critical —
   Plasma theme colours (`Kirigami.Theme.neutralTextColor` / `negativeTextColor`). On top of that a

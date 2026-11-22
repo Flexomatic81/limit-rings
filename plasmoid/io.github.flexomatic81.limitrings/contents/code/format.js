@@ -568,7 +568,7 @@ function _windowText(minutes) {
 // Business, "business" is Enterprise). A plan missing here is shown with its words capitalized,
 // so a new one never disappears.
 const _PLAN_NAMES = {
-    claude: {free: "Free", pro: "Pro", max: "Max", team: "Team", enterprise: "Enterprise"},
+    claude: {free: "Free", pro: "Pro", max: "Max", ultra: "Ultra", team: "Team", enterprise: "Enterprise"},
     codex: {free: "Free", go: "Go", plus: "Plus", pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500",
             team: "Business", self_serve_business_usage_based: "Business",
             self_serve_business_prolite: "Business Premium", business: "Enterprise",

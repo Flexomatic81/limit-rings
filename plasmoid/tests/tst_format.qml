@@ -704,6 +704,7 @@ TestCase {
 
     function test_planName_is_readable_and_keeps_unknown_plans() {
         compare(F.planName("claude", "max"), "Max")
+        compare(F.planName("claude", "ultra"), "Ultra")
         compare(F.planName("claude", "team"), "Team")
         compare(F.planName("claude", "pro"), "Pro")
         // Codex: the names its own /status shows, not the internal ones

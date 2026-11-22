@@ -22,6 +22,16 @@ OAUTH_URL = "https://api.anthropic.com/api/oauth/usage"
 OAUTH_MIN_INTERVAL = 300
 
 
+def _plan(oauth: JsonDict) -> str | None:
+    """The subscription; since October 2026 Max 20x is called Ultra, but the login file still says "max" for it,
+    and only its rate limit tier tells the two Max plans apart."""
+    plan = oauth.get("subscriptionType")
+    tier = oauth.get("rateLimitTier")
+    if plan == "max" and isinstance(tier, str) and tier.endswith("max_20x"):
+        return "ultra"
+    return plan if isinstance(plan, str) else None
+
+
 def read_credentials(path: Path, now: float) -> tuple[str | None, str | None]:
     try:
         oauth = json.loads(path.read_text(encoding="utf-8"))["claudeAiOauth"]
@@ -29,7 +39,7 @@ def read_credentials(path: Path, now: float) -> tuple[str | None, str | None]:
         return None, None
     if not isinstance(oauth, dict):
         return None, None
-    plan = oauth.get("subscriptionType")
+    plan = _plan(oauth)
     token = oauth.get("accessToken")
     expires_ms = oauth.get("expiresAt")
     if not token or not isinstance(expires_ms, (int, float)) or expires_ms / 1000 <= now:

@@ -400,3 +400,25 @@ def test_resolve_local_drops_endpoint_data_and_takes_the_status_line(tmp_path):
     assert resolve_local(older, copy)["updated_at"] == 1000.0
     newer = {"limits": [], "source": "statusline", "updated_at": 3000.0}
     assert resolve_local(newer, copy) is newer
+
+
+@pytest.mark.parametrize(
+    ("subscription", "tier", "plan"),
+    [
+        ("max", "default_claude_max_20x", "ultra"),  # Max 20x is called Ultra since October 2026
+        ("max", "default_claude_max_5x", "max"),
+        ("max", None, "max"),
+        ("ultra", None, "ultra"),
+        ("pro", "default_claude_pro", "pro"),
+        (None, "default_claude_max_20x", None),  # no subscription: no plan to rename
+    ],
+)
+def test_the_plan_follows_the_rate_limit_tier(tmp_path, subscription, tier, plan):
+    p = tmp_path / ".credentials.json"
+    oauth = {"accessToken": "top-secret", "expiresAt": int((NOW + 3600) * 1000)}
+    if subscription:
+        oauth["subscriptionType"] = subscription
+    if tier:
+        oauth["rateLimitTier"] = tier
+    p.write_text(json.dumps({"claudeAiOauth": oauth}))
+    assert read_credentials(p, NOW) == ("top-secret", plan)

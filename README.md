@@ -53,7 +53,9 @@ described in [`docs/store/description.md`](docs/store/description.md#images).
 <img src="docs/images/panel-tooltip.png" width="440" alt="Two double rings for Claude and Codex in the panel, with a tooltip listing all limits">
 
 - One double ring per provider — the outer ring shows the weekly limit, the inner one the 5-hour limit;
-  the tooltip lists all limits with a countdown.
+  the tooltip lists all limits with a countdown. Claude Ultra (the former Max 20x) has no 5-hour limit
+  once Anthropic has verified the account: then the ring shows the week alone. Weekly limits of a single
+  model (such as Claude's limit for Fable) appear as their own bar in the card.
 - A mark on each ring and bar shows how much of the window has passed, and a ring turns to the warning
   colour as soon as it would run out before the reset at the current pace.
 - Works on horizontal and vertical panels.
